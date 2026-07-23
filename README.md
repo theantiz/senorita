@@ -6,7 +6,6 @@
 
 *Remember what matters. Handle what doesn't.*
 
-[![Phase 1](https://img.shields.io/badge/Phase-1%20Complete-brightgreen?style=flat-square)](#roadmap)
 [![Stack](https://img.shields.io/badge/Stack-Tauri%20%7C%20Next.js%20%7C%20FastAPI%20%7C%20Gemini-blue?style=flat-square)](#tech-stack)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-lightgrey?style=flat-square)](#getting-started)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
@@ -53,7 +52,7 @@ Señorita is a personal AI that knows your context, remembers your life, anticip
 | ✅ Calendar | Event storage, conflict detection, conflict surfacing |
 | ✅ Proactive Engine | 15-min polling cycle; date-memory, stalled-task, calendar-conflict checks; daily cap |
 | ✅ Notifications Log | Audit trail of every proactive dispatch with trigger type and message |
-| ✅ Dashboard UI | JARVIS-aesthetic Next.js frontend; glassmorphism + sharp-corner HUD design |
+| ✅ Dashboard UI | Next.js frontend; glassmorphism + sharp-corner HUD design |
 | ✅ Pause / Resume | Global pause flag that halts all background workers without killing the process |
 | ✅ Activity Log | Every action recorded with type, payload, result, and confirmation status |
 
@@ -278,8 +277,8 @@ Tools exposed to Gemini (function calling):
 |---|---|
 | `person` | "Rahul is my business partner at Coderz" |
 | `preference` | "Jay prefers window seats on flights" |
-| `date` | "Mom's birthday is August 12, she loves vintage scarves" |
-| `promise` | "Told Disha I'd send the contract by Friday" |
+| `date` | "Mom's birthday is October 15, she loves vintage scarves" |
+| `promise` | "Told Zeenat I'd send the contract by Friday" |
 | `context` | "Working on a fintech MVP, deadline end of month" |
 
 #### Retrieval
