@@ -63,7 +63,7 @@ const navItems = [
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
-      <body className="min-h-screen bg-[#070b14] text-white flex overflow-hidden">
+      <body className="h-screen bg-[#070b14] text-white flex overflow-hidden">
         <AuthProvider>
           <AppWrapper>
             {/* ── SIDEBAR ── */}
@@ -116,7 +116,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </aside>
 
             {/* ── MAIN CONTENT ── */}
-            <main className="flex-1 flex flex-col min-h-screen overflow-hidden bg-[#070b14] relative">
+            <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[#070b14] relative">
               {/* Subtle background grid pattern */}
               <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
 

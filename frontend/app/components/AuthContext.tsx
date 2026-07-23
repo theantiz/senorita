@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
 interface AuthContextType {
   token: string | null;
@@ -10,7 +10,21 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setTokenState] = useState<string | null>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("senorita_token");
+    if (saved) setTokenState(saved);
+  }, []);
+
+  const setToken = (newToken: string | null) => {
+    setTokenState(newToken);
+    if (newToken) {
+      localStorage.setItem("senorita_token", newToken);
+    } else {
+      localStorage.removeItem("senorita_token");
+    }
+  };
 
   return (
     <AuthContext.Provider value={{ token, setToken }}>

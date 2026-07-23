@@ -6,7 +6,8 @@ from db.models import User, Contact, Conversation, ActionLog
 from memory.embeddings import embed_text
 from memory.retrieval import search_similar_memory
 from agents.prompts import build_system_instruction
-from agents.gemini_client import call_model
+from agents.gemini_client import start_chat
+from google.genai import types
 from agents.tool_registry import SENORITA_TOOLS, execute_tool
 from db.session import async_session_factory
 from core.state import get_pause_state
@@ -28,8 +29,9 @@ User: {message_text}
 Assistant: {final_text}
 """
     try:
-        interaction = call_model(input_content=prompt)
-        text = interaction.text.strip()
+        chat = start_chat()
+        response = await chat.send_message(prompt)
+        text = response.text.strip()
         if text.startswith("```json"):
             text = text[7:-3]
         elif text.startswith("```"):
@@ -91,27 +93,31 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
     sys_inst = build_system_instruction(user, memories, contacts)
     
     # Add system instruction to the text, since the new SDK interactions doesn't accept system instructions easily in create().
-    # Or actually, we can prepend it to the user message for context in this turn if needed, or pass it via config if supported.
-    # We will pass it as the first message or prepend to input.
-    input_content = f"[SYSTEM INSTRUCTION]\\n{sys_inst}\\n\\n[USER MESSAGE]\\n{message_text}"
-    
-    # f. Call gemini_client
-    interaction = call_model(
-        input_content=input_content,
-        tools=SENORITA_TOOLS,
-        previous_interaction_id=previous_interaction_id
-    )
+    # Actually, we passed it to start_chat.
+    # Re-construct chat history to resume state if needed, or just let it run.
+    chat = start_chat(tools=SENORITA_TOOLS, system_instruction=sys_inst)
     
     # Track the new interaction id
-    new_interaction_id = getattr(interaction, "interaction_id", None) or previous_interaction_id
+    new_interaction_id = previous_interaction_id
+    
+    # For now, pass conversation history
+    history = []
+    # reverse conv_history to chronological order
+    conv_history.reverse()
+    for c in conv_history:
+        if c.role == "user":
+            history.append(types.Content(role="user", parts=[types.Part.from_text(text=c.content)]))
+        else:
+            history.append(types.Content(role="model", parts=[types.Part.from_text(text=c.content)]))
+            
+    # set chat history
+    chat._history = history
+    
+    response = await chat.send_message(message_text)
     
     # g. Loop up to 5 times
     for _ in range(5):
-        # We need to process the latest response in the interaction
-        # The SDK interactions automatically handles state. We just check if it wants to call a function.
-        # Wait, the `interactions.create()` returns a response.
-        # Let's check `interaction.function_calls`.
-        function_calls = interaction.function_calls
+        function_calls = response.function_calls
         if not function_calls:
             break
             
@@ -133,10 +139,6 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
             # Execute tool
             tool_res = await execute_tool(session, user.id, fn_name, args)
             
-            # HARD NON-NEGOTIABLE CONSTRAINT:
-            # Never write result='success' before the DB write is confirmed!
-            # Since the tool modifies DB and returns dict without exception (or returns {"error": ...} on fail),
-            # we check for "error" key.
             if "error" in tool_res:
                 action.result = "failed"
             else:
@@ -144,17 +146,15 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
                 
             await session.commit()
             
-            function_responses.append({
-                "name": fn_name,
-                "response": tool_res
-            })
+            function_responses.append(
+                types.Part.from_function_response(name=fn_name, response=tool_res)
+            )
             
         # Send function results back
-        # SDK supports interaction.reply(function_responses=...)
-        interaction = interaction.reply(function_responses=function_responses)
+        response = await chat.send_message(function_responses)
         
     # h. Persist to conversations table
-    final_text = interaction.text or ""
+    final_text = response.text or ""
     
     # Save user message
     user_conv = Conversation(

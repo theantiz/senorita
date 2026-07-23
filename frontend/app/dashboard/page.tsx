@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../components/AuthContext";
-import { getTasks, getCalendarEvents, getActivity } from "@/lib/api";
+import { getTasks, getCalendarEvents, getActivity, sendVoiceMessage } from "@/lib/api";
+import { VoiceOrb } from "../components/VoiceOrb";
+import { useAudioAnalyser } from "../../hooks/useAudioAnalyser";
+import { useVoiceAssistant, VoiceAssistantStatus } from "../../hooks/useVoiceAssistant";
 
 function HudCard({ children, title, code }: { children: React.ReactNode; title: string; code: string }) {
   return (
@@ -25,20 +28,42 @@ export default function Dashboard() {
   const [events, setEvents] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const { isListening: analyserActive, startAnalyser, stopAnalyser, getFrequencies } = useAudioAnalyser();
+  
+  const { status, voiceResponse, activeStream, manualTrigger, isWakeWordEnabled, setIsWakeWordEnabled } = useVoiceAssistant({
+    token,
+    onCommandProcessed: loadData,
+    getFrequencies
+  });
+
+  // Attach analyser to the active stream when recording starts
+  useEffect(() => {
+    if (activeStream) {
+      startAnalyser(activeStream);
+    } else {
+      stopAnalyser();
+    }
+  }, [activeStream]);
+
+  const toggleWakeWord = () => {
+    setIsWakeWordEnabled(!isWakeWordEnabled);
+  };
+
+  async function loadData() {
+    if (!token) return;
+    const [t, e, a] = await Promise.all([
+      getTasks(token).catch(() => []),
+      getCalendarEvents(token).catch(() => []),
+      getActivity(token).catch(() => []),
+    ]);
+    setTasks(t);
+    setEvents(e);
+    setActivities(a);
+    setLoading(false);
+  }
 
   useEffect(() => {
-    async function loadData() {
-      if (!token) return;
-      const [t, e, a] = await Promise.all([
-        getTasks(token).catch(() => []),
-        getCalendarEvents(token).catch(() => []),
-        getActivity(token).catch(() => []),
-      ]);
-      setTasks(t);
-      setEvents(e);
-      setActivities(a);
-      setLoading(false);
-    }
     loadData();
   }, [token]);
 
@@ -50,15 +75,33 @@ export default function Dashboard() {
   const actionsToday = activities.filter((a) => a.created_at?.startsWith(todayStr)).length;
 
   const stats = [
-    { label: "OPEN TASKS", value: loading ? "—" : openTasks.length, sub: "PENDING COMPLETION", color: "cyan" },
-    { label: "SCHEDULED", value: loading ? "—" : todaysEvents.length, sub: "EVENTS TODAY", color: "blue" },
-    { label: "ACTIONS", value: loading ? "—" : actionsToday, sub: "HANDLED BY AI", color: "violet" },
+    { label: "OPEN TASKS", value: loading ? "—" : openTasks.length, sub: "PENDING COMPLETION" },
+    { label: "SCHEDULED", value: loading ? "—" : todaysEvents.length, sub: "EVENTS TODAY" },
+    { label: "ACTIONS", value: loading ? "—" : actionsToday, sub: "HANDLED BY AI" },
   ];
 
   return (
     <div className="space-y-6">
+      {/* AI Voice Assistant Orb */}
+      <div className="border border-white/20 bg-white/10[0.01] p-1 relative h-48 md:h-64 flex flex-col justify-end" style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))' }}>
+        <div className="absolute inset-0">
+          <VoiceOrb 
+            getFrequencies={getFrequencies} 
+            onClick={manualTrigger}
+          />
+        </div>
+        
+        {voiceResponse && (
+          <div className="relative z-10 w-full flex justify-center pb-4 pointer-events-none">
+            <p className="font-mono text-xs text-white/90 bg-black/60 backdrop-blur-md px-4 py-2 border border-white/20 text-center max-w-[80%] uppercase tracking-widest shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+              {voiceResponse}
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/10">
         <div>
           <p className="font-mono text-[9px] text-white/40 tracking-[0.3em] mb-1">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase()}
@@ -66,11 +109,22 @@ export default function Dashboard() {
           <h2 className="font-hud text-xl font-bold text-white/90 tracking-widest text-white">
             {greeting}
           </h2>
-          <p className="font-mono text-[10px] text-white/40 mt-1 tracking-wider">SEÑORITA INTELLIGENCE SYSTEM // OPERATIONAL</p>
         </div>
-        <div className="flex items-center gap-2 mt-1">
-          <div className="w-1.5 h-1.5 rounded-full bg-white/50 animate-pulse" />
-          <span className="font-mono text-[9px] text-white/80/60 tracking-widest">ALL SYSTEMS NOMINAL</span>
+        <div className="flex items-center gap-6">
+          <button 
+            onClick={toggleWakeWord}
+            className={`font-mono text-[10px] tracking-widest px-3 py-1 border transition-colors ${
+              isWakeWordEnabled 
+                ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10' 
+                : 'border-white/20 text-white/40 hover:bg-white/5'
+            }`}
+          >
+            WAKE WORD: {isWakeWordEnabled ? 'ON' : 'OFF'}
+          </button>
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${status === VoiceAssistantStatus.IDLE_LISTENING ? 'bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]' : status === VoiceAssistantStatus.RECORDING_COMMAND ? 'bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'bg-white/20'}`} />
+            <span className="font-mono text-[10px] text-white/40 tracking-widest">SYNC ACTIVE</span>
+          </div>
         </div>
       </div>
 
@@ -79,24 +133,14 @@ export default function Dashboard() {
         {stats.map((s) => (
           <div
             key={s.label}
-            className={`border p-5 relative ${
-              s.color === 'cyan' ? 'border-white/20 bg-white/10[0.03]' :
-              s.color === 'blue' ? 'border-blue-500/20 bg-blue-500/[0.03]' :
-              'border-violet-500/20 bg-violet-500/[0.03]'
-            }`}
+            className="border border-white/20 bg-white/10[0.03] p-5 relative"
             style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
           >
             <p className="font-mono text-[8px] tracking-[0.25em] mb-2 text-white/40">{s.label}</p>
-            <p className={`font-hud text-5xl font-bold mb-1 ${
-              s.color === 'cyan' ? 'text-white text-white' :
-              s.color === 'blue' ? 'text-white text-white' :
-              'text-violet-400'
-            }`}>{s.value}</p>
+            <p className="font-hud text-5xl font-bold mb-1 text-white">{s.value}</p>
             <p className="font-mono text-[8px] text-white/30 tracking-widest">{s.sub}</p>
             {/* Corner deco */}
-            <div className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full animate-pulse ${
-              s.color === 'cyan' ? 'bg-white/40' : s.color === 'blue' ? 'bg-blue-400/40' : 'bg-violet-400/40'
-            }`} />
+            <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full animate-pulse bg-white/40" />
           </div>
         ))}
       </div>

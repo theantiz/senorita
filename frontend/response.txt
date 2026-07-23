@@ -1,0 +1,1 @@
+{"response":"Sorry, I had trouble processing the audio: 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'Unsupported MIME type: application/octet-stream', 'status': 'INVALID_ARGUMENT'}}"}

@@ -55,10 +55,10 @@ export default function Calendar() {
               {/* Time column */}
               <div className="w-32 shrink-0 border-r border-white/10 bg-white/5 p-4 flex flex-col justify-center text-center">
                 <span className="font-mono text-[11px] text-white">
-                  {new Date(e.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {new Date(e.start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
                 <span className="font-mono text-[8px] text-white/40 mt-1 tracking-widest">
-                  {new Date(e.start_time).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()}
+                  {new Date(e.start_at).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()}
                 </span>
               </div>
               

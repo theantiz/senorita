@@ -2,71 +2,60 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../components/AuthContext";
-import { sendChatMessage, sendVoiceMessage } from "@/lib/api";
+import { sendChatMessage } from "@/lib/api";
+import { VoiceOrb } from "../components/VoiceOrb";
+import { useAudioAnalyser } from "../../hooks/useAudioAnalyser";
+import { useVoiceAssistant, VoiceAssistantStatus } from "../../hooks/useVoiceAssistant";
 
 export default function Chat() {
-  const { token } = useAuth();
+  const { token, setToken } = useAuth();
   const [messages, setMessages] = useState<{ role: string; text: string; ts?: string }[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const mediaRecorder = useRef<MediaRecorder | null>(null);
-  const audioChunks = useRef<BlobPart[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
+  const { getFrequencies, startAnalyser, stopAnalyser } = useAudioAnalyser();
 
-  const handleStartRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder.current = new MediaRecorder(stream);
-      audioChunks.current = [];
-      
-      mediaRecorder.current.ondataavailable = (event) => {
-        audioChunks.current.push(event.data);
-      };
-      
-      mediaRecorder.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
-        const formData = new FormData();
-        formData.append("audio", audioBlob, "voice.webm");
-        
-        setIsRecording(false);
-        if (!token) return;
-        
-        setLoading(true);
-        setMessages((prev) => [...prev, { role: "user", text: "[Voice Audio]", ts: new Date().toLocaleTimeString() }]);
-        
-        try {
-          const res = await sendVoiceMessage(token, formData);
-          // If the backend actually returned the transcription we could update the user message
-          // but we just render the assistant response for now. Or we can update the last message.
-          if (res.transcription) {
-            setMessages((prev) => {
-              const newMsgs = [...prev];
-              newMsgs[newMsgs.length - 1].text = `[Voice] ${res.transcription}`;
-              return newMsgs;
-            });
-          }
-          setMessages((prev) => [...prev, { role: "assistant", text: res.response, ts: new Date().toLocaleTimeString() }]);
-        } catch {
-          setMessages((prev) => [...prev, { role: "system", text: "UPLINK FAILURE — BACKEND OFFLINE OR AUDIO ERROR", ts: new Date().toLocaleTimeString() }]);
-        } finally {
-          setLoading(false);
-          stream.getTracks().forEach(track => track.stop());
+  const { status, activeStream, manualTrigger, isWakeWordEnabled, setIsWakeWordEnabled } = useVoiceAssistant({
+    token,
+    onCommandProcessed: (transcription, response) => {
+        if (transcription) {
+             setMessages((prev) => {
+                 const newMsgs = [...prev];
+                 const lastMsg = newMsgs[newMsgs.length - 1];
+                 if (lastMsg && lastMsg.text === "[Voice Audio]") {
+                      lastMsg.text = `[Voice] ${transcription}`;
+                 } else {
+                      newMsgs.push({ role: "user", text: `[Voice] ${transcription}`, ts: new Date().toLocaleTimeString() });
+                 }
+                 return newMsgs;
+             });
         }
-      };
-      
-      mediaRecorder.current.start();
-      setIsRecording(true);
-    } catch (err) {
-      console.error("Microphone access denied:", err);
-    }
-  };
+        if (response) {
+            setMessages((prev) => [...prev, { role: "assistant", text: response, ts: new Date().toLocaleTimeString() }]);
+        }
+    },
+    getFrequencies
+  });
 
-  const handleStopRecording = () => {
-    if (mediaRecorder.current && isRecording) {
-      mediaRecorder.current.stop();
+  useEffect(() => {
+    if (activeStream) {
+      startAnalyser(activeStream);
+    } else {
+      stopAnalyser();
     }
-  };
+  }, [activeStream]);
+
+  useEffect(() => {
+    if (status === VoiceAssistantStatus.RECORDING_COMMAND) {
+        setMessages((prev) => {
+            const lastMsg = prev[prev.length - 1];
+            if (!lastMsg || lastMsg.text !== "[Voice Audio]") {
+                return [...prev, { role: "user", text: "[Voice Audio]", ts: new Date().toLocaleTimeString() }];
+            }
+            return prev;
+        });
+    }
+  }, [status]);
 
   const handleSend = async () => {
     if (!input.trim() || !token) return;
@@ -76,8 +65,14 @@ export default function Chat() {
     setLoading(true);
     try {
       const res = await sendChatMessage(token, userMsg);
-      setMessages((prev) => [...prev, { role: "assistant", text: res.response, ts: new Date().toLocaleTimeString() }]);
-    } catch {
+      if (res.response) {
+          setMessages((prev) => [...prev, { role: "assistant", text: res.response, ts: new Date().toLocaleTimeString() }]);
+      }
+    } catch (err: any) {
+      if (err.message && err.message.includes("401")) {
+        setToken(null);
+        return;
+      }
       setMessages((prev) => [...prev, { role: "system", text: "UPLINK FAILURE — BACKEND OFFLINE", ts: new Date().toLocaleTimeString() }]);
     } finally {
       setLoading(false);
@@ -99,8 +94,26 @@ export default function Chat() {
           </div>
           <h2 className="font-hud text-lg font-bold text-white/90 tracking-widest">AI INTERFACE</h2>
         </div>
-        <div className="font-mono text-[9px] text-white/30 border border-white/10 px-3 py-1.5 tracking-widest">
-          {messages.length} EXCHANGES
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => setIsWakeWordEnabled(!isWakeWordEnabled)}
+            className={`font-mono text-[9px] tracking-widest px-2 py-1 border transition-colors ${
+              isWakeWordEnabled 
+                ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10' 
+                : 'border-white/20 text-white/40 hover:bg-white/5'
+            }`}
+          >
+            WAKE WORD: {isWakeWordEnabled ? 'ON' : 'OFF'}
+          </button>
+          <div className="w-12 h-12 border border-white/20 bg-white/5 rounded-full overflow-hidden" style={{ clipPath: 'circle(50% at 50% 50%)' }}>
+            <VoiceOrb 
+              getFrequencies={getFrequencies} 
+              onClick={manualTrigger} 
+            />
+          </div>
+          <div className="font-mono text-[9px] text-white/30 border border-white/10 px-3 py-1.5 tracking-widest">
+            {messages.length} EXCHANGES
+          </div>
         </div>
       </div>
 
@@ -199,19 +212,19 @@ export default function Chat() {
           />
         </div>
         <button
-          onClick={isRecording ? handleStopRecording : handleStartRecording}
+          onClick={manualTrigger}
           disabled={loading}
           className={`px-4 font-hud text-[9px] tracking-[0.2em] transition-colors shrink-0 ${
-            isRecording ? 'bg-red-500/80 text-white animate-pulse' : 'bg-white/10 text-white/60 hover:bg-white/20'
+            status === VoiceAssistantStatus.RECORDING_COMMAND ? 'bg-red-500/80 text-white animate-pulse' : 'bg-white/10 text-white/60 hover:bg-white/20'
           }`}
           style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}
           title="Voice Command"
         >
-          {isRecording ? 'STOP' : 'MIC'}
+          {status === VoiceAssistantStatus.RECORDING_COMMAND ? 'STOP' : 'MIC'}
         </button>
         <button
           onClick={handleSend}
-          disabled={loading || (!input.trim() && !isRecording)}
+          disabled={loading || (!input.trim() && status !== VoiceAssistantStatus.RECORDING_COMMAND)}
           className="px-5 font-hud text-[9px] tracking-[0.2em] text-background bg-white hover:bg-cyan-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
           style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}
         >

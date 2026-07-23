@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
 from db.session import get_db
+from core.config import settings
 from db.models import User
 from core.security import get_current_user
 from agents.orchestrator import handle_message
@@ -23,6 +24,8 @@ async def chat_endpoint(request: ChatRequest, session: AsyncSession = Depends(ge
 async def chat_voice_endpoint(audio: UploadFile = File(...), session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     # Read the audio bytes
     audio_bytes = await audio.read()
+    if not audio_bytes:
+        return {"response": "I didn't hear anything.", "transcription": ""}
     
     # Send to Gemini for transcription
     client = get_client()
@@ -31,10 +34,10 @@ async def chat_voice_endpoint(audio: UploadFile = File(...), session: AsyncSessi
     prompt = "Transcribe this audio precisely. If it is garbled, unclear, or you cannot understand what is being said, reply EXACTLY with 'UNCLEAR_AUDIO'."
     
     try:
-        if "your-gemini-api-key" in client.api_key:
+        if "your-gemini-api-key" in settings.GEMINI_API_KEY:
             raise ValueError("Test Environment")
-        response = client.models.generate_content(
-            model="gemini-3.5-flash",
+        response = await client.aio.models.generate_content(
+            model="gemini-3.1-flash-lite",
             contents=[audio_part, prompt]
         )
         transcribed_text = response.text.strip()

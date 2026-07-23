@@ -1,6 +1,8 @@
 """FastAPI application entrypoint for Señorita backend."""
 
 import sys
+import secrets
+import hashlib
 from pathlib import Path
 
 # Ensure backend package is importable
@@ -12,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import settings
 from db.base import Base
-from db.session import engine
+from db.session import engine, AsyncSession
 from db.models import *  # noqa: F401, F403 — ensure all models are registered
 from api.routes_health import router as health_router
 from api.routes_auth import router as auth_router
@@ -26,12 +28,60 @@ from api.routes_chat import router as chat_router
 from api.routes_system import router as system_router
 
 
+async def seed_admin():
+    """Ensure an admin user always exists. Creates one if missing."""
+    from sqlalchemy import select, delete
+    from db.models import User, AuthToken
+    from sqlalchemy.orm import sessionmaker
+
+    async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with async_session() as session:
+        # Check specifically for "admin" user
+        stmt = select(User).where(User.name == "admin")
+        result = await session.execute(stmt)
+        admin = result.scalars().first()
+
+        if not admin:
+            admin = User(
+                name="admin",
+                timezone="UTC",
+                autonomy_level=5,
+                style_profile={}
+            )
+            session.add(admin)
+            await session.flush()
+
+        # Invalidate old admin tokens and generate a fresh one
+        await session.execute(
+            delete(AuthToken).where(AuthToken.user_id == admin.id)
+        )
+
+        raw_token = secrets.token_hex(32)
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+
+        auth_token = AuthToken(
+            user_id=admin.id,
+            token_hash=token_hash
+        )
+        session.add(auth_token)
+        await session.commit()
+
+        print("=" * 60)
+        print("  ADMIN USER READY")
+        print("  Name:  admin")
+        print(f"  Token: {raw_token}")
+        print("=" * 60)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan — startup/shutdown."""
     # Startup: create tables (in production use Alembic migrations)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Seed admin user if no users exist
+    await seed_admin()
 
     # Start background workers
     from workers.reminders.scheduler import start_scheduler_in_background
