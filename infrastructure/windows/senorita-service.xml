@@ -1,0 +1,9 @@
+<service>
+  <id>SenoritaBackend</id>
+  <name>Senorita Backend Service</name>
+  <description>Intelligent Personal AI Assistant Backend</description>
+  <executable>__PWD__\backend\.venv\Scripts\python.exe</executable>
+  <arguments>main.py</arguments>
+  <logmode>roll</logmode>
+  <logpath>%BASE%\logs</logpath>
+</service>

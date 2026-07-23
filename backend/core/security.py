@@ -1,0 +1,38 @@
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+import hashlib
+from uuid import UUID
+
+from db.session import get_db
+from db.models import User, AuthToken
+
+bearer_scheme = HTTPBearer()
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    session: AsyncSession = Depends(get_db)
+) -> User:
+    raw_token = credentials.credentials
+    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+
+    stmt = select(AuthToken).where(AuthToken.token_hash == token_hash)
+    result = await session.execute(stmt)
+    auth_token = result.scalars().first()
+
+    if not auth_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    stmt_user = select(User).where(User.id == auth_token.user_id)
+    result_user = await session.execute(stmt_user)
+    user = result_user.scalars().first()
+
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    
+    return user

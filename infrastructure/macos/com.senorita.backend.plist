@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.senorita.backend</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PWD__/backend/.venv/bin/python</string>
+        <string>main.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__PWD__/backend</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/com.senorita.backend.err</string>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/com.senorita.backend.out</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>

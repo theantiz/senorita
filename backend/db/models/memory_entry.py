@@ -1,0 +1,29 @@
+from sqlalchemy import ForeignKey, Text, DateTime, Float, Boolean, CheckConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.dialects.postgresql import UUID
+from pgvector.sqlalchemy import Vector
+from sqlalchemy.sql import func
+import uuid
+from datetime import datetime
+from db.base import Base
+
+class MemoryEntry(Base):
+    __tablename__ = "memory_entries"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str] = mapped_column(Text, nullable=False)
+    source_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    importance_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    locked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(Text, default='active', nullable=False)
+    embedding = mapped_column(Vector(3072), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(category.in_(['person','preference','date','promise','context']), name='memory_category_check'),
+    )
+
+    user = relationship("User", back_populates="memory_entries")
