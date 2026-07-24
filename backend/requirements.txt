@@ -3,14 +3,17 @@ uvicorn[standard]==0.30.1
 sqlalchemy[asyncio]==2.0.35
 asyncpg==0.30.0
 alembic==1.13.3
+psycopg2-binary==2.9.10
 pydantic==2.9.2
 pydantic-settings==2.5.2
 python-jose[cryptography]==3.3.0
+cryptography>=42.0.0           # Fernet encryption for token storage at rest
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.12
 google-genai==1.0.0
 apscheduler==3.10.4
 httpx==0.27.2
-
 pgvector==0.3.6
-psycopg2-binary==2.9.10
+google-api-python-client==2.108.0
+google-auth-httplib2==0.1.1
+google-auth-oauthlib==1.1.0

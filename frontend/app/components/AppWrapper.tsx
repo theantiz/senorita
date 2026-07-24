@@ -1,18 +1,26 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "./AuthContext";
 import { loginUser, setupAuth } from "@/lib/api";
 import { SectionReveal } from "./SectionReveal";
 
 export function AppWrapper({ children }: { children: React.ReactNode }) {
-  const { token, setToken } = useAuth();
+  const { token, setToken, setAuth } = useAuth();
   const [activeTab, setActiveTab] = useState<"login" | "token" | "setup">("login");
   const [tokenInput, setTokenInput] = useState("");
   const [nameInput, setNameInput] = useState("");
   const [setupNameInput, setSetupNameInput] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // ── SSR / hydration guard ────────────────────────────────────────────────
+  // Server renders token=null; client may have a saved token from localStorage.
+  // Until the component is mounted on the client we show a neutral blank so
+  // both sides agree on the initial HTML and React doesn't complain.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +30,7 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
     try {
       const res = await loginUser(nameInput.trim());
       if (res.token) {
-        setToken(res.token);
+        setAuth(res.token, res.user?.id ?? "");
       }
     } catch (err: any) {
       setError("Login failed. Try using 'admin' or check the server logs for the admin token.");
@@ -57,7 +65,7 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const res = await setupAuth(setupNameInput.trim(), timezone);
       if (res.token) {
-        setToken(res.token);
+        setAuth(res.token, res.user?.id ?? "");
       }
     } catch (err: any) {
       setError(err.message || "Failed to setup profile");

@@ -11,6 +11,7 @@ from db.models import Reminder, User
 from workers.notifications.dispatch import dispatch_notification
 import logging
 from core.state import get_pause_state
+from integrations.token_refresh import refresh_expired_tokens
 
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
@@ -60,5 +61,6 @@ async def check_reminders():
 
 def start_scheduler_in_background():
     scheduler.add_job(check_reminders, 'interval', seconds=60)
+    scheduler.add_job(refresh_expired_tokens, 'interval', minutes=30)
     scheduler.start()
     return scheduler  # expose so main.py can register additional jobs

@@ -26,6 +26,9 @@ from api.routes_memory import router as memory_router
 from api.routes_activity import router as activity_router
 from api.routes_chat import router as chat_router
 from api.routes_system import router as system_router
+from api.routes_integrations import router as integrations_router
+
+import integrations.gmail  # Register the Gmail adapter
 
 
 async def seed_admin():
@@ -86,9 +89,11 @@ async def lifespan(app: FastAPI):
     # Start background workers
     from workers.reminders.scheduler import start_scheduler_in_background
     from workers.monitoring.proactive_engine import start_proactive_engine
+    from integrations.gmail_sync import start_gmail_sync_engine
 
     sch = start_scheduler_in_background()
     start_proactive_engine(sch)
+    start_gmail_sync_engine(sch)
 
     yield
 
@@ -123,6 +128,7 @@ app.include_router(memory_router)
 app.include_router(activity_router)
 app.include_router(chat_router)
 app.include_router(system_router)
+app.include_router(integrations_router, prefix="/api/v1")
 
 
 if __name__ == "__main__":

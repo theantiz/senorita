@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
+import { Inter, Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import { AuthProvider } from "./components/AuthContext";
 import { AppWrapper } from "./components/AppWrapper";
+import { SidebarLogout } from "./components/SidebarLogout";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
+const plusJakartaSans = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-plus-jakarta-sans", display: "swap" });
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
 
 export const metadata: Metadata = {
   title: "SEÑORITA // OS",
@@ -58,11 +64,19 @@ const navItems = [
       </svg>
     ),
   },
+  {
+    href: "/connections", label: "CONNECTIONS", code: "07",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+      </svg>
+    ),
+  },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className={`dark ${inter.variable} ${plusJakartaSans.variable} ${geistMono.variable}`}>
       <body className="h-screen bg-[#070b14] text-white flex overflow-hidden">
         <AuthProvider>
           <AppWrapper>
@@ -93,6 +107,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   </Link>
                 ))}
               </nav>
+
+              <SidebarLogout />
 
               {/* Bottom diagnostics panel */}
               <div className="mx-4 mb-6 p-4 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">

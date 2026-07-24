@@ -6,6 +6,7 @@ from .reminder import ReminderCreate, ReminderUpdate, ReminderRead
 from .calendar_event import CalendarEventCreate, CalendarEventUpdate, CalendarEventRead
 from .action_log import ActionLogCreate, ActionLogUpdate, ActionLogRead
 from .conversation import ConversationCreate, ConversationRead
+from .integration import IntegrationRead, IntegrationUpdatePermissions
 
 __all__ = [
     "UserCreate", "UserUpdate", "UserRead",
@@ -16,4 +17,5 @@ __all__ = [
     "CalendarEventCreate", "CalendarEventUpdate", "CalendarEventRead",
     "ActionLogCreate", "ActionLogUpdate", "ActionLogRead",
     "ConversationCreate", "ConversationRead",
+    "IntegrationRead", "IntegrationUpdatePermissions",
 ]

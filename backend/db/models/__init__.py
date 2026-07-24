@@ -8,6 +8,8 @@ from db.models.action_log import ActionLog
 from db.models.conversation import Conversation
 from db.models.auth_token import AuthToken
 from db.models.notification_log import NotificationLog
+from db.models.integration import Integration
+from db.models.email_message import EmailMessage
 
 __all__ = [
     "User",
@@ -20,4 +22,6 @@ __all__ = [
     "Conversation",
     "AuthToken",
     "NotificationLog",
+    "Integration",
+    "EmailMessage",
 ]

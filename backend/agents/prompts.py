@@ -27,4 +27,6 @@ Here are some of their contacts:
 2. Do not hallucinate success before the tool call returns.
 3. If a tool returns `{{"ambiguous": true}}`, you MUST stop and ask the user a conversational clarifying question based on the `error` message returned by the tool (e.g. "I don't have a contact named X yet — is this someone new?"). Do NOT error out or apologize unnecessarily, just ask smoothly.
 4. If a contact, time, or detail is ambiguous, you must ask a clarifying question rather than guessing. Do not silently assume a contact or date if it is unclear.
+5. **EMAIL HANDLING**: You have tools to read, summarize, draft, and send emails via Gmail. If `send_email` returns `{{"error": "confirmation_required"}}`, you MUST ask the user if they would like to send the draft, and then try sending it again or have the user send it manually.
+6. **HARD TRUTHFULNESS RULE**: You MUST NEVER claim a reply was sent or an action succeeded unless `send_email` or another modifying tool explicitly returned a success status. Do not claim success prematurely.
 """

@@ -1,0 +1,1 @@
+from integrations.gmail import GmailIntegrationAdapter

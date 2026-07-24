@@ -215,7 +215,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     const blob  = new Blob(audioChunksRef.current, { type: mime });
     audioChunksRef.current = [];
 
-    const tok = tokenRef.current;
+    const tok = tokenRef.current ?? (typeof window !== 'undefined' ? localStorage.getItem('senorita_token') : null);
     if (!tok || blob.size < 300) {
       console.warn('[Senorita] Blob too small or no token — skipping:', blob.size);
       setVoiceResponse(null);
@@ -446,43 +446,54 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     }
   }, [stopRecognition, startRecordingCommand, cancelTTS]);
 
-  // ── Time-aware page-load greeting ───────────────────────────────────────────
+  // ── Time-aware page-load greeting ────────────────────────────────────────
   const playWelcome = useCallback(async () => {
     const h = new Date().getHours();
     const period = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+
     const lines: Record<string, string[]> = {
-      morning:   [
-        'Good morning, sir. Systems are online. How can I assist you today?',
-        'Rise and shine. I am ready whenever you are.',
-        'Good morning. All systems nominal. What shall we tackle first?',
+      morning: [
+        "Good morning. Coffee or commands first? Either way, I am ready.",
+        "Rise and shine. The day is yours — what are we doing today?",
+        "Morning, sir. I pulled up everything. Let us make it count.",
+        "Good morning. Slept well? Because I have been working all night.",
+        "Morning. Your schedule is clear. Let us fill it wisely.",
+        "Good morning. I am warmed up and ready whenever you are.",
       ],
       afternoon: [
-        'Good afternoon, sir. I have been waiting. What do you need?',
-        'Afternoon. I am fully operational. How can I help?',
-        'Good afternoon. Ready to assist. Just say the word.',
+        "Afternoon. Still going strong? Tell me what you need.",
+        "Good afternoon. The day is half done — let us make the rest count.",
+        "Hey. Right on time. What can I do for you?",
+        "Good afternoon. I have been keeping things in order. Your call.",
+        "Afternoon, sir. Productive morning? Let us keep that energy going.",
+        "Good afternoon. I am here, focused, and ready. Go ahead.",
       ],
-      evening:   [
-        'Good evening, sir. Long day? I am here to help.',
-        'Evening. Systems running smoothly. What can I do for you?',
-        'Good evening. Ready for your commands whenever you are.',
+      evening: [
+        "Good evening. Long day? Tell me about it — I am listening.",
+        "Evening. You made it. What do you still need to get done?",
+        "Good evening, sir. Quiet hours are the best hours. How can I help?",
+        "Evening. I am here. Let us wrap things up properly.",
+        "Good evening. The world slows down — but we do not have to. What is on your mind?",
+        "Evening. Sit back. I have got things from here.",
       ],
     };
+
     const pool = lines[period];
     const text = pool[Math.floor(Math.random() * pool.length)];
 
-    // Wait for TTS engine + voices to be ready before speaking
-    await new Promise(r => setTimeout(r, 600));
+    // Wait for TTS engine + voices to initialise
+    await new Promise(r => setTimeout(r, 700));
     if (statusRef.current !== VoiceAssistantStatus.IDLE_LISTENING) return;
 
     setStatus(VoiceAssistantStatus.GREETING);
     setVoiceResponse(text);
-    // Inline speak so we don't set SPEAKING_RESPONSE (keeps orb in greeting state)
+
     await new Promise<void>(res => {
       const v = pickVoice();
       const utt = new SpeechSynthesisUtterance(text);
       if (v) utt.voice = v;
       utt.pitch  = 1.05;
-      utt.rate   = 0.92;
+      utt.rate   = 0.91;   // Slightly slower = more warm/human
       utt.volume = 1.0;
       utt.onend   = () => res();
       utt.onerror = () => res();

@@ -17,5 +17,10 @@ def start_chat(tools: list | None = None, system_instruction: str = None):
     config = types.GenerateContentConfig(
         tools=tools,
         system_instruction=system_instruction,
+        # Disable thinking to avoid thought_signature requirement when using
+        # function calls in multi-turn chats. Thinking models require the
+        # thought_signature to be preserved across turns, which breaks when
+        # history is reconstructed from the DB.
+        thinking_config=types.ThinkingConfig(thinking_budget=0),
     )
-    return client.aio.chats.create(model="gemini-3.1-flash-lite", config=config)
+    return client.aio.chats.create(model=settings.GEMINI_MODEL, config=config)

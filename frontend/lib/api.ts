@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8000";
+const API_BASE = typeof window !== "undefined" ? `http://${window.location.hostname}:8000` : "http://localhost:8000";
 
 export async function apiFetch(endpoint: string, options: RequestInit = {}, token: string | null = null) {
   const headers: Record<string, string> = {
@@ -86,7 +86,7 @@ export async function sendVoiceMessage(token: string, formData: FormData) {
   const id = setTimeout(() => controller.abort(), 15000);
   
   try {
-    const response = await fetch(`http://localhost:8000/chat/voice`, {
+    const response = await fetch(`${API_BASE}/chat/voice`, {
       method: "POST",
       headers,
       body: formData,

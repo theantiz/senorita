@@ -3,7 +3,9 @@
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../components/AuthContext";
 import { getTasks, getCalendarEvents, getActivity, sendVoiceMessage } from "@/lib/api";
-import { VoiceOrb } from "../components/VoiceOrb";
+import dynamic from "next/dynamic";
+
+const VoiceOrb = dynamic(() => import("../components/VoiceOrb").then(mod => mod.VoiceOrb), { ssr: false });
 import { useAudioAnalyser } from "../../hooks/useAudioAnalyser";
 import { useVoiceAssistant, VoiceAssistantStatus } from "../../hooks/useVoiceAssistant";
 

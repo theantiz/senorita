@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 from uuid import UUID
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,33 +8,55 @@ from google.genai.types import FunctionDeclaration, Type, Tool
 from db.models import Task, Reminder, CalendarEvent, MemoryEntry, Contact
 from memory.embeddings import embed_text
 from memory.retrieval import search_similar_memory
-import json
-from agents.gemini_client import start_chat
+from agents.gemini_client import start_chat, get_client
+from db.models import Task, Reminder, CalendarEvent, MemoryEntry, Contact, EmailMessage, Integration, ActionLog
+from integrations.base import get_adapter
+from core.crypto import decrypt
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+import base64
+from email.message import EmailMessage as PyEmailMessage
 
 # Dummy functions for SDK schema extraction
 
-def create_task(title: str, due_at: str = None, priority: str = None, project: str = None, contact_name: str = None):
-    """Create a new task for the user. If contact_name is provided, it tries to link the task to an existing contact."""
+def create_task(title: str, due_at: Optional[str] = None, priority: Optional[str] = None, project: Optional[str] = None, contact_name: Optional[str] = None):
+    """Create a new task for the user. If due_at is omitted it has no deadline. If contact_name is provided, it tries to link the task to an existing contact."""
     pass
 
 def create_reminder(type: str, trigger_payload: dict):
     """Set a reminder for the user. Type is one of: time, date, recurring, event, context, location."""
     pass
 
-def create_calendar_event(title: str, start_at: str, end_at: str, attendees: list[str] = None):
+def create_calendar_event(title: str, start_at: str, end_at: str, attendees: Optional[list[str]] = None):
     """Add an event to the calendar. start_at and end_at must be ISO 8601 strings."""
     pass
 
-def search_memory(query: str, category: str = None):
+def search_memory(query: str, category: Optional[str] = None):
     """Search the user's memory for relevant facts, preferences, people, dates, or context."""
     pass
 
-def store_memory(content: str, category: str, importance_score: float = None):
+def store_memory(content: str, category: str, importance_score: Optional[float] = None):
     """Save a new memory or fact about the user. Category must be one of: person, preference, date, promise, context."""
     pass
 
 def find_contact(name: str):
     """Find a contact by fuzzy name matching."""
+    pass
+
+def read_emails(filter: Optional[str], limit: Optional[int]):
+    """Read emails from the database. Filter can be 'unread', 'needs_reply', or a sender's email/name. Limit defaults to 10 if omitted."""
+    pass
+
+def summarize_email(email_id: str):
+    """Fetch the full email body live from Gmail and summarize it using Gemini."""
+    pass
+
+def draft_email_reply(email_id: str, intent: str):
+    """Draft a reply to a specific email and save it in the user's Gmail Drafts."""
+    pass
+
+def send_email(draft_id: str):
+    """Send an existing email draft from Gmail."""
     pass
 
 SENORITA_TOOLS = [
@@ -44,6 +66,10 @@ SENORITA_TOOLS = [
     search_memory,
     store_memory,
     find_contact,
+    read_emails,
+    summarize_email,
+    draft_email_reply,
+    send_email,
 ]
 
 
@@ -57,6 +83,10 @@ async def execute_tool(session: AsyncSession, user_id: UUID, function_name: str,
         "search_memory": _handle_search_memory,
         "store_memory": _handle_store_memory,
         "find_contact": _handle_find_contact,
+        "read_emails": _handle_read_emails,
+        "summarize_email": _handle_summarize_email,
+        "draft_email_reply": _handle_draft_email_reply,
+        "send_email": _handle_send_email,
     }
     handler = handlers.get(function_name)
     if not handler:
@@ -200,3 +230,146 @@ async def _handle_find_contact(session: AsyncSession, user_id: UUID, name: str) 
             for c in contacts
         ]
     }
+
+def _get_gmail_service(integration: Integration):
+    access_token = decrypt(integration.access_token_encrypted)
+    creds = Credentials(token=access_token)
+    return build('gmail', 'v1', credentials=creds, cache_discovery=False)
+
+async def _handle_read_emails(session: AsyncSession, user_id: UUID, filter: str = "unread", limit: int = 10) -> dict:
+    stmt = select(EmailMessage).where(EmailMessage.user_id == user_id)
+    if filter == "unread":
+        stmt = stmt.where(EmailMessage.is_read == False)
+    elif filter == "needs_reply":
+        stmt = stmt.where(EmailMessage.needs_reply == True)
+    else:
+        # Assuming filter is a sender name/email
+        stmt = stmt.where(EmailMessage.from_address.ilike(f"%{filter}%"))
+        
+    stmt = stmt.order_by(EmailMessage.received_at.desc()).limit(limit)
+    result = await session.execute(stmt)
+    emails = result.scalars().all()
+    
+    return {
+        "emails": [
+            {
+                "id": str(e.id),
+                "gmail_message_id": e.gmail_message_id,
+                "from": e.from_address,
+                "subject": e.subject,
+                "snippet": e.snippet,
+                "received_at": e.received_at.isoformat(),
+                "needs_reply": e.needs_reply
+            } for e in emails
+        ]
+    }
+
+async def _handle_summarize_email(session: AsyncSession, user_id: UUID, email_id: str) -> dict:
+    email = await session.get(EmailMessage, email_id)
+    if not email:
+        return {"error": "Email not found."}
+        
+    integration = (await session.execute(select(Integration).where(Integration.user_id == user_id, Integration.provider == "gmail"))).scalars().first()
+    if not integration or integration.status != "connected":
+        return {"error": "Gmail not connected."}
+        
+    try:
+        service = _get_gmail_service(integration)
+        msg_data = service.users().messages().get(userId='me', id=email.gmail_message_id, format='full').execute()
+        
+        # Decode body
+        body = ""
+        if 'parts' in msg_data['payload']:
+            for part in msg_data['payload']['parts']:
+                if part['mimeType'] == 'text/plain':
+                    body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
+                    break
+        elif 'body' in msg_data['payload'] and 'data' in msg_data['payload']['body']:
+             body = base64.urlsafe_b64decode(msg_data['payload']['body']['data']).decode('utf-8')
+             
+        client = get_client()
+        resp = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[f"Summarize this email in a few concise sentences:\n\n{body}"]
+        )
+        return {"summary": resp.text.strip(), "original_snippet": email.snippet}
+    except Exception as e:
+        return {"error": str(e)}
+
+async def _handle_draft_email_reply(session: AsyncSession, user_id: UUID, email_id: str, intent: str) -> dict:
+    email = await session.get(EmailMessage, email_id)
+    if not email:
+        return {"error": "Email not found."}
+        
+    integration = (await session.execute(select(Integration).where(Integration.user_id == user_id, Integration.provider == "gmail"))).scalars().first()
+    if not integration or integration.status != "connected":
+        return {"error": "Gmail not connected."}
+        
+    if not integration.permissions.get("draft", False):
+        return {"error": "Permission 'draft' is not enabled for Gmail."}
+        
+    try:
+        client = get_client()
+        resp = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[f"Draft a reply to the email '{email.subject}' from '{email.from_address}'.\nIntent: {intent}\nSnippet: {email.snippet}\n\nReturn ONLY the email body text."]
+        )
+        draft_text = resp.text.strip()
+        
+        message = PyEmailMessage()
+        message.set_content(draft_text)
+        message['To'] = email.from_address
+        message['Subject'] = f"Re: {email.subject}"
+        message['In-Reply-To'] = email.gmail_message_id
+        message['References'] = email.gmail_message_id
+        
+        encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+        create_message = {'message': {'raw': encoded_message}}
+        
+        service = _get_gmail_service(integration)
+        draft = service.users().drafts().create(userId='me', body=create_message).execute()
+        
+        return {"draft_id": draft['id'], "content": draft_text}
+    except Exception as e:
+        return {"error": str(e)}
+
+async def _handle_send_email(session: AsyncSession, user_id: UUID, draft_id: str) -> dict:
+    integration = (await session.execute(select(Integration).where(Integration.user_id == user_id, Integration.provider == "gmail"))).scalars().first()
+    if not integration or integration.status != "connected":
+        return {"error": "Gmail not connected."}
+        
+    # Check per-capability toggle
+    if not integration.permissions.get("send_automatically", False):
+        return {"error": "confirmation_required"}
+        
+    # In Module 13, contact message_mode is checked here. We mock it for now.
+    # Check if a contact matches the draft's To address and respects it
+    
+    try:
+        service = _get_gmail_service(integration)
+        sent_message = service.users().drafts().send(userId='me', body={'id': draft_id}).execute()
+        
+        # Log success strictly as required
+        log = ActionLog(
+            user_id=user_id,
+            action_type="send_email",
+            payload={"draft_id": draft_id},
+            result="success",
+            confirmed_by_user=False
+        )
+        session.add(log)
+        await session.flush()
+        
+        return {"status": "success", "message_id": sent_message['id']}
+    except Exception as e:
+        log = ActionLog(
+            user_id=user_id,
+            action_type="send_email",
+            payload={"draft_id": draft_id},
+            result="failed",
+            confirmed_by_user=False
+        )
+        session.add(log)
+        await session.flush()
+        return {"error": str(e)}
+
