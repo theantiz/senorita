@@ -32,3 +32,4 @@ class User(Base):
     auth_tokens = relationship("AuthToken", back_populates="user", cascade="all, delete-orphan")
     notification_logs = relationship("NotificationLog", back_populates="user", cascade="all, delete-orphan")
     integrations = relationship("Integration", back_populates="user", cascade="all, delete-orphan")
+    incoming_messages = relationship("IncomingMessage", back_populates="user", cascade="all, delete-orphan")

@@ -3,6 +3,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
+from pydantic import BaseModel
 import logging
 
 from db.session import get_db
@@ -13,6 +14,11 @@ from core.crypto import encrypt, decrypt
 from integrations.base import get_adapter
 
 logger = logging.getLogger(__name__)
+
+class WhatsAppConnectRequest(BaseModel):
+    phone_number_id: str
+    access_token: str
+
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
@@ -178,6 +184,50 @@ async def oauth_callback(
     except Exception as e:
         logger.error(f"OAuth callback failed for {provider}: {e}")
         raise HTTPException(status_code=500, detail="OAuth authentication failed")
+
+
+@router.post("/whatsapp/manual_connect")
+async def connect_whatsapp_manual(
+    req: WhatsAppConnectRequest,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Manually connects WhatsApp via provided system token and phone number ID,
+    since WhatsApp Cloud API doesn't use standard OAuth flows.
+    """
+    access_token_enc = encrypt(req.access_token)
+    
+    stmt = select(Integration).where(
+        Integration.user_id == current_user.id,
+        Integration.provider == "whatsapp"
+    )
+    result = await session.execute(stmt)
+    integration = result.scalars().first()
+
+    permissions = {
+        "phone_number_id": req.phone_number_id,
+        "read": True,
+        "send_automatically": False
+    }
+
+    if integration:
+        integration.status = "connected"
+        integration.access_token_encrypted = access_token_enc
+        integration.permissions = permissions
+    else:
+        integration = Integration(
+            user_id=current_user.id,
+            provider="whatsapp",
+            status="connected",
+            scopes=[],
+            permissions=permissions,
+            access_token_encrypted=access_token_enc
+        )
+        session.add(integration)
+
+    await session.commit()
+    return {"ok": True}
 
 
 @router.patch("/{provider}/permissions", response_model=IntegrationRead)
