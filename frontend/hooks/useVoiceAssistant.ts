@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { sendVoiceMessage } from '@/lib/api';
+import { sendVoiceMessage, speakText } from '@/lib/api';
 
 declare global {
   interface Window {
@@ -27,54 +27,7 @@ const WAKE_TRIGGERS = [
   'hey senorita',
 ];
 
-// ─── Voice selection helpers ──────────────────────────────────────────────────
-const MALE_NAMES   = ['Daniel', 'Alex', 'Fred', 'Aaron', 'Rishi', 'Arthur', 'Bruce', 'Tom', 'George'];
-const FEMALE_NAMES = ['Samantha', 'Veena', 'Moira', 'Tessa', 'Karen', 'Victoria', 'Lekha', 'Kalpana', 'Heera', 'Aditi', 'Zira', 'Ava', 'Siri'];
-
-function isMaleVoice(v: SpeechSynthesisVoice)     { return MALE_NAMES.some(n => v.name.includes(n))   || v.name.toLowerCase().includes('male'); }
-function isFemaleVoice(v: SpeechSynthesisVoice)   { return FEMALE_NAMES.some(n => v.name.includes(n)) || v.name.toLowerCase().includes('female'); }
-function isEnhancedVoice(v: SpeechSynthesisVoice) { return /Enhanced|Premium|Neural/i.test(v.name); }
-
-let _cachedVoice: SpeechSynthesisVoice | null = null;
-
-function pickVoice(): SpeechSynthesisVoice | null {
-  if (_cachedVoice) return _cachedVoice;
-  const allVoices = window.speechSynthesis?.getVoices() ?? [];
-  const voices = allVoices.filter(v => !v.name.toLowerCase().includes('google'));
-  if (!voices.length) return null;
-  _cachedVoice =
-    voices.find(v => ['en-IN','hi-IN','gu-IN'].includes(v.lang) && isFemaleVoice(v) && isEnhancedVoice(v)) ??
-    voices.find(v => ['en-IN','hi-IN','gu-IN'].includes(v.lang) && isFemaleVoice(v)) ??
-    voices.find(v => ['en-IN','hi-IN','gu-IN'].includes(v.lang) && !isMaleVoice(v)) ??
-    voices.find(v => isFemaleVoice(v) && isEnhancedVoice(v)) ??
-    voices.find(v => isFemaleVoice(v)) ??
-    voices.find(v => !isMaleVoice(v)) ??
-    voices[0] ?? null;
-  if (_cachedVoice) console.log('[Senorita] Voice selected:', _cachedVoice.name, _cachedVoice.lang);
-  return _cachedVoice;
-}
-
-// ─── Smart sentence splitter ──────────────────────────────────────────────────
-function splitChunks(text: string): string[] {
-  const clean = text.replace(/[*_#`]/g, '').trim();
-  const sentences = clean.match(/[^.?!;—]+[.?!;—]+|[^.?!;—]+$/g) ?? [clean];
-  const out: string[] = [];
-  for (const s of sentences) {
-    const t = s.trim();
-    if (!t) continue;
-    if (t.length <= 140) { out.push(t); continue; }
-    // Split long chunks on commas
-    let acc = '';
-    for (const p of t.split(/,\s*/)) {
-      if ((acc + p).length > 130 && acc) { out.push(acc.trim()); acc = p; }
-      else acc = acc ? `${acc}, ${p}` : p;
-    }
-    if (acc) out.push(acc.trim());
-  }
-  return out.filter(Boolean);
-}
-
-// ─── Chrome TTS keepalive ────────────────────────────────────────────────────
+// ─── Chrome TTS keepalive ─────────────────────────────────────────────────────
 let _keepalive: ReturnType<typeof setInterval> | null = null;
 function startKeepalive() {
   if (_keepalive) return;
@@ -89,7 +42,54 @@ function stopKeepalive() {
   if (_keepalive) { clearInterval(_keepalive); _keepalive = null; }
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
+// ─── Browser TTS fallback helpers ─────────────────────────────────────────────
+const MALE_NAMES   = ['Daniel', 'Alex', 'Fred', 'Aaron', 'Rishi', 'Arthur', 'Bruce', 'Tom', 'George'];
+const FEMALE_NAMES = ['Samantha', 'Veena', 'Moira', 'Tessa', 'Karen', 'Victoria', 'Lekha', 'Kalpana', 'Heera', 'Aditi', 'Zira', 'Ava', 'Siri', 'Aria'];
+
+function isMaleVoice(v: SpeechSynthesisVoice)     { return MALE_NAMES.some(n => v.name.includes(n))   || v.name.toLowerCase().includes('male'); }
+function isFemaleVoice(v: SpeechSynthesisVoice)   { return FEMALE_NAMES.some(n => v.name.includes(n)) || v.name.toLowerCase().includes('female'); }
+function isEnhancedVoice(v: SpeechSynthesisVoice) { return /Enhanced|Premium|Neural/i.test(v.name); }
+
+let _cachedVoice: SpeechSynthesisVoice | null = null;
+
+function pickFallbackVoice(): SpeechSynthesisVoice | null {
+  if (_cachedVoice) return _cachedVoice;
+  const allVoices = window.speechSynthesis?.getVoices() ?? [];
+  // Prefer en-US female voices to match backend AriaNeural
+  const voices = allVoices.filter(v => !v.name.toLowerCase().includes('google'));
+  if (!voices.length) return null;
+  _cachedVoice =
+    voices.find(v => v.lang === 'en-US' && isFemaleVoice(v) && isEnhancedVoice(v)) ??
+    voices.find(v => v.lang === 'en-US' && isFemaleVoice(v)) ??
+    voices.find(v => v.lang.startsWith('en') && isFemaleVoice(v) && isEnhancedVoice(v)) ??
+    voices.find(v => v.lang.startsWith('en') && isFemaleVoice(v)) ??
+    voices.find(v => isFemaleVoice(v) && isEnhancedVoice(v)) ??
+    voices.find(v => isFemaleVoice(v)) ??
+    voices[0] ?? null;
+  if (_cachedVoice) console.log('[Senorita] Fallback voice selected:', _cachedVoice.name, _cachedVoice.lang);
+  return _cachedVoice;
+}
+
+// ─── Smart sentence splitter ──────────────────────────────────────────────────
+function splitChunks(text: string): string[] {
+  const clean = text.replace(/[*_#`]/g, '').trim();
+  const sentences = clean.match(/[^.?!;—]+[.?!;—]+|[^.?!;—]+$/g) ?? [clean];
+  const out: string[] = [];
+  for (const s of sentences) {
+    const t = s.trim();
+    if (!t) continue;
+    if (t.length <= 140) { out.push(t); continue; }
+    let acc = '';
+    for (const p of t.split(/,\s*/)) {
+      if ((acc + p).length > 130 && acc) { out.push(acc.trim()); acc = p; }
+      else acc = acc ? `${acc}, ${p}` : p;
+    }
+    if (acc) out.push(acc.trim());
+  }
+  return out.filter(Boolean);
+}
+
+// ─── Hook ──────────────────────────────────────────────────────────────────────
 interface UseVoiceAssistantProps {
   token: string | null;
   onCommandProcessed: (transcription?: string, response?: string) => void;
@@ -102,7 +102,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
   const [isWakeWordEnabled, setIsWakeWordEnabled] = useState(true);
   const [activeStream, setActiveStream]       = useState<MediaStream | null>(null);
 
-  // ── Refs that are safe to read from any stale closure ────────────────────
+  // ── Refs that are safe to read from any stale closure ─────────────────────
   const statusRef          = useRef<VoiceAssistantStatus>(VoiceAssistantStatus.IDLE_LISTENING);
   const wakeEnabledRef     = useRef(true);
   const recognitionRef     = useRef<any>(null);
@@ -125,18 +125,120 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
   useEffect(() => { onCommandRef.current = onCommandProcessed; }, [onCommandProcessed]);
   useEffect(() => { getFreqRef.current = getFrequencies; },   [getFrequencies]);
 
-  // ── Preload voices ───────────────────────────────────────────────────────
+  // ── Preload fallback voices ───────────────────────────────────────────────
   useEffect(() => {
-    const load = () => { _cachedVoice = null; pickVoice(); };
+    const load = () => { _cachedVoice = null; pickFallbackVoice(); };
     window.speechSynthesis?.addEventListener('voiceschanged', load);
     if ((window.speechSynthesis?.getVoices().length ?? 0) > 0) load();
     return () => window.speechSynthesis?.removeEventListener('voiceschanged', load);
   }, []);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ALL logic is in stable refs so closures never go stale
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Core audio playback helper ────────────────────────────────────────────
+  const playAudioBase64 = useCallback((audioBase64: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+      audioRef.current = audio;
+      audio.onended = () => { audioRef.current = null; resolve(); };
+      audio.onerror = (e) => { audioRef.current = null; reject(e); };
+      audio.play().catch(reject);
+    });
+  }, []);
 
+  // ── Browser TTS fallback (single chunk) ──────────────────────────────────
+  const speakChunkFallback = useCallback((text: string): Promise<void> => new Promise(res => {
+    const utt = new SpeechSynthesisUtterance(text);
+    const v   = pickFallbackVoice();
+    if (v) utt.voice = v;
+    utt.pitch  = 1.05;
+    utt.rate   = 0.93;
+    utt.volume = 1.0;
+    utt.onend   = () => res();
+    utt.onerror = () => res();
+    window.speechSynthesis.speak(utt);
+  }), []);
+
+  // ── Unified speak: backend edge-tts → fallback browser TTS ───────────────
+  /**
+   * Always uses the backend en-US-AriaNeural voice when a token is available.
+   * Falls back to browser SpeechSynthesis only if the backend call fails.
+   */
+  const speakWithBackend = useCallback(async (text: string): Promise<void> => {
+    const tok = tokenRef.current ?? (typeof window !== 'undefined' ? localStorage.getItem('senorita_token') : null);
+
+    if (tok) {
+      try {
+        const audioBase64 = await speakText(tok, text);
+        if (audioBase64) {
+          await playAudioBase64(audioBase64);
+          return;
+        }
+      } catch {
+        // fall through to browser TTS
+      }
+    }
+
+    // Browser TTS fallback
+    if (!window.speechSynthesis) return;
+    const chunks = splitChunks(text);
+    startKeepalive();
+    for (const chunk of chunks) {
+      if (!isSpeakingRef.current) break;
+      await speakChunkFallback(chunk);
+      await new Promise(r => setTimeout(r, 80));
+    }
+    stopKeepalive();
+  }, [playAudioBase64, speakChunkFallback]);
+
+  // ── Cancel all active speech ──────────────────────────────────────────────
+  const cancelTTS = useCallback(() => {
+    stopKeepalive();
+    isSpeakingRef.current = false;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
+  }, []);
+
+  // ── Speak full response (voice command reply) ─────────────────────────────
+  const speakResponse = useCallback(async (text: string, audioBase64?: string) => {
+    setStatus(VoiceAssistantStatus.SPEAKING_RESPONSE);
+
+    // Cancel any existing speech
+    stopKeepalive();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
+
+    await new Promise(r => setTimeout(r, 80));
+    isSpeakingRef.current = true;
+
+    // If the voice endpoint already returned audio, play it directly
+    if (audioBase64) {
+      try {
+        await playAudioBase64(audioBase64);
+        isSpeakingRef.current = false;
+        setVoiceResponse(null);
+        setStatus(VoiceAssistantStatus.IDLE_LISTENING);
+        return;
+      } catch (e) {
+        console.error('[Senorita] Audio playback error, falling back to backend TTS:', e);
+      }
+    }
+
+    // Otherwise request TTS from the backend (same Aria voice)
+    await speakWithBackend(text);
+
+    isSpeakingRef.current = false;
+    setVoiceResponse(null);
+    setStatus(VoiceAssistantStatus.IDLE_LISTENING);
+  }, [playAudioBase64, speakWithBackend]);
+
+  // ── Stop recognition ──────────────────────────────────────────────────────
   const stopRecognition = useCallback((): Promise<void> => new Promise(res => {
     const rec = recognitionRef.current;
     if (!rec) return res();
@@ -153,90 +255,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     setActiveStream(null);
   }, []);
 
-  const cancelTTS = useCallback(() => {
-    stopKeepalive();
-    isSpeakingRef.current = false;
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
-    }
-    try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
-  }, []);
-
-  // ── Speak one chunk ──────────────────────────────────────────────────────
-  const speakChunk = useCallback((text: string): Promise<void> => new Promise(res => {
-    const utt = new SpeechSynthesisUtterance(text);
-    const v   = pickVoice();
-    if (v) utt.voice = v;
-    utt.pitch  = 1.05;
-    utt.rate   = 0.93;
-    utt.volume = 1.0;
-    utt.onend   = () => res();
-    utt.onerror = () => res();
-    window.speechSynthesis.speak(utt);
-  }), []);
-
-  // ── Speak full response ──────────────────────────────────────────────────
-  const speakResponse = useCallback(async (text: string, audioBase64?: string) => {
-    setStatus(VoiceAssistantStatus.SPEAKING_RESPONSE);
-
-    // Cancel any existing speech WITHOUT touching isSpeakingRef
-    stopKeepalive();
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
-    }
-    try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
-    
-    // Small pause so cancel() flushes before we queue new utterances
-    await new Promise(r => setTimeout(r, 80));
-    isSpeakingRef.current = true; // Set AFTER cancel so the loop isn't pre-killed
-
-    if (audioBase64) {
-      try {
-        const audioSrc = `data:audio/mp3;base64,${audioBase64}`;
-        const audio = new Audio(audioSrc);
-        audioRef.current = audio;
-        
-        await new Promise<void>((resolve, reject) => {
-          audio.onended = () => resolve();
-          audio.onerror = (e) => reject(e);
-          audio.play().catch(reject);
-        });
-        
-        isSpeakingRef.current = false;
-        setVoiceResponse(null);
-        setStatus(VoiceAssistantStatus.IDLE_LISTENING);
-        return;
-      } catch (e) {
-        console.error('[Senorita] Audio playback error, falling back to TTS:', e);
-      }
-    }
-
-    if (!window.speechSynthesis) {
-      setStatus(VoiceAssistantStatus.IDLE_LISTENING);
-      return;
-    }
-
-    const chunks = splitChunks(text);
-    if (!chunks.length) { setVoiceResponse(null); setStatus(VoiceAssistantStatus.IDLE_LISTENING); return; }
-
-    startKeepalive();
-    for (const chunk of chunks) {
-      if (!isSpeakingRef.current) break;
-      await speakChunk(chunk);
-      if (isSpeakingRef.current) await new Promise(r => setTimeout(r, 80));
-    }
-    stopKeepalive();
-
-    isSpeakingRef.current = false;
-    setVoiceResponse(null);
-    setStatus(VoiceAssistantStatus.IDLE_LISTENING);
-  }, [speakChunk]);
-
-  // ── Process recorded audio blob ──────────────────────────────────────────
+  // ── Process recorded audio blob ───────────────────────────────────────────
   const processCommand = useCallback(async () => {
     setStatus(VoiceAssistantStatus.PROCESSING);
     setVoiceResponse('PROCESSING...');
@@ -275,14 +294,13 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     }
   }, [releaseStream, speakResponse]);
 
-  // ── Start recording with adaptive VAD ───────────────────────────────────
+  // ── Start recording with adaptive VAD ────────────────────────────────────
   const startRecordingCommand = useCallback(async () => {
     setStatus(VoiceAssistantStatus.RECORDING_COMMAND);
     setVoiceResponse('LISTENING...');
     console.log('[Senorita] Recording started');
 
     try {
-      // Simple constraints — sampleRate removed (causes OverconstrainedError on many systems)
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true }
       });
@@ -298,7 +316,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
 
       recorder.start(100);
 
-      // ── Adaptive VAD with EMA smoothing ─────────────────────────────
+      // ── Adaptive VAD with EMA smoothing ─────────────────────────────────
       let emaVol       = 0;
       let hasSpoken    = false;
       let silenceStart = Date.now();
@@ -349,20 +367,22 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     }
   }, [processCommand, releaseStream]);
 
-  // ── Greeting ─────────────────────────────────────────────────────────────
+  // ── Greeting (wake word response) ─────────────────────────────────────────
   const playGreeting = useCallback(async () => {
     cancelTTS();
     const GREETINGS = [
-      "Hey Jay.", 
-      "Yes, Jay?", 
-      "I'm here, Jay.", 
-      "How can I help you, Jay?", 
-      "At your service, Jay.", 
-      "What's up, Jay?"
+      "Hey Jay.",
+      "Yes, Jay?",
+      "I'm here, Jay.",
+      "How can I help you, Jay?",
+      "At your service, Jay.",
+      "What's up, Jay?",
     ];
-    await speakChunk(GREETINGS[Math.floor(Math.random() * GREETINGS.length)]);
+    isSpeakingRef.current = true;
+    await speakWithBackend(GREETINGS[Math.floor(Math.random() * GREETINGS.length)]);
+    isSpeakingRef.current = false;
     await new Promise(r => setTimeout(r, 150));
-  }, [cancelTTS, speakChunk]);
+  }, [cancelTTS, speakWithBackend]);
 
   // ── Wake-word handler ─────────────────────────────────────────────────────
   const handleWakeWord = useCallback(async () => {
@@ -376,7 +396,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     startRecordingCommand();
   }, [stopRecognition, playGreeting, startRecordingCommand]);
 
-  // ── Idle SpeechRecognition (wake-word listener) ──────────────────────────
+  // ── Idle SpeechRecognition (wake-word listener) ───────────────────────────
   const startIdleListening = useCallback(async () => {
     if (!wakeEnabledRef.current) return;
     if (statusRef.current !== VoiceAssistantStatus.IDLE_LISTENING) return;
@@ -417,9 +437,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
         setVoiceResponse('MIC PERMISSION DENIED');
         return;
       }
-      // Suppress onend restart — onerror will handle retry with back-off
       rec.onend = () => {};
-      // network errors use exponential back-off; aborted/other use flat 400ms
       const delay = e.error === 'network'
         ? Math.min(1000 * 2 ** retryRef.current++, 12_000)
         : 400;
@@ -429,7 +447,6 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     };
 
     rec.onend = () => {
-      // Only restart from onend if onerror didn't already schedule a retry
       if (statusRef.current === VoiceAssistantStatus.IDLE_LISTENING && wakeEnabledRef.current) {
         setTimeout(() => {
           if (statusRef.current === VoiceAssistantStatus.IDLE_LISTENING) startIdleListening();
@@ -444,9 +461,9 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     } catch (e) {
       console.error('[Senorita] Failed to start recognition:', e);
     }
-  }, [stopRecognition, handleWakeWord]); // stable deps only — no state values
+  }, [stopRecognition, handleWakeWord]);
 
-  // ── Drive idle listening from status transitions ──────────────────────────
+  // ── Drive idle listening from status transitions ───────────────────────────
   useEffect(() => {
     if (status === VoiceAssistantStatus.IDLE_LISTENING) {
       retryRef.current = 0;
@@ -456,7 +473,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     }
   }, [status, startIdleListening, stopRecognition]);
 
-  // ── Pause when tab hidden ────────────────────────────────────────────────
+  // ── Pause when tab hidden ─────────────────────────────────────────────────
   useEffect(() => {
     const onVis = () => {
       if (document.hidden) {
@@ -469,7 +486,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     return () => document.removeEventListener('visibilitychange', onVis);
   }, [startIdleListening, stopRecognition]);
 
-  // ── Manual trigger ──────────────────────────────────────────────────
+  // ── Manual trigger ────────────────────────────────────────────────────────
   const manualTrigger = useCallback(async () => {
     const cur = statusRef.current;
     console.log('[Senorita] Manual trigger — status:', cur);
@@ -486,7 +503,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     }
   }, [stopRecognition, startRecordingCommand, cancelTTS]);
 
-  // ── Time-aware page-load greeting ────────────────────────────────────────
+  // ── Time-aware page-load greeting ─────────────────────────────────────────
   const playWelcome = useCallback(async () => {
     const h = new Date().getHours();
     const period = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
@@ -521,36 +538,32 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     const pool = lines[period];
     const text = pool[Math.floor(Math.random() * pool.length)];
 
-    // Wait for TTS engine + voices to initialise
+    // Wait for token to be available and TTS engine to initialise
     await new Promise(r => setTimeout(r, 700));
     if (statusRef.current !== VoiceAssistantStatus.IDLE_LISTENING) return;
 
     setStatus(VoiceAssistantStatus.GREETING);
     setVoiceResponse(text);
+    isSpeakingRef.current = true;
 
-    await new Promise<void>(res => {
-      const v = pickVoice();
-      const utt = new SpeechSynthesisUtterance(text);
-      if (v) utt.voice = v;
-      utt.pitch  = 1.05;
-      utt.rate   = 0.91;   // Slightly slower = more warm/human
-      utt.volume = 1.0;
-      utt.onend   = () => res();
-      utt.onerror = () => res();
-      window.speechSynthesis?.speak(utt);
-    });
+    await speakWithBackend(text);
 
+    isSpeakingRef.current = false;
     setVoiceResponse(null);
     setStatus(VoiceAssistantStatus.IDLE_LISTENING);
-  }, []);
+  }, [speakWithBackend]);
+
+  const welcomePlayedRef = useRef(false);
 
   // Auto-greet on first mount
   useEffect(() => {
+    if (welcomePlayedRef.current) return;
+    welcomePlayedRef.current = true;
     playWelcome();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Cleanup on unmount ───────────────────────────────────────────────────
+  // ── Cleanup on unmount ────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       stopRecognition();

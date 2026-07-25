@@ -1,5 +1,13 @@
 const API_BASE = typeof window !== "undefined" ? `http://${window.location.hostname}:8000` : "http://localhost:8000";
 
+/** Clear auth state and redirect to login (called on any 401). */
+function handleUnauthorized() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("senorita_token");
+  localStorage.removeItem("senorita_user_id");
+  window.location.reload();
+}
+
 export async function apiFetch(endpoint: string, options: RequestInit = {}, token: string | null = null) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -18,14 +26,15 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}, toke
   });
   
   if (!response.ok) {
+    if (response.status === 401) {
+      handleUnauthorized();
+      throw new Error(`Unauthorized (401)`);
+    }
     let detail = response.statusText;
     try {
       const body = await response.json();
       if (body.detail) detail = body.detail;
     } catch {}
-    if (response.status === 401 && typeof window !== 'undefined') {
-      throw new Error(`Unauthorized (401): ${detail}`);
-    }
     throw new Error(detail);
   }
   
@@ -83,7 +92,7 @@ export async function sendVoiceMessage(token: string, formData: FormData) {
   };
   
   const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), 15000);
+  const id = setTimeout(() => controller.abort(), 60000);
   
   try {
     const response = await fetch(`${API_BASE}/chat/voice`, {
@@ -96,7 +105,10 @@ export async function sendVoiceMessage(token: string, formData: FormData) {
     clearTimeout(id);
     
     if (!response.ok) {
-      if (response.status === 401) throw new Error("API Error: Unauthorized (401)");
+      if (response.status === 401) {
+        handleUnauthorized();
+        throw new Error("Unauthorized (401)");
+      }
       throw new Error(`API Error: ${response.statusText}`);
     }
     
@@ -104,7 +116,7 @@ export async function sendVoiceMessage(token: string, formData: FormData) {
   } catch (err: any) {
     clearTimeout(id);
     if (err.name === 'AbortError') {
-      throw new Error("API Error: Request timed out after 15 seconds");
+      throw new Error("API Error: Request timed out after 60 seconds");
     }
     throw err;
   }
@@ -116,4 +128,17 @@ export async function deleteMemory(token: string, id: string) {
 
 export async function patchMemoryLock(token: string, id: string) {
   return apiFetch(`/memory/${id}/lock`, { method: "PATCH" }, token);
+}
+
+/** Generate speech via backend edge-tts and return base64 MP3, or null on failure. */
+export async function speakText(token: string, text: string): Promise<string | null> {
+  try {
+    const res = await apiFetch("/chat/tts", {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }, token);
+    return res.audio_base64 ?? null;
+  } catch {
+    return null;
+  }
 }

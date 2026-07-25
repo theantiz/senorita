@@ -21,6 +21,6 @@ def start_chat(tools: list | None = None, system_instruction: str = None):
         # function calls in multi-turn chats. Thinking models require the
         # thought_signature to be preserved across turns, which breaks when
         # history is reconstructed from the DB.
-        thinking_config=types.ThinkingConfig(thinking_budget=0),
+        thinking_config=types.ThinkingConfig(include_thoughts=False),
     )
     return client.aio.chats.create(model=settings.GEMINI_MODEL, config=config)
