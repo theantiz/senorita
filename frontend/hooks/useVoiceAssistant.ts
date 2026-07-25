@@ -39,7 +39,8 @@ let _cachedVoice: SpeechSynthesisVoice | null = null;
 
 function pickVoice(): SpeechSynthesisVoice | null {
   if (_cachedVoice) return _cachedVoice;
-  const voices = window.speechSynthesis?.getVoices() ?? [];
+  const allVoices = window.speechSynthesis?.getVoices() ?? [];
+  const voices = allVoices.filter(v => !v.name.toLowerCase().includes('google'));
   if (!voices.length) return null;
   _cachedVoice =
     voices.find(v => ['en-IN','hi-IN','gu-IN'].includes(v.lang) && isFemaleVoice(v) && isEnhancedVoice(v)) ??
@@ -115,6 +116,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
   const tokenRef           = useRef(token);
   const onCommandRef       = useRef(onCommandProcessed);
   const getFreqRef         = useRef(getFrequencies);
+  const audioRef           = useRef<HTMLAudioElement | null>(null);
 
   // Keep refs in sync with props/state every render
   useEffect(() => { statusRef.current = status; },            [status]);
@@ -154,6 +156,11 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
   const cancelTTS = useCallback(() => {
     stopKeepalive();
     isSpeakingRef.current = false;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
     try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
   }, []);
 
@@ -171,21 +178,47 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
   }), []);
 
   // ── Speak full response ──────────────────────────────────────────────────
-  const speakResponse = useCallback(async (text: string) => {
+  const speakResponse = useCallback(async (text: string, audioBase64?: string) => {
     setStatus(VoiceAssistantStatus.SPEAKING_RESPONSE);
+
+    // Cancel any existing speech WITHOUT touching isSpeakingRef
+    stopKeepalive();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
+    
+    // Small pause so cancel() flushes before we queue new utterances
+    await new Promise(r => setTimeout(r, 80));
+    isSpeakingRef.current = true; // Set AFTER cancel so the loop isn't pre-killed
+
+    if (audioBase64) {
+      try {
+        const audioSrc = `data:audio/mp3;base64,${audioBase64}`;
+        const audio = new Audio(audioSrc);
+        audioRef.current = audio;
+        
+        await new Promise<void>((resolve, reject) => {
+          audio.onended = () => resolve();
+          audio.onerror = (e) => reject(e);
+          audio.play().catch(reject);
+        });
+        
+        isSpeakingRef.current = false;
+        setVoiceResponse(null);
+        setStatus(VoiceAssistantStatus.IDLE_LISTENING);
+        return;
+      } catch (e) {
+        console.error('[Senorita] Audio playback error, falling back to TTS:', e);
+      }
+    }
 
     if (!window.speechSynthesis) {
       setStatus(VoiceAssistantStatus.IDLE_LISTENING);
       return;
     }
-
-    // Cancel any existing speech WITHOUT touching isSpeakingRef
-    stopKeepalive();
-    try { window.speechSynthesis.cancel(); } catch { /* noop */ }
-    // Small pause so cancel() flushes before we queue new utterances
-    await new Promise(r => setTimeout(r, 80));
-
-    isSpeakingRef.current = true; // Set AFTER cancel so the loop isn't pre-killed
 
     const chunks = splitChunks(text);
     if (!chunks.length) { setVoiceResponse(null); setStatus(VoiceAssistantStatus.IDLE_LISTENING); return; }
@@ -232,7 +265,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
       console.log('[Senorita] Response:', res.response?.slice(0, 80));
       setVoiceResponse(res.response);
       onCommandRef.current(res.transcription, res.response);
-      await speakResponse(res.response);
+      await speakResponse(res.response, res.audio_base64);
     } catch (err) {
       console.error('[Senorita] API error:', err);
       const msg = 'I lost the uplink. Try again.';
@@ -319,7 +352,14 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
   // ── Greeting ─────────────────────────────────────────────────────────────
   const playGreeting = useCallback(async () => {
     cancelTTS();
-    const GREETINGS = ["Yes?", "I'm here.", "How can I help?", "At your service.", "Yes, sir."];
+    const GREETINGS = [
+      "Hey Jay.", 
+      "Yes, Jay?", 
+      "I'm here, Jay.", 
+      "How can I help you, Jay?", 
+      "At your service, Jay.", 
+      "What's up, Jay?"
+    ];
     await speakChunk(GREETINGS[Math.floor(Math.random() * GREETINGS.length)]);
     await new Promise(r => setTimeout(r, 150));
   }, [cancelTTS, speakChunk]);

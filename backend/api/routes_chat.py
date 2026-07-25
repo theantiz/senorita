@@ -20,6 +20,9 @@ async def chat_endpoint(request: ChatRequest, session: AsyncSession = Depends(ge
     response_text = await handle_message(session, current_user, request.message)
     return {"response": response_text}
 
+import edge_tts
+import base64
+
 @router.post("/voice")
 async def chat_voice_endpoint(audio: UploadFile = File(...), session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     # Read the audio bytes
@@ -54,4 +57,21 @@ async def chat_voice_endpoint(audio: UploadFile = File(...), session: AsyncSessi
         
     # Pass the transcribed text to the same orchestrator function
     response_text = await handle_message(session, current_user, transcribed_text)
-    return {"response": response_text, "transcription": transcribed_text}
+    
+    # Generate TTS audio via edge-tts (free Microsoft Neural TTS)
+    try:
+        communicate = edge_tts.Communicate(response_text, "en-US-AriaNeural")
+        tts_audio = b""
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                tts_audio += chunk["data"]
+        audio_base64 = base64.b64encode(tts_audio).decode('utf-8')
+    except Exception as e:
+        audio_base64 = None
+        print(f"TTS Error: {e}")
+
+    return {
+        "response": response_text, 
+        "transcription": transcribed_text,
+        "audio_base64": audio_base64
+    }
