@@ -121,6 +121,7 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
     config = types.GenerateContentConfig(
         tools=SENORITA_TOOLS,
         system_instruction=sys_inst,
+        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
     )
 
     # g. Stateless agentic loop — up to 5 tool-call rounds
@@ -149,16 +150,23 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
         if not response:
             raise RuntimeError("Failed to generate content after 3 retries due to thought_signature validation errors.")
 
-        # Append the FULL model response content (preserves thought_signature parts)
-        if response.candidates:
-            contents.append(response.candidates[0].content)
-
         function_calls = response.function_calls
         if not function_calls:
+            if response.candidates:
+                contents.append(response.candidates[0].content)
             break
 
+        # Tools were called. To bypass thought_signature validation bug in google-genai,
+        # we format the model's tool calls and results as text history instead of native FunctionCall parts.
+        try:
+            model_text = response.text
+        except ValueError:
+            model_text = ""
+        model_text = model_text or "I am using my tools to fulfill the request."
+        contents.append(types.Content(role="model", parts=[types.Part.from_text(text=model_text)]))
+
         # Execute all tool calls and collect function responses
-        function_response_parts: list[types.Part] = []
+        text_responses = []
         for fc in function_calls:
             fn_name = fc.name
             args = fc.args
@@ -177,12 +185,10 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
             action.result = "failed" if "error" in tool_res else "success"
             await session.commit()
 
-            function_response_parts.append(
-                types.Part.from_function_response(name=fn_name, response=tool_res)
-            )
+            text_responses.append(f"Tool `{fn_name}` was called with args: {json.dumps(args)}\nResult: {json.dumps(tool_res)}")
 
         # Append function responses as a user turn so the model sees the results
-        contents.append(types.Content(role="user", parts=function_response_parts))
+        contents.append(types.Content(role="user", parts=[types.Part.from_text(text="\n\n".join(text_responses))]))
 
     # h. Persist to conversations table
     final_text = response.text or ""

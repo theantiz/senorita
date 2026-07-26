@@ -15,16 +15,13 @@ from integrations.base import get_adapter
 
 logger = logging.getLogger(__name__)
 
-class WhatsAppConnectRequest(BaseModel):
-    phone_number_id: str
-    access_token: str
+
 
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
 SUPPORTED_PROVIDERS = [
     "gmail",
-    "whatsapp",
     "slack",
     "google_calendar",
     "outlook",
@@ -147,11 +144,21 @@ async def oauth_callback(
         result = await session.execute(stmt)
         integration = result.scalars().first()
 
-        default_permissions = {
-            "read": True,
-            "draft": True,
-            "send_automatically": False
-        }
+        # Build provider-specific default permissions.
+        # For Slack we also stash workspace metadata needed for webhook routing.
+        if provider == "slack":
+            default_permissions = {
+                "read": True,
+                "send_automatically": False,
+                "team_id": token_data.get("team_id", ""),
+                "bot_user_id": token_data.get("bot_user_id", ""),
+            }
+        else:
+            default_permissions = {
+                "read": True,
+                "draft": True,
+                "send_automatically": False,
+            }
 
         if integration:
             integration.status = "connected"
@@ -186,48 +193,6 @@ async def oauth_callback(
         raise HTTPException(status_code=500, detail="OAuth authentication failed")
 
 
-@router.post("/whatsapp/manual_connect")
-async def connect_whatsapp_manual(
-    req: WhatsAppConnectRequest,
-    session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Manually connects WhatsApp via provided system token and phone number ID,
-    since WhatsApp Cloud API doesn't use standard OAuth flows.
-    """
-    access_token_enc = encrypt(req.access_token)
-    
-    stmt = select(Integration).where(
-        Integration.user_id == current_user.id,
-        Integration.provider == "whatsapp"
-    )
-    result = await session.execute(stmt)
-    integration = result.scalars().first()
-
-    permissions = {
-        "phone_number_id": req.phone_number_id,
-        "read": True,
-        "send_automatically": False
-    }
-
-    if integration:
-        integration.status = "connected"
-        integration.access_token_encrypted = access_token_enc
-        integration.permissions = permissions
-    else:
-        integration = Integration(
-            user_id=current_user.id,
-            provider="whatsapp",
-            status="connected",
-            scopes=[],
-            permissions=permissions,
-            access_token_encrypted=access_token_enc
-        )
-        session.add(integration)
-
-    await session.commit()
-    return {"ok": True}
 
 
 @router.patch("/{provider}/permissions", response_model=IntegrationRead)

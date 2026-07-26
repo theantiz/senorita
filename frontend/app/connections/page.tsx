@@ -74,13 +74,10 @@ const PROVIDERS: {
   {
     key: 'whatsapp',
     label: 'WhatsApp',
-    description: 'Smart replies and message summaries for your WhatsApp chats.',
-    icon: <SiWhatsapp className="w-5 h-5" />,
-    color: '#25D366',
-    capabilities: [
-      { key: 'read', label: 'Read messages', description: 'Let Señorita read your chats' },
-      { key: 'send_automatically', label: 'Auto-reply', description: 'Send messages without confirmation' },
-    ],
+    description: 'Not available — no compliant personal-account API currently exists.',
+    icon: <SiWhatsapp className="w-5 h-5 opacity-50" />,
+    color: '#888888',
+    capabilities: [],
   },
   {
     key: 'google_drive',
@@ -317,9 +314,7 @@ export default function ConnectionsPage() {
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState<string | null>(null);
   const [toastMsg, setToastMsg]         = useState<string | null>(null);
-  const [showWhatsappModal, setShowWhatsappModal] = useState(false);
-  const [whatsappPhoneId, setWhatsappPhoneId] = useState('');
-  const [whatsappToken, setWhatsappToken] = useState('');
+
 
   const API = typeof window !== 'undefined' ? `http://${window.location.hostname}:8000/api/v1` : 'http://localhost:8000/api/v1';
 
@@ -351,7 +346,7 @@ export default function ConnectionsPage() {
 
   const handleConnect = async (provider: string) => {
     if (provider === 'whatsapp') {
-      setShowWhatsappModal(true);
+      showToast('WhatsApp is not available — no compliant personal-account API currently exists.');
       return;
     }
     
@@ -369,24 +364,6 @@ export default function ConnectionsPage() {
     }
   };
 
-  const handleWhatsappSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const res = await fetch(`${API}/integrations/whatsapp/manual_connect`, {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify({ phone_number_id: whatsappPhoneId, access_token: whatsappToken }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      showToast('WhatsApp connected successfully.');
-      setShowWhatsappModal(false);
-      setWhatsappPhoneId('');
-      setWhatsappToken('');
-      fetchIntegrations();
-    } catch (e: any) {
-      showToast(`Failed to connect WhatsApp: ${e.message}`);
-    }
-  };
 
   const handleDisconnect = async (provider: string) => {
     try {
@@ -552,71 +529,6 @@ export default function ConnectionsPage() {
         </div>
       )}
 
-      {/* ── WhatsApp Modal ── */}
-      {showWhatsappModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div 
-            className="w-full max-w-md p-6 rounded-lg"
-            style={{
-              background: '#0a0d14',
-              border: '1px solid rgba(255,255,255,0.1)',
-              boxShadow: '0 24px 48px rgba(0,0,0,0.4)',
-            }}
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <SiWhatsapp className="w-6 h-6 text-[#25D366]" />
-              <h2 className="text-lg font-medium text-white">Connect WhatsApp</h2>
-            </div>
-            
-            <p className="text-sm text-white/50 mb-6">
-              Enter your Meta System User Token and Phone Number ID from the Meta Developer Console.
-            </p>
-
-            <form onSubmit={handleWhatsappSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-mono text-white/40 mb-1.5 uppercase tracking-wider">Phone Number ID</label>
-                <input
-                  type="text"
-                  required
-                  value={whatsappPhoneId}
-                  onChange={(e) => setWhatsappPhoneId(e.target.value)}
-                  className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30"
-                  placeholder="e.g. 1234567890"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-xs font-mono text-white/40 mb-1.5 uppercase tracking-wider">Access Token</label>
-                <input
-                  type="password"
-                  required
-                  value={whatsappToken}
-                  onChange={(e) => setWhatsappToken(e.target.value)}
-                  className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30"
-                  placeholder="Permanent System User Token"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4 mt-2 border-t border-white/10">
-                <button
-                  type="button"
-                  onClick={() => setShowWhatsappModal(false)}
-                  className="flex-1 py-2 text-sm font-medium text-white/60 hover:text-white transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2 text-sm font-medium text-[#0a0d14] rounded transition-all"
-                  style={{ background: '#25D366' }}
-                >
-                  Connect
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       <style jsx>{`
         @keyframes fadeInUp {

@@ -10,7 +10,7 @@ from db.models.auth_token import AuthToken
 from db.models.notification_log import NotificationLog
 from db.models.integration import Integration
 from db.models.email_message import EmailMessage
-from db.models.incoming_message import IncomingMessage
+from db.models.slack_message import SlackMessage
 
 __all__ = [
     "User",
@@ -25,5 +25,5 @@ __all__ = [
     "NotificationLog",
     "Integration",
     "EmailMessage",
-    "IncomingMessage",
+    "SlackMessage",
 ]

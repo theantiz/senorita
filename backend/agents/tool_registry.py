@@ -2,20 +2,21 @@ from typing import Any, Optional
 from uuid import UUID
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from google.genai.types import FunctionDeclaration, Type, Tool
 
 from db.models import Task, Reminder, CalendarEvent, MemoryEntry, Contact
 from memory.embeddings import embed_text
 from memory.retrieval import search_similar_memory
 from agents.gemini_client import start_chat, get_client
-from db.models import Task, Reminder, CalendarEvent, MemoryEntry, Contact, EmailMessage, Integration, ActionLog
+from db.models import Task, Reminder, CalendarEvent, MemoryEntry, Contact, EmailMessage, SlackMessage, Integration, ActionLog
 from integrations.base import get_adapter
 from core.crypto import decrypt
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-import base64
+import base64, json
 from email.message import EmailMessage as PyEmailMessage
+import httpx
 
 # Dummy functions for SDK schema extraction
 
@@ -59,6 +60,18 @@ def send_email(draft_id: str):
     """Send an existing email draft from Gmail."""
     pass
 
+def read_slack_messages(filter: Optional[str] = None, limit: Optional[int] = None):
+    """Read messages from Slack. Filter can be 'needs_reply', a channel ID/name, or a sender's Slack user ID. Limit defaults to 10."""
+    pass
+
+def draft_slack_reply(channel_id: str, intent: str):
+    """Draft a reply for a Slack channel or DM and return the proposed text for review."""
+    pass
+
+def send_slack_message(channel_id: str, message: str):
+    """Send a message to a Slack channel or DM using the connected Slack bot."""
+    pass
+
 SENORITA_TOOLS = [
     create_task,
     create_reminder,
@@ -70,6 +83,9 @@ SENORITA_TOOLS = [
     summarize_email,
     draft_email_reply,
     send_email,
+    read_slack_messages,
+    draft_slack_reply,
+    send_slack_message,
 ]
 
 
@@ -87,6 +103,9 @@ async def execute_tool(session: AsyncSession, user_id: UUID, function_name: str,
         "summarize_email": _handle_summarize_email,
         "draft_email_reply": _handle_draft_email_reply,
         "send_email": _handle_send_email,
+        "read_slack_messages": _handle_read_slack_messages,
+        "draft_slack_reply": _handle_draft_slack_reply,
+        "send_slack_message": _handle_send_slack_message,
     }
     handler = handlers.get(function_name)
     if not handler:
@@ -372,4 +391,152 @@ async def _handle_send_email(session: AsyncSession, user_id: UUID, draft_id: str
         session.add(log)
         await session.flush()
         return {"error": str(e)}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Slack handlers
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def _get_slack_integration(session: AsyncSession, user_id: UUID) -> Integration | None:
+    result = await session.execute(
+        select(Integration).where(
+            Integration.user_id == user_id,
+            Integration.provider == "slack",
+            Integration.status == "connected",
+        )
+    )
+    return result.scalars().first()
+
+
+async def _handle_read_slack_messages(
+    session: AsyncSession, user_id: UUID, filter: str = "needs_reply", limit: int = 10
+) -> dict:
+    stmt = select(SlackMessage).where(SlackMessage.user_id == user_id)
+
+    if filter == "needs_reply":
+        stmt = stmt.where(SlackMessage.needs_reply == True)
+    elif filter:
+        # Could be a channel_id, channel_name, or from_user partial match
+        stmt = stmt.where(
+            or_(
+                SlackMessage.slack_channel_id == filter,
+                SlackMessage.channel_name.ilike(f"%{filter}%"),
+                SlackMessage.from_user.ilike(f"%{filter}%"),
+            )
+        )
+
+    stmt = stmt.order_by(SlackMessage.received_at.desc()).limit(limit)
+    result = await session.execute(stmt)
+    messages = result.scalars().all()
+
+    return {
+        "messages": [
+            {
+                "id": str(m.id),
+                "channel_id": m.slack_channel_id,
+                "channel_name": m.channel_name,
+                "from_user": m.from_user,
+                "snippet": m.body_snippet,
+                "received_at": m.received_at.isoformat(),
+                "needs_reply": m.needs_reply,
+                "ts": m.slack_message_ts,
+            }
+            for m in messages
+        ]
+    }
+
+
+async def _handle_draft_slack_reply(
+    session: AsyncSession, user_id: UUID, channel_id: str, intent: str
+) -> dict:
+    """
+    Generates a draft reply for the given Slack channel using the AI and returns
+    the proposed text. Does NOT post to Slack — requires an explicit send_slack_message call.
+    """
+    # Fetch recent messages from this channel for context
+    context_result = await session.execute(
+        select(SlackMessage)
+        .where(SlackMessage.user_id == user_id, SlackMessage.slack_channel_id == channel_id)
+        .order_by(SlackMessage.received_at.desc())
+        .limit(5)
+    )
+    context_messages = context_result.scalars().all()
+    context_text = "\n".join(
+        [f"{m.from_user}: {m.body_snippet}" for m in reversed(context_messages)]
+    )
+
+    try:
+        client = get_client()
+        resp = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[
+                f"Draft a Slack reply for the following conversation.\n"
+                f"Intent: {intent}\n\n"
+                f"Recent messages:\n{context_text}\n\n"
+                f"Return ONLY the message text, no extra commentary."
+            ],
+        )
+        draft_text = resp.text.strip()
+        return {"channel_id": channel_id, "draft": draft_text}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+async def _handle_send_slack_message(
+    session: AsyncSession, user_id: UUID, channel_id: str, message: str
+) -> dict:
+    """
+    Posts a message to a Slack channel/DM via the Slack Web API chat.postMessage.
+    Gated by the send_automatically permission on the Slack integration.
+    """
+    integration = await _get_slack_integration(session, user_id)
+    if not integration:
+        return {"error": "Slack not connected."}
+
+    if not integration.permissions.get("send_automatically", False):
+        return {
+            "error": "confirmation_required",
+            "detail": "send_automatically is disabled for Slack. Please confirm before sending.",
+            "draft": message,
+            "channel_id": channel_id,
+        }
+
+    access_token = decrypt(integration.access_token_encrypted)
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                "https://slack.com/api/chat.postMessage",
+                headers={"Authorization": f"Bearer {access_token}"},
+                json={"channel": channel_id, "text": message},
+            )
+            data = resp.json()
+
+        if not data.get("ok"):
+            raise ValueError(f"Slack API error: {data.get('error')}")
+
+        log = ActionLog(
+            user_id=user_id,
+            action_type="send_slack_message",
+            payload={"channel_id": channel_id},
+            result="success",
+            confirmed_by_user=False,
+        )
+        session.add(log)
+        await session.flush()
+
+        return {"status": "sent", "ts": data.get("ts"), "channel": channel_id}
+
+    except Exception as e:
+        log = ActionLog(
+            user_id=user_id,
+            action_type="send_slack_message",
+            payload={"channel_id": channel_id},
+            result="failed",
+            confirmed_by_user=False,
+        )
+        session.add(log)
+        await session.flush()
+        return {"error": str(e)}
+
 

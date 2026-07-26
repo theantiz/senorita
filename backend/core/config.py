@@ -40,12 +40,12 @@ class Settings(BaseSettings):
     GMAIL_CLIENT_SECRET: str = ""
     GMAIL_REDIRECT_URI: str = "http://localhost:8000/api/v1/integrations/gmail/callback"
 
-    # WhatsApp Business API (Meta Cloud API)
-    WHATSAPP_ACCESS_TOKEN: str = ""                        # Permanent System User Token from Meta Console
-    WHATSAPP_PHONE_NUMBER_ID: str = ""                     # Phone Number ID from Meta App dashboard
-    WHATSAPP_WEBHOOK_VERIFY_TOKEN: str = "senorita_whatsapp_verify"  # Any secret string for webhook handshake
-    WHATSAPP_ALLOWED_NUMBERS: str = ""                     # Comma-sep whitelist; empty = allow all senders
-    WHATSAPP_MESSAGE_POLL_INTERVAL_SECONDS: int = 5        # How often the processor worker polls for pending msgs
+    # Slack Integration
+    SLACK_CLIENT_ID: str = ""
+    SLACK_CLIENT_SECRET: str = ""
+    SLACK_SIGNING_SECRET: str = ""
+    SLACK_REDIRECT_URI: str = "http://localhost:8000/api/v1/integrations/slack/callback"
+
 
     @property
     def cors_origins_list(self) -> list[str]:

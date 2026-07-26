@@ -27,10 +27,10 @@ from api.routes_activity import router as activity_router
 from api.routes_chat import router as chat_router
 from api.routes_system import router as system_router
 from api.routes_integrations import router as integrations_router
-from api.routes_whatsapp import router as whatsapp_router
+from api.routes_slack import router as slack_router
 
 import integrations.gmail    # Register the Gmail adapter
-import integrations.whatsapp  # Register the WhatsApp adapter
+import integrations.slack    # Register the Slack adapter
 
 
 async def seed_admin():
@@ -97,9 +97,7 @@ async def lifespan(app: FastAPI):
     start_proactive_engine(sch)
     start_gmail_sync_engine(sch)
 
-    # Start the channel-agnostic message processor worker
-    from workers.messaging.processor import start_message_processor
-    start_message_processor(sch)
+
 
     yield
 
@@ -135,7 +133,9 @@ app.include_router(activity_router)
 app.include_router(chat_router)
 app.include_router(system_router)
 app.include_router(integrations_router, prefix="/api/v1")
-app.include_router(whatsapp_router, prefix="/api/v1")
+app.include_router(slack_router, prefix="/api/v1")
+
+
 
 
 if __name__ == "__main__":
