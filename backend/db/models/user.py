@@ -34,3 +34,4 @@ class User(Base):
     integrations = relationship("Integration", back_populates="user", cascade="all, delete-orphan")
     email_messages = relationship("EmailMessage", back_populates="user", cascade="all, delete-orphan")
     slack_messages = relationship("SlackMessage", back_populates="user", cascade="all, delete-orphan")
+    message_modes = relationship("MessageMode", back_populates="user", cascade="all, delete-orphan")

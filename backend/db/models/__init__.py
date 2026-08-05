@@ -11,6 +11,7 @@ from db.models.notification_log import NotificationLog
 from db.models.integration import Integration
 from db.models.email_message import EmailMessage
 from db.models.slack_message import SlackMessage
+from db.models.message_mode import MessageMode
 
 __all__ = [
     "User",
@@ -26,4 +27,5 @@ __all__ = [
     "Integration",
     "EmailMessage",
     "SlackMessage",
+    "MessageMode",
 ]

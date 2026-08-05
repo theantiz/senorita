@@ -18,3 +18,4 @@ class Contact(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     user = relationship("User", back_populates="contacts")
+    message_modes = relationship("MessageMode", back_populates="contact", cascade="all, delete-orphan")

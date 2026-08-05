@@ -18,6 +18,8 @@ import base64, json
 from email.message import EmailMessage as PyEmailMessage
 import httpx
 
+from services.message_mode_service import resolve_mode
+
 # Dummy functions for SDK schema extraction
 
 def create_task(title: str, due_at: Optional[str] = None, priority: Optional[str] = None, project: Optional[str] = None, contact_name: Optional[str] = None):
@@ -72,6 +74,10 @@ def send_slack_message(channel_id: str, message: str):
     """Send a message to a Slack channel or DM using the connected Slack bot."""
     pass
 
+def search_all_unanswered():
+    """Search for unanswered messages across all connected channels (Gmail, Slack)."""
+    pass
+
 SENORITA_TOOLS = [
     create_task,
     create_reminder,
@@ -86,6 +92,7 @@ SENORITA_TOOLS = [
     read_slack_messages,
     draft_slack_reply,
     send_slack_message,
+    search_all_unanswered,
 ]
 
 
@@ -106,6 +113,7 @@ async def execute_tool(session: AsyncSession, user_id: UUID, function_name: str,
         "read_slack_messages": _handle_read_slack_messages,
         "draft_slack_reply": _handle_draft_slack_reply,
         "send_slack_message": _handle_send_slack_message,
+        "search_all_unanswered": _handle_search_all_unanswered,
     }
     handler = handlers.get(function_name)
     if not handler:
@@ -357,12 +365,18 @@ async def _handle_send_email(session: AsyncSession, user_id: UUID, draft_id: str
     if not integration or integration.status != "connected":
         return {"error": "Gmail not connected."}
         
-    # Check per-capability toggle
-    if not integration.permissions.get("send_automatically", False):
-        return {"error": "confirmation_required"}
-        
-    # In Module 13, contact message_mode is checked here. We mock it for now.
-    # Check if a contact matches the draft's To address and respects it
+    # Find draft email from our DB (if it exists) to try and find contact
+    # Actually, we don't store drafts in DB right now, we just pass ID.
+    # In a full implementation, we'd parse the draft from Gmail to get the recipient.
+    
+    # We resolve the mode for the channel
+    mode = await resolve_mode(session, user_id, None, "gmail")
+    
+    if mode in ("draft_only", "approval_required"):
+        return {
+            "error": "confirmation_required",
+            "detail": f"Message mode is {mode}. Please confirm before sending."
+        }
     
     try:
         service = _get_gmail_service(integration)
@@ -493,10 +507,14 @@ async def _handle_send_slack_message(
     if not integration:
         return {"error": "Slack not connected."}
 
-    if not integration.permissions.get("send_automatically", False):
+    # Resolve message mode
+    # Ideally we'd map channel_id to a contact if it's a DM, but we'll use channel default for now.
+    mode = await resolve_mode(session, user_id, None, "slack")
+
+    if mode in ("draft_only", "approval_required"):
         return {
             "error": "confirmation_required",
-            "detail": "send_automatically is disabled for Slack. Please confirm before sending.",
+            "detail": f"Message mode is {mode} for Slack. Please confirm before sending.",
             "draft": message,
             "channel_id": channel_id,
         }
@@ -539,4 +557,47 @@ async def _handle_send_slack_message(
         await session.flush()
         return {"error": str(e)}
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Cross-channel handlers
+# ─────────────────────────────────────────────────────────────────────────────
 
+async def _handle_search_all_unanswered(session: AsyncSession, user_id: UUID) -> dict:
+    # Get unanswered emails
+    email_stmt = select(EmailMessage).where(
+        EmailMessage.user_id == user_id,
+        EmailMessage.needs_reply == True
+    ).order_by(EmailMessage.received_at.desc())
+    email_res = await session.execute(email_stmt)
+    emails = email_res.scalars().all()
+    
+    # Get unanswered Slack messages
+    slack_stmt = select(SlackMessage).where(
+        SlackMessage.user_id == user_id,
+        SlackMessage.needs_reply == True
+    ).order_by(SlackMessage.received_at.desc())
+    slack_res = await session.execute(slack_stmt)
+    slacks = slack_res.scalars().all()
+    
+    results = []
+    for e in emails:
+        results.append({
+            "channel": "gmail",
+            "id": str(e.id),
+            "from": e.from_address,
+            "snippet": e.snippet,
+            "received_at": e.received_at.isoformat()
+        })
+        
+    for s in slacks:
+        results.append({
+            "channel": "slack",
+            "id": str(s.id),
+            "from": s.from_user,
+            "snippet": s.body_snippet,
+            "received_at": s.received_at.isoformat()
+        })
+        
+    # Sort by received_at desc
+    results.sort(key=lambda x: x["received_at"], reverse=True)
+    
+    return {"unanswered_messages": results}
