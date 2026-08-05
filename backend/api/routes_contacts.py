@@ -38,3 +38,40 @@ async def delete_existing_contact(contact_id: UUID, session: AsyncSession = Depe
     if not success:
         raise HTTPException(status_code=404, detail="Contact not found")
     return {"ok": True}
+
+@router.get("/{contact_id}/tone-profile")
+async def get_tone_profile(contact_id: UUID, session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    contact = await get_contact(session, current_user.id, contact_id)
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    return contact.tone_profile
+
+@router.patch("/{contact_id}/tone-profile/{channel}")
+async def update_tone_profile_channel(
+    contact_id: UUID, 
+    channel: str, 
+    payload: dict, 
+    session: AsyncSession = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Manually overrides the tone profile for a specific channel (e.g. 'email' or 'slack').
+    This automatically sets user_override=True to prevent AI inference from clobbering it.
+    """
+    contact = await get_contact(session, current_user.id, contact_id)
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+        
+    current_profiles = dict(contact.tone_profile)
+    channel_profile = current_profiles.get(channel, {})
+    
+    # Merge payload
+    channel_profile.update(payload)
+    channel_profile["user_override"] = True
+    
+    current_profiles[channel] = channel_profile
+    
+    # We use update_contact to trigger the SQLAlchemy update and commit
+    await update_contact(session, current_user.id, contact_id, ContactUpdate(tone_profile=current_profiles))
+    
+    return current_profiles

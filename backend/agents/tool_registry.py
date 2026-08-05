@@ -1,5 +1,6 @@
 from typing import Any, Optional
 from uuid import UUID
+from core.config import settings
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
@@ -316,7 +317,7 @@ async def _handle_summarize_email(session: AsyncSession, user_id: UUID, email_id
              
         client = get_client()
         resp = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=settings.GEMINI_MODEL,
             contents=[f"Summarize this email in a few concise sentences:\n\n{body}"]
         )
         return {"summary": resp.text.strip(), "original_snippet": email.snippet}
@@ -337,9 +338,41 @@ async def _handle_draft_email_reply(session: AsyncSession, user_id: UUID, email_
         
     try:
         client = get_client()
+        
+        # Determine Tone Profile
+        tone_instructions = ""
+        stmt = select(Contact).where(Contact.user_id == user_id)
+        contacts = (await session.execute(stmt)).scalars().all()
+        target_contact = None
+        for c in contacts:
+            if c.name.lower() in email.from_address.lower():
+                target_contact = c
+                break
+                
+        if target_contact and "email" in target_contact.tone_profile:
+            tp = target_contact.tone_profile["email"]
+            style = tp.get("style", {})
+            tone_instructions = (
+                f"\n\nTONE INSTRUCTIONS (Match the user's natural style for this contact):\n"
+                f"- Formality: {style.get('formality', 'neutral')}\n"
+                f"- Emoji use: {style.get('emoji', 'occasional')}\n"
+                f"- Sentence length: {style.get('sentence_length', 'medium')}\n"
+                f"- Punctuation: {style.get('punctuation', 'standard')}\n"
+                f"- Uses exclamation marks: {style.get('uses_exclamation', False)}\n"
+                f"- Uses lowercase strictly: {style.get('uses_lowercase', False)}\n"
+                f"- Abbreviations: {', '.join(style.get('uses_abbreviations', []))}\n"
+            )
+            if tp.get("greeting_examples"):
+                tone_instructions += f"- Example greetings they use: {', '.join(tp['greeting_examples'])}\n"
+            if tp.get("closing_examples"):
+                tone_instructions += f"- Example closings they use: {', '.join(tp['closing_examples'])}\n"
+            if tp.get("reusable_patterns"):
+                pats = [p.get("template") for p in tp["reusable_patterns"]]
+                tone_instructions += f"- Reusable phrasing patterns they use: {', '.join(pats)}\n"
+
         resp = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[f"Draft a reply to the email '{email.subject}' from '{email.from_address}'.\nIntent: {intent}\nSnippet: {email.snippet}\n\nReturn ONLY the email body text."]
+            model=settings.GEMINI_MODEL,
+            contents=[f"Draft a reply to the email '{email.subject}' from '{email.from_address}'.\nIntent: {intent}\nSnippet: {email.snippet}{tone_instructions}\n\nReturn ONLY the email body text."]
         )
         draft_text = resp.text.strip()
         
@@ -482,7 +515,7 @@ async def _handle_draft_slack_reply(
     try:
         client = get_client()
         resp = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=settings.GEMINI_MODEL,
             contents=[
                 f"Draft a Slack reply for the following conversation.\n"
                 f"Intent: {intent}\n\n"
