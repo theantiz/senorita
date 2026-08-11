@@ -128,7 +128,7 @@ export default function Memory() {
             <option value="chat">CHAT</option>
             <option value="gmail">GMAIL</option>
             <option value="slack">SLACK</option>
-            <option value="whatsapp">WHATSAPP</option>
+            <option value="implicit_capture">IMPLICIT</option>
           </select>
 
           <select 
