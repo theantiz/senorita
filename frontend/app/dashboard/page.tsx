@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../components/AuthContext";
-import { getTasks, getCalendarEvents, getActivity, sendVoiceMessage } from "@/lib/api";
+import { getTasks, getCalendarEvents, getActivity, sendVoiceMessage, getLatestBriefing, getLatestEodBriefing } from "@/lib/api";
 import dynamic from "next/dynamic";
 
 const VoiceOrb = dynamic(() => import("../components/VoiceOrb").then(mod => mod.VoiceOrb), { ssr: false });
@@ -29,6 +29,8 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
+  const [briefing, setBriefing] = useState<any>(null);
+  const [eodBriefing, setEodBriefing] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
   const { isListening: analyserActive, startAnalyser, stopAnalyser, getFrequencies } = useAudioAnalyser();
@@ -54,14 +56,18 @@ export default function Dashboard() {
 
   async function loadData() {
     if (!token) return;
-    const [t, e, a] = await Promise.all([
+    const [t, e, a, b, eod] = await Promise.all([
       getTasks(token).catch(() => []),
       getCalendarEvents(token).catch(() => []),
       getActivity(token).catch(() => []),
+      getLatestBriefing(token).catch(() => ({ data: null })),
+      getLatestEodBriefing(token).catch(() => ({ data: null }))
     ]);
     setTasks(t);
     setEvents(e);
     setActivities(a);
+    setBriefing(b?.data || null);
+    setEodBriefing(eod?.data || null);
     setLoading(false);
   }
 
@@ -130,7 +136,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stat cards */}
+      {/* show the history of today's activities */}
       <div className="grid grid-cols-3 gap-4">
         {stats.map((s) => (
           <div
@@ -147,7 +153,36 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Data panels row */}
+      {/* display the morning and evening briefings side-by-side */}
+      <div className="grid grid-cols-2 gap-4">
+        <HudCard title="// MORNING BRIEFING" code="BRF-001">
+          {loading ? (
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 border border-[rgba(255,255,255,0.2)] border-t-transparent rounded-full animate-spin" />
+              <span className="font-mono text-[10px] text-white/40">FETCHING DATA...</span>
+            </div>
+          ) : briefing ? (
+            <p className="font-mono text-[11px] text-white/80 leading-relaxed whitespace-pre-wrap">{briefing.content}</p>
+          ) : (
+            <p className="font-mono text-[10px] text-white/30">[ NO BRIEFING GENERATED YET ]</p>
+          )}
+        </HudCard>
+        
+        <HudCard title="// EVENING BRIEFING" code="BRF-002">
+          {loading ? (
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 border border-[rgba(255,255,255,0.2)] border-t-transparent rounded-full animate-spin" />
+              <span className="font-mono text-[10px] text-white/40">FETCHING DATA...</span>
+            </div>
+          ) : eodBriefing ? (
+            <p className="font-mono text-[11px] text-white/80 leading-relaxed whitespace-pre-wrap">{eodBriefing.content}</p>
+          ) : (
+            <p className="font-mono text-[10px] text-white/30">[ NO BRIEFING GENERATED YET ]</p>
+          )}
+        </HudCard>
+      </div>
+
+      {/* render the main task and calendar panels */}
       <div className="grid grid-cols-2 gap-4">
         {/* Tasks */}
         <HudCard title="// TASK QUEUE" code="TQ-001">

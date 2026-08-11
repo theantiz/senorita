@@ -142,3 +142,11 @@ export async function speakText(token: string, text: string): Promise<string | n
     return null;
   }
 }
+
+export async function getLatestBriefing(token: string) {
+  return apiFetch("/api/v1/briefings/latest?type=daily", {}, token);
+}
+
+export async function getLatestEodBriefing(token: string) {
+  return apiFetch("/api/v1/briefings/latest?type=end_of_day", {}, token);
+}

@@ -29,6 +29,7 @@ from api.routes_system import router as system_router
 from api.routes_integrations import router as integrations_router
 from api.routes_slack import router as slack_router
 from api.routes_message_modes import router as message_modes_router
+from api.routes_briefings import router as briefings_router
 
 import integrations.gmail    # Register the Gmail adapter
 import integrations.slack    # Register the Slack adapter
@@ -136,6 +137,7 @@ app.include_router(system_router)
 app.include_router(integrations_router, prefix="/api/v1")
 app.include_router(slack_router, prefix="/api/v1")
 app.include_router(message_modes_router, prefix="/api/v1")
+app.include_router(briefings_router, prefix="/api/v1")
 
 
 

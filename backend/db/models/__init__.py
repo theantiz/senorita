@@ -12,6 +12,7 @@ from db.models.integration import Integration
 from db.models.email_message import EmailMessage
 from db.models.slack_message import SlackMessage
 from db.models.message_mode import MessageMode
+from db.models.briefing import Briefing
 
 __all__ = [
     "User",
@@ -28,4 +29,5 @@ __all__ = [
     "EmailMessage",
     "SlackMessage",
     "MessageMode",
+    "Briefing",
 ]

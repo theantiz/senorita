@@ -1,4 +1,4 @@
-from sqlalchemy import String, Integer, Text, DateTime, JSON, CheckConstraint
+from sqlalchemy import String, Integer, Text, DateTime, JSON, CheckConstraint, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
@@ -15,10 +15,18 @@ class User(Base):
     autonomy_level: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
     style_profile: Mapped[dict] = mapped_column(JSONB, server_default='{}', nullable=False)
     memory_capture_sensitivity: Mapped[str] = mapped_column(Text, server_default='conservative', nullable=False) # From Module 4
+    briefing_time: Mapped[str] = mapped_column(Text, server_default='08:00', nullable=False)
+    briefing_enabled: Mapped[bool] = mapped_column(Boolean, server_default='true', nullable=False)
+    briefing_detail_level: Mapped[str] = mapped_column(Text, server_default='standard', nullable=False)
+    eod_briefing_time: Mapped[str] = mapped_column(Text, server_default='18:00', nullable=False)
+    eod_briefing_enabled: Mapped[bool] = mapped_column(Boolean, server_default='true', nullable=False)
+    eod_briefing_detail_level: Mapped[str] = mapped_column(Text, server_default='standard', nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
     __table_args__ = (
         CheckConstraint(memory_capture_sensitivity.in_(['off', 'conservative', 'proactive']), name='chk_users_memory_capture_sensitivity'),
+        CheckConstraint(briefing_detail_level.in_(['brief', 'standard', 'detailed']), name='chk_users_briefing_detail_level'),
+        CheckConstraint(eod_briefing_detail_level.in_(['brief', 'standard', 'detailed']), name='chk_users_eod_briefing_detail_level'),
     )
 
     # Relationships

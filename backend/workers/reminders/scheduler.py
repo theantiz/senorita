@@ -9,6 +9,8 @@ except ImportError:
 from db.session import async_session_factory
 from db.models import Reminder, User
 from workers.notifications.dispatch import dispatch_notification
+from workers.briefings.daily_briefing import run_daily_briefings
+from workers.briefings.eod_briefing import run_eod_briefings
 import logging
 from core.state import get_pause_state
 from integrations.token_refresh import refresh_expired_tokens
@@ -62,5 +64,7 @@ async def check_reminders():
 def start_scheduler_in_background():
     scheduler.add_job(check_reminders, 'interval', seconds=60)
     scheduler.add_job(refresh_expired_tokens, 'interval', minutes=30)
+    scheduler.add_job(run_daily_briefings, 'interval', seconds=60, args=[async_session_factory])
+    scheduler.add_job(run_eod_briefings, 'interval', seconds=60, args=[async_session_factory])
     scheduler.start()
     return scheduler  # expose so main.py can register additional jobs
