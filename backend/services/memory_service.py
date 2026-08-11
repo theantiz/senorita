@@ -4,10 +4,42 @@ from uuid import UUID
 from db.models import MemoryEntry
 from schemas.memory_entry import MemoryEntryCreate, MemoryEntryUpdate
 
-async def get_memories(session: AsyncSession, user_id: UUID, category: str | None = None) -> list[MemoryEntry]:
+from datetime import datetime
+from memory.embeddings import embed_text
+
+async def get_memories(
+    session: AsyncSession, 
+    user_id: UUID, 
+    search: str | None = None,
+    category: str | None = None,
+    source_ref: str | None = None,
+    locked: bool | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None
+) -> list[MemoryEntry]:
     stmt = select(MemoryEntry).where(MemoryEntry.user_id == user_id)
+    
     if category:
         stmt = stmt.where(MemoryEntry.category == category)
+    if source_ref:
+        stmt = stmt.where(MemoryEntry.source_ref == source_ref)
+    if locked is not None:
+        stmt = stmt.where(MemoryEntry.locked == locked)
+    if date_from:
+        stmt = stmt.where(MemoryEntry.created_at >= date_from)
+    if date_to:
+        stmt = stmt.where(MemoryEntry.created_at <= date_to)
+        
+    if search:
+        query_embedding = await embed_text(search, "RETRIEVAL_QUERY")
+        if query_embedding:
+            stmt = stmt.order_by(MemoryEntry.embedding.cosine_distance(query_embedding))
+            # Arbitrary threshold to ensure somewhat relevant results (distance < 0.3 means similarity > 0.7)
+            # We'll just order by distance for now to avoid excluding items unexpectedly, 
+            # or maybe limit distance < 0.4. Let's just order by distance and let the UI show top matches.
+    else:
+        stmt = stmt.order_by(MemoryEntry.created_at.desc())
+        
     result = await session.execute(stmt)
     return list(result.scalars().all())
 

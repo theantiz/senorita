@@ -10,9 +10,20 @@ from core.security import get_current_user
 
 router = APIRouter(prefix="/memory", tags=["memory"])
 
+from datetime import datetime
+
 @router.get("", response_model=list[MemoryEntryRead])
-async def list_memories(category: str | None = Query(None), session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return await get_memories(session, current_user.id, category=category)
+async def list_memories(
+    search: str | None = Query(None),
+    category: str | None = Query(None),
+    source_ref: str | None = Query(None),
+    locked: bool | None = Query(None),
+    date_from: datetime | None = Query(None),
+    date_to: datetime | None = Query(None),
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return await get_memories(session, current_user.id, search=search, category=category, source_ref=source_ref, locked=locked, date_from=date_from, date_to=date_to)
 
 @router.post("", response_model=MemoryEntryRead)
 async def create_new_memory(memory_in: MemoryEntryCreate, session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):

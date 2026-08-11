@@ -126,6 +126,31 @@ export async function deleteMemory(token: string, id: string) {
   return apiFetch(`/memory/${id}`, { method: "DELETE" }, token);
 }
 
+export interface MemoryFilters {
+  category?: string;
+  search?: string;
+  source_ref?: string;
+  locked?: boolean;
+  date_from?: string;
+  date_to?: string;
+}
+
+export async function getMemories(token: string, filters?: MemoryFilters) {
+  let query = "";
+  if (filters) {
+    const params = new URLSearchParams();
+    if (filters.category) params.append("category", filters.category);
+    if (filters.search) params.append("search", filters.search);
+    if (filters.source_ref) params.append("source_ref", filters.source_ref);
+    if (filters.locked !== undefined) params.append("locked", String(filters.locked));
+    if (filters.date_from) params.append("date_from", filters.date_from);
+    if (filters.date_to) params.append("date_to", filters.date_to);
+    const q = params.toString();
+    if (q) query = `?${q}`;
+  }
+  return apiFetch(`/api/v1/memory${query}`, {}, token);
+}
+
 export async function patchMemoryLock(token: string, id: string) {
   return apiFetch(`/memory/${id}/lock`, { method: "PATCH" }, token);
 }
