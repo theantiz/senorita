@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Text, DateTime, Boolean
+from sqlalchemy import ForeignKey, Text, DateTime, Boolean, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
@@ -16,8 +16,10 @@ class EmailMessage(Base):
     thread_id: Mapped[str] = mapped_column(Text, nullable=False)
     
     from_address: Mapped[str] = mapped_column(Text, nullable=False)
+    to_address: Mapped[str | None] = mapped_column(Text, nullable=True)
     subject: Mapped[str] = mapped_column(Text, nullable=False)
     snippet: Mapped[str] = mapped_column(Text, nullable=False)
+    direction: Mapped[str] = mapped_column(Text, server_default='inbound', nullable=False)
     
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -26,5 +28,9 @@ class EmailMessage(Base):
     deadline_detected: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(direction.in_(['inbound', 'outbound']), name='chk_email_direction'),
+    )
 
     user = relationship("User")

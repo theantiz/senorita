@@ -7,7 +7,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
 from db.session import async_session_factory
-from db.models import Integration, EmailMessage, User
+from db.models import Integration, EmailMessage, User, Contact
 from core.crypto import encrypt, decrypt
 from agents.gemini_client import get_client
 from core.config import settings
@@ -106,6 +106,7 @@ async def _sync_user_gmail(session: AsyncSession, integration: Integration):
                 from_address=from_address,
                 subject=subject,
                 snippet=snippet,
+                direction='inbound',
                 received_at=received_at,
                 is_read=False,
                 needs_reply=classification["needs_reply"],
@@ -113,10 +114,66 @@ async def _sync_user_gmail(session: AsyncSession, integration: Integration):
             )
             session.add(new_msg)
         
-        integration.last_synced_at = datetime.now(timezone.utc)
         await session.commit()
     except Exception as e:
-        logger.error(f"Error syncing Gmail for user {integration.user_id}: {e}")
+        logger.error(f"Error syncing inbound Gmail for user {integration.user_id}: {e}")
+    
+    # now sync sent folder on the same pass
+    await _sync_user_gmail_sent(session, integration, service)
+    
+    integration.last_synced_at = datetime.now(timezone.utc)
+    await session.commit()
+
+
+async def _sync_user_gmail_sent(session: AsyncSession, integration: Integration, service):
+    """Polls the Sent folder for outbound emails. Skips classification entirely."""
+    try:
+        results = service.users().messages().list(userId='me', q="in:sent", maxResults=20).execute()
+        messages = results.get('messages', [])
+        
+        for msg_ref in messages:
+            msg_id = msg_ref['id']
+            
+            # dedup — same pattern as inbound
+            existing = await session.execute(
+                select(EmailMessage).where(EmailMessage.gmail_message_id == msg_id)
+            )
+            if existing.scalar_one_or_none():
+                continue
+            
+            msg_data = service.users().messages().get(
+                userId='me', id=msg_id, format='metadata',
+                metadataHeaders=['From', 'To', 'Subject']
+            ).execute()
+            
+            headers = msg_data.get("payload", {}).get("headers", [])
+            from_address = next((h["value"] for h in headers if h["name"].lower() == "from"), "Unknown")
+            to_address = next((h["value"] for h in headers if h["name"].lower() == "to"), None)
+            subject = next((h["value"] for h in headers if h["name"].lower() == "subject"), "No Subject")
+            snippet = msg_data.get("snippet", "")
+            internal_date = int(msg_data.get("internalDate", 0)) / 1000.0
+            sent_at = datetime.fromtimestamp(internal_date, tz=timezone.utc)
+            
+            new_msg = EmailMessage(
+                user_id=integration.user_id,
+                gmail_message_id=msg_id,
+                thread_id=msg_data.get("threadId", ""),
+                from_address=from_address,
+                to_address=to_address,
+                subject=subject,
+                snippet=snippet,
+                direction='outbound',
+                received_at=sent_at,
+                is_read=True,
+                needs_reply=None,
+                deadline_detected=None
+            )
+            session.add(new_msg)
+        
+        await session.commit()
+        logger.info(f"Sent-folder sync complete for user {integration.user_id}")
+    except Exception as e:
+        logger.error(f"Error syncing sent Gmail for user {integration.user_id}: {e}")
 
 async def gmail_sync_check():
     """Polls Gmail for new emails across all active integrations."""

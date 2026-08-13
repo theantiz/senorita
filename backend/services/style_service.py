@@ -47,22 +47,11 @@ async def infer_tone_profile(session: AsyncSession, user_id: UUID, contact_id: U
     
     if channel == "email" or channel == "gmail":
         channel_key = "email"
-        # We need the user's email address. Usually in permissions["email"] or similar.
-        # Fallback to just matching nothing if not found, but we'll try to find it.
-        user_email = integration.permissions.get("email_address") or integration.permissions.get("email")
-        if not user_email:
-            logger.warning(f"Could not determine user's email address from integration {integration.id}")
-            return None
-            
-        # We also need the contact's email address, but we don't store it explicitly on Contact yet.
-        # In a real app we'd have a `contact_methods` table. For now, we'll just look for outbound 
-        # emails that have this contact's name in the snippet/thread (mock logic).
-        # To strictly do this, we'll just pull recent outbound emails globally, which isn't perfect
-        # but serves the proof-of-concept for Module 15.
+        # pull outbound emails directly using the direction column
         msgs = (await session.execute(
             select(EmailMessage)
             .where(EmailMessage.user_id == user_id)
-            .where(EmailMessage.from_address.ilike(f"%{user_email}%"))
+            .where(EmailMessage.direction == 'outbound')
             .order_by(EmailMessage.received_at.desc())
             .limit(20)
         )).scalars().all()
