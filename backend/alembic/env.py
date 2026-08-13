@@ -1,19 +1,21 @@
 import asyncio
-from logging.config import fileConfig
-from sqlalchemy import pool
-from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
-from alembic import context
 
 # Load all models so their metadata is visible to Alembic
 import sys
+from logging.config import fileConfig
 from pathlib import Path
+
+from sqlalchemy import pool
+from sqlalchemy.engine import Connection
+from sqlalchemy.ext.asyncio import async_engine_from_config
+
+from alembic import context
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from db.base import Base
-from db.models import *  # noqa: F401,F403 — registers all model classes
-
-from core.config import settings
+from app.core.config import settings
+from app.db.base import Base
+from app.db.models import *  # noqa: F401,F403 — registers all model classes
 
 # Alembic Config object
 config = context.config

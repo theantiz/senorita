@@ -1,0 +1,49 @@
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import get_current_user
+from app.db.models import User
+from app.api.deps import get_db
+from app.schemas.memory_entry import MemoryEntryCreate, MemoryEntryRead
+from app.services.memory_service import create_memory, delete_memory, get_memories, get_memory
+
+router = APIRouter(prefix="/memory", tags=["memory"])
+
+from datetime import datetime
+
+
+@router.get("", response_model=list[MemoryEntryRead])
+async def list_memories(
+    search: str | None = Query(None),
+    category: str | None = Query(None),
+    source_ref: str | None = Query(None),
+    locked: bool | None = Query(None),
+    date_from: datetime | None = Query(None),
+    date_to: datetime | None = Query(None),
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return await get_memories(session, current_user.id, search=search, category=category, source_ref=source_ref, locked=locked, date_from=date_from, date_to=date_to)
+
+@router.post("", response_model=MemoryEntryRead)
+async def create_new_memory(memory_in: MemoryEntryCreate, session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return await create_memory(session, current_user.id, memory_in)
+
+@router.delete("/{memory_id}")
+async def delete_existing_memory(memory_id: UUID, session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    success = await delete_memory(session, current_user.id, memory_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Memory not found")
+    return {"ok": True}
+
+@router.patch("/{memory_id}/lock", response_model=MemoryEntryRead)
+async def toggle_memory_lock(memory_id: UUID, session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    memory = await get_memory(session, current_user.id, memory_id)
+    if not memory:
+        raise HTTPException(status_code=404, detail="Memory not found")
+    memory.locked = not memory.locked
+    await session.commit()
+    await session.refresh(memory)
+    return memory

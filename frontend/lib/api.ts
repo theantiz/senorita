@@ -1,4 +1,4 @@
-const API_BASE = typeof window !== "undefined" ? `http://${window.location.hostname}:8000` : "http://localhost:8000";
+const API_BASE = typeof window !== "undefined" ? `http://${window.location.hostname}:8000/api/v1` : "http://localhost:8000/api/v1";
 
 /** Clear auth state and redirect to login (called on any 401). */
 function handleUnauthorized() {
@@ -148,7 +148,7 @@ export async function getMemories(token: string, filters?: MemoryFilters) {
     const q = params.toString();
     if (q) query = `?${q}`;
   }
-  return apiFetch(`/api/v1/memory${query}`, {}, token);
+  return apiFetch(`/memory${query}`, {}, token);
 }
 
 export async function patchMemoryLock(token: string, id: string) {
@@ -169,13 +169,13 @@ export async function speakText(token: string, text: string): Promise<string | n
 }
 
 export async function getLatestBriefing(token: string) {
-  return apiFetch("/api/v1/briefings/latest?type=daily", {}, token);
+  return apiFetch("/briefings/latest?type=daily", {}, token);
 }
 
 export async function getLatestEodBriefing(token: string) {
-  return apiFetch("/api/v1/briefings/latest?type=end_of_day", {}, token);
+  return apiFetch("/briefings/latest?type=end_of_day", {}, token);
 }
 
 export async function getRecentNotifications(token: string) {
-  return apiFetch("/api/v1/notifications/recent", {}, token);
+  return apiFetch("/notifications/recent", {}, token);
 }

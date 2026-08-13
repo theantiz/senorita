@@ -1,0 +1,27 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "F403",  # star imports (used in models)
+    "F401",  # unused imports (often needed for FastAPI router registration)
+    "B008",  # do not perform function calls in argument defaults (FastAPI Depends)
+    "E711",  # SQLAlchemy comparison to None
+    "E712",  # SQLAlchemy comparison to True/False
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
