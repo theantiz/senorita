@@ -54,6 +54,7 @@ pub fn run() {
                     }
                     _ => {}
                 })
+                .tooltip("Señorita")
                 .build(app)?;
 
             // If started minimized (e.g. from autostart), hide the window

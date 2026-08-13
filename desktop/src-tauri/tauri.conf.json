@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Senorita",
+  "productName": "Señorita",
   "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "identifier": "com.senorita.app",
   "build": {
     "frontendDist": "../frontend/out",
     "devUrl": "http://localhost:3000",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Senorita",
+        "title": "Señorita — Personal AI Chief of Staff",
         "width": 800,
         "height": 600,
         "resizable": true,
@@ -33,8 +33,15 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    },
     "android": {
       "debugApplicationIdSuffix": ".debug"
-    }
+    },
+    "shortDescription": "Personal AI Chief of Staff",
+    "longDescription": "Señorita is a personal AI that knows your context, remembers your life, anticipates what you need, and takes action on your behalf."
   }
 }
