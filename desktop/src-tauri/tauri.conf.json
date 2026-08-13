@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Señorita — Personal AI Chief of Staff",
+        "title": "Señorita",
         "width": 800,
         "height": 600,
         "resizable": true,

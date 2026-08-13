@@ -102,6 +102,10 @@ def search_all_unanswered():
     """Search for unanswered messages across all connected channels (Gmail, Slack)."""
     pass
 
+def get_pc_stats():
+    """Get current PC hardware statistics including CPU, Memory, and Disk usage."""
+    pass
+
 SENORITA_TOOLS = [
     create_task,
     create_reminder,
@@ -118,6 +122,7 @@ SENORITA_TOOLS = [
     draft_slack_reply,
     send_slack_message,
     search_all_unanswered,
+    get_pc_stats,
 ]
 
 
@@ -140,6 +145,7 @@ async def execute_tool(session: AsyncSession, user_id: UUID, function_name: str,
         "draft_slack_reply": _handle_draft_slack_reply,
         "send_slack_message": _handle_send_slack_message,
         "search_all_unanswered": _handle_search_all_unanswered,
+        "get_pc_stats": _handle_get_pc_stats,
     }
     handler = handlers.get(function_name)
     if not handler:
@@ -716,3 +722,11 @@ async def _handle_search_all_unanswered(session: AsyncSession, user_id: UUID) ->
     results.sort(key=lambda x: x["received_at"], reverse=True)
 
     return {"unanswered_messages": results}
+
+async def _handle_get_pc_stats(session: AsyncSession, user_id: UUID) -> dict:
+    import psutil
+    return {
+        "cpu_percent": psutil.cpu_percent(interval=1),
+        "ram_percent": psutil.virtual_memory().percent,
+        "disk_percent": psutil.disk_usage('/').percent
+    }
