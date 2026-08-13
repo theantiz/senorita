@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../components/AuthContext";
-import { getTasks, getCalendarEvents, getActivity, sendVoiceMessage, getLatestBriefing, getLatestEodBriefing } from "@/lib/api";
+import { getTasks, getCalendarEvents, getActivity, sendVoiceMessage, getLatestBriefing, getLatestEodBriefing, getRecentNotifications } from "@/lib/api";
 import dynamic from "next/dynamic";
 
 const VoiceOrb = dynamic(() => import("../components/VoiceOrb").then(mod => mod.VoiceOrb), { ssr: false });
@@ -31,6 +31,7 @@ export default function Dashboard() {
   const [activities, setActivities] = useState<any[]>([]);
   const [briefing, setBriefing] = useState<any>(null);
   const [eodBriefing, setEodBriefing] = useState<any>(null);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   const { isListening: analyserActive, startAnalyser, stopAnalyser, getFrequencies } = useAudioAnalyser();
@@ -56,18 +57,20 @@ export default function Dashboard() {
 
   async function loadData() {
     if (!token) return;
-    const [t, e, a, b, eod] = await Promise.all([
+    const [t, e, a, b, eod, notifs] = await Promise.all([
       getTasks(token).catch(() => []),
       getCalendarEvents(token).catch(() => []),
       getActivity(token).catch(() => []),
       getLatestBriefing(token).catch(() => ({ data: null })),
-      getLatestEodBriefing(token).catch(() => ({ data: null }))
+      getLatestEodBriefing(token).catch(() => ({ data: null })),
+      getRecentNotifications(token).catch(() => [])
     ]);
     setTasks(t);
     setEvents(e);
     setActivities(a);
     setBriefing(b?.data || null);
     setEodBriefing(eod?.data || null);
+    setNotifications(notifs);
     setLoading(false);
   }
 
@@ -79,7 +82,7 @@ export default function Dashboard() {
   const greeting = hour < 12 ? "GOOD MORNING" : hour < 17 ? "GOOD AFTERNOON" : "GOOD EVENING";
   const todayStr = new Date().toISOString().split("T")[0];
   const openTasks = tasks.filter((t) => !t.completed_at);
-  const todaysEvents = events.filter((e) => e.start_time?.startsWith(todayStr));
+  const todaysEvents = events.filter((e) => e.start_at?.startsWith(todayStr));
   const actionsToday = activities.filter((a) => a.created_at?.startsWith(todayStr)).length;
 
   const stats = [
@@ -226,13 +229,43 @@ export default function Dashboard() {
                 <li key={e.id} className="flex gap-3">
                   <div className="shrink-0">
                     <div className="font-mono text-[9px] text-white/60 bg-white/10 border border-white/20 px-2 py-1 text-center">
-                      {new Date(e.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(e.start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
                   <div>
                     <p className="font-mono text-[10px] text-white/80/80">{e.title}</p>
                     {e.location && <p className="font-mono text-[9px] text-white/40 mt-0.5">⌖ {e.location}</p>}
                   </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </HudCard>
+      </div>
+      
+      {/* Notifications */}
+      <div className="grid grid-cols-1">
+        <HudCard title="// LIVE NOTIFICATIONS" code="NTF-001">
+          {loading ? (
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 border border-[rgba(255,255,255,0.2)] border-t-transparent rounded-full animate-spin" />
+              <span className="font-mono text-[10px] text-white/40">FETCHING DATA...</span>
+            </div>
+          ) : notifications.length === 0 ? (
+            <p className="font-mono text-[10px] text-white/30">[ NO RECENT NOTIFICATIONS ]</p>
+          ) : (
+            <ul className="space-y-3 max-h-48 overflow-y-auto">
+              {notifications.map((n) => (
+                <li key={n.id} className="flex flex-col gap-1 border-b border-white/5 pb-2 last:border-0 last:pb-0">
+                  <div className="flex justify-between items-center">
+                    <span className="font-mono text-[9px] text-emerald-400 border border-emerald-500/30 px-1.5 py-px uppercase bg-emerald-500/10">
+                      {n.trigger_type.replace('_', ' ')}
+                    </span>
+                    <span className="font-mono text-[8px] text-white/30">
+                      {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <p className="font-mono text-[10px] text-white/80/90 whitespace-pre-wrap">{n.message}</p>
                 </li>
               ))}
             </ul>

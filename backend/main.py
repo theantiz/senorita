@@ -30,6 +30,7 @@ from api.routes_integrations import router as integrations_router
 from api.routes_slack import router as slack_router
 from api.routes_message_modes import router as message_modes_router
 from api.routes_briefings import router as briefings_router
+from api.routes_notifications import router as notifications_router
 
 import integrations.gmail    # Register the Gmail adapter
 import integrations.slack    # Register the Slack adapter
@@ -94,10 +95,12 @@ async def lifespan(app: FastAPI):
     from workers.reminders.scheduler import start_scheduler_in_background
     from workers.monitoring.proactive_engine import start_proactive_engine
     from integrations.gmail_sync import start_gmail_sync_engine
+    from integrations.google_calendar_sync import start_google_calendar_sync_engine
 
     sch = start_scheduler_in_background()
     start_proactive_engine(sch)
     start_gmail_sync_engine(sch)
+    start_google_calendar_sync_engine(sch)
 
 
 
@@ -138,6 +141,7 @@ app.include_router(integrations_router, prefix="/api/v1")
 app.include_router(slack_router, prefix="/api/v1")
 app.include_router(message_modes_router, prefix="/api/v1")
 app.include_router(briefings_router, prefix="/api/v1")
+app.include_router(notifications_router)
 
 
 
@@ -151,4 +155,3 @@ if __name__ == "__main__":
         port=settings.PORT,
         reload=True,
     )
-

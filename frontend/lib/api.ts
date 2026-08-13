@@ -175,3 +175,7 @@ export async function getLatestBriefing(token: string) {
 export async function getLatestEodBriefing(token: string) {
   return apiFetch("/api/v1/briefings/latest?type=end_of_day", {}, token);
 }
+
+export async function getRecentNotifications(token: string) {
+  return apiFetch("/api/v1/notifications/recent", {}, token);
+}

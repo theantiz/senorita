@@ -5,6 +5,7 @@ import "./globals.css";
 import { AuthProvider } from "./components/AuthContext";
 import { AppWrapper } from "./components/AppWrapper";
 import { SidebarLogout } from "./components/SidebarLogout";
+import { ConnectionStatus } from "./components/ConnectionStatus";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const plusJakartaSans = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-plus-jakarta-sans", display: "swap" });
@@ -93,18 +94,15 @@ const navItems = [
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`dark ${inter.variable} ${plusJakartaSans.variable} ${geistMono.variable}`}>
-      <body className="h-screen bg-[#070b14] text-white flex overflow-hidden">
+    <html lang="en" className={`dark ${inter.variable} ${plusJakartaSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
+      <body className="h-screen bg-[#070b14] text-white flex overflow-hidden" suppressHydrationWarning>
         <AuthProvider>
           <AppWrapper>
             {/* ── SIDEBAR ── */}
             <aside className="w-56 shrink-0 flex flex-col border-r border-[rgba(255,255,255,0.09)] bg-[#070b14] relative hidden md:flex">
               {/* Brand */}
               <div className="px-6 pt-8 pb-8">
-                <div className="mb-2">
-                  <span className="inline-block w-2 h-2 bg-white rounded-full mr-2" />
-                  <span className="font-mono text-[10px] text-white/50 tracking-widest uppercase">SYS_ONLINE</span>
-                </div>
+                <ConnectionStatus />
                 <h1 className="font-display text-lg font-semibold tracking-wide text-white">
                   SEÑORITA
                 </h1>

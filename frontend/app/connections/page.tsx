@@ -52,12 +52,11 @@ const PROVIDERS: {
   {
     key: 'google_calendar',
     label: 'Google Calendar',
-    description: 'Sync events, detect conflicts, and schedule on your behalf.',
+    description: 'One-way sync from Google Calendar for schedule awareness and conflict checks.',
     icon: <SiGooglecalendar className="w-5 h-5" />,
     color: '#4285F4',
     capabilities: [
       { key: 'read', label: 'Read events', description: 'Sync your calendar into Señorita' },
-      { key: 'write', label: 'Create events', description: 'Let Señorita add meetings for you' },
     ],
   },
   {

@@ -542,11 +542,17 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     await new Promise(r => setTimeout(r, 700));
     if (statusRef.current !== VoiceAssistantStatus.IDLE_LISTENING) return;
 
+    let textToSpeak = text;
+    // Check if running in Tauri desktop app (has __TAURI_INTERNALS__ or similar)
+    if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
+      textToSpeak = "Good morning. I'm ready when you need me.";
+    }
+
     setStatus(VoiceAssistantStatus.GREETING);
-    setVoiceResponse(text);
+    setVoiceResponse(textToSpeak);
     isSpeakingRef.current = true;
 
-    await speakWithBackend(text);
+    await speakWithBackend(textToSpeak);
 
     isSpeakingRef.current = false;
     setVoiceResponse(null);

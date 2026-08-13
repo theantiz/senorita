@@ -7,7 +7,9 @@ class CalendarEventBase(BaseModel):
     start_at: datetime
     end_at: datetime
     attendees: list = []
+    source: str = 'manual'
     source_calendar: str = 'local'
+    google_event_id: str | None = None
     conflict_flags: list = []
     surfaced: bool = False
 
@@ -19,7 +21,9 @@ class CalendarEventUpdate(BaseModel):
     start_at: datetime | None = None
     end_at: datetime | None = None
     attendees: list | None = None
+    source: str | None = None
     source_calendar: str | None = None
+    google_event_id: str | None = None
     conflict_flags: list | None = None
     surfaced: bool | None = None
 

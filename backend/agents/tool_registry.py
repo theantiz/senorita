@@ -1,12 +1,16 @@
 from typing import Any, Optional
 from uuid import UUID
 from core.config import settings
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 from google.genai.types import FunctionDeclaration, Type, Tool
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo
 
-from db.models import Task, Reminder, CalendarEvent, MemoryEntry, Contact
+from db.models import Task, Reminder, CalendarEvent, MemoryEntry, Contact, User
 from memory.embeddings import embed_text
 from memory.retrieval import search_similar_memory
 from agents.gemini_client import start_chat, get_client
@@ -33,6 +37,10 @@ def create_reminder(type: str, trigger_payload: dict):
 
 def create_calendar_event(title: str, start_at: str, end_at: str, attendees: Optional[list[str]] = None):
     """Add an event to the calendar. start_at and end_at must be ISO 8601 strings."""
+    pass
+
+def read_calendar_events(date: Optional[str] = None, limit: Optional[int] = None):
+    """Read the user's calendar events. If date is provided, use YYYY-MM-DD and return that day's events; otherwise returns today's events. Includes manually-created and synced Google Calendar events."""
     pass
 
 def search_memory(query: str, category: Optional[str] = None):
@@ -83,6 +91,7 @@ SENORITA_TOOLS = [
     create_task,
     create_reminder,
     create_calendar_event,
+    read_calendar_events,
     search_memory,
     store_memory,
     find_contact,
@@ -104,6 +113,7 @@ async def execute_tool(session: AsyncSession, user_id: UUID, function_name: str,
         "create_task": _handle_create_task,
         "create_reminder": _handle_create_reminder,
         "create_calendar_event": _handle_create_calendar_event,
+        "read_calendar_events": _handle_read_calendar_events,
         "search_memory": _handle_search_memory,
         "store_memory": _handle_store_memory,
         "find_contact": _handle_find_contact,
@@ -181,7 +191,16 @@ async def _handle_create_calendar_event(session: AsyncSession, user_id: UUID, ti
     
     conflict_flags = []
     if conflicts:
-        conflict_flags = [{"id": str(c.id), "title": c.title, "start_at": c.start_at.isoformat(), "end_at": c.end_at.isoformat()} for c in conflicts]
+        conflict_flags = [
+            {
+                "id": str(c.id),
+                "title": c.title,
+                "source": c.source,
+                "start_at": c.start_at.isoformat(),
+                "end_at": c.end_at.isoformat(),
+            }
+            for c in conflicts
+        ]
     
     event = CalendarEvent(
         user_id=user_id,
@@ -189,6 +208,8 @@ async def _handle_create_calendar_event(session: AsyncSession, user_id: UUID, ti
         start_at=start_dt,
         end_at=end_dt,
         attendees=attendees or [],
+        source="manual",
+        source_calendar="local",
         conflict_flags=conflict_flags
     )
     session.add(event)
@@ -198,6 +219,52 @@ async def _handle_create_calendar_event(session: AsyncSession, user_id: UUID, ti
     if conflict_flags:
         resp["conflict_info"] = conflict_flags
     return resp
+
+async def _handle_read_calendar_events(session: AsyncSession, user_id: UUID, date: str = None, limit: int = None) -> dict:
+    user = (await session.execute(select(User).where(User.id == user_id))).scalars().first()
+    try:
+        user_tz = ZoneInfo(user.timezone if user else "UTC")
+    except Exception:
+        user_tz = ZoneInfo("UTC")
+
+    if date:
+        day = datetime.fromisoformat(date.replace("Z", "+00:00")).date()
+    else:
+        day = datetime.now(user_tz).date()
+
+    start_dt = datetime.combine(day, time.min, tzinfo=user_tz)
+    end_dt = start_dt + timedelta(days=1)
+
+    stmt = (
+        select(CalendarEvent)
+        .where(
+            CalendarEvent.user_id == user_id,
+            CalendarEvent.start_at < end_dt,
+            CalendarEvent.end_at > start_dt,
+        )
+        .order_by(CalendarEvent.start_at)
+    )
+    if limit:
+        stmt = stmt.limit(limit)
+
+    result = await session.execute(stmt)
+    events = result.scalars().all()
+
+    return {
+        "date": day.isoformat(),
+        "events": [
+            {
+                "id": str(event.id),
+                "title": event.title,
+                "source": event.source,
+                "start_at": event.start_at.isoformat(),
+                "end_at": event.end_at.isoformat(),
+                "attendees": event.attendees,
+                "conflict_flags": event.conflict_flags,
+            }
+            for event in events
+        ],
+    }
 
 async def _handle_search_memory(session: AsyncSession, user_id: UUID, query: str, category: str = None) -> dict:
     query_embedding = await embed_text(query, task_type="RETRIEVAL_QUERY")

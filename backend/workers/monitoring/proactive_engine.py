@@ -25,6 +25,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from db.session import async_session_factory
 from db.models import User, MemoryEntry, Task, CalendarEvent, ActionLog, NotificationLog
 from workers.notifications.dispatch import dispatch_notification
+from agents.tool_registry import _handle_search_all_unanswered
 from agents.gemini_client import get_client
 from core.config import settings
 from core.state import get_pause_state
@@ -59,12 +60,14 @@ async def _daily_count(session, user_id) -> int:
     return result.scalar() or 0
 
 
-async def _log_and_dispatch(session, user_id, trigger_type: str, message: str):
+async def _log_and_dispatch(session, user_id, trigger_type: str, message: str, importance_score: float = 0.0):
     """Insert a NotificationLog row and dispatch to the desktop tray."""
     log_entry = NotificationLog(
         user_id=user_id,
         trigger_type=trigger_type,
         message=message,
+        importance_score=importance_score,
+        dispatched=True,
     )
     session.add(log_entry)
     await dispatch_notification(title="Señorita", message=message, payload={"trigger_type": trigger_type})
@@ -125,6 +128,7 @@ def _compose_notification(trigger_type: str, context_text: str, extra: str = "")
             "memory_date": f"Upcoming date: {context_text}",
             "stalled_task": f"Task due soon with no recent activity: {context_text}",
             "calendar_conflict": f"Calendar conflict detected: {context_text}",
+            "unanswered_message": f"Unanswered message pending for over 4 hours: {context_text}",
         }
         return templates.get(trigger_type, context_text)
 
@@ -282,6 +286,62 @@ async def _check_calendar_conflicts(session, user: User) -> list[tuple]:
 
 
 # ─────────────────────────────────────────────────────────
+# Check D — Unanswered messages (> 4 hours)
+# ─────────────────────────────────────────────────────────
+
+async def _check_unanswered_messages(session, user: User) -> list[tuple]:
+    candidates = []
+    
+    # Get unanswered messages using the tool registry helper
+    messages_result = await _handle_search_all_unanswered(session, user.id)
+    unanswered_list = messages_result.get("unanswered_messages", [])
+    
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(hours=4)
+    
+    for msg in unanswered_list:
+        try:
+            received_at = datetime.fromisoformat(msg["received_at"])
+        except ValueError:
+            continue
+            
+        if received_at < cutoff:
+            # We don't have a specific `surfaced` flag on EmailMessage / SlackMessage for this.
+            # However, the prompt says "that have been sitting unanswered longer than a configurable threshold".
+            # To avoid spamming the same notification repeatedly, we rely on the daily cap,
+            # or ideally we'd check if we already notified about this exact message.
+            # Let's check NotificationLog to see if we've already surfaced this message today.
+            
+            # Simple deduplication: Check if there's a notification log for this message snippet in the last 12 hours.
+            recent = await session.execute(
+                select(func.count(NotificationLog.id)).where(
+                    and_(
+                        NotificationLog.user_id == user.id,
+                        NotificationLog.trigger_type == "unanswered_message",
+                        NotificationLog.created_at >= now - timedelta(hours=12),
+                        NotificationLog.message.like(f"%{msg['from']}%") # simple heuristic
+                    )
+                )
+            )
+            if (recent.scalar() or 0) > 0:
+                continue
+
+            hours_waiting = round((now - received_at).total_seconds() / 3600, 1)
+            message_text = _compose_notification(
+                trigger_type="unanswered_message",
+                context_text=(
+                    f"Message from {msg['from']} via {msg['channel']} "
+                    f"has been unanswered for {hours_waiting} hours.\n"
+                    f"Snippet: {msg['snippet']}"
+                )
+            )
+            
+            candidates.append((0.6, "unanswered_message", message_text, None))
+
+    return candidates
+
+
+# ─────────────────────────────────────────────────────────
 # Per-user dispatch with cap enforcement
 # ─────────────────────────────────────────────────────────
 
@@ -297,6 +357,7 @@ async def _process_user(session, user: User):
     all_candidates.extend(await _check_memory_dates(session, user))
     all_candidates.extend(await _check_stalled_tasks(session, user))
     all_candidates.extend(await _check_calendar_conflicts(session, user))
+    all_candidates.extend(await _check_unanswered_messages(session, user))
 
     if not all_candidates:
         logger.info(f"User {user.id}: no proactive candidates this cycle.")
@@ -312,7 +373,7 @@ async def _process_user(session, user: User):
             skipped += 1
             continue  # held for tomorrow — NOT marked processed
 
-        await _log_and_dispatch(session, user.id, trigger_type, message)
+        await _log_and_dispatch(session, user.id, trigger_type, message, importance_score=importance)
         if post_fn:
             await post_fn()
         dispatched += 1

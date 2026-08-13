@@ -12,6 +12,7 @@ from schemas.integration import IntegrationRead, IntegrationUpdatePermissions
 from core.security import get_current_user
 from core.crypto import encrypt, decrypt
 from integrations.base import get_adapter
+from integrations.gmail import has_calendar_scopes
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,45 @@ SUPPORTED_PROVIDERS = [
     "linkedin"
 ]
 
+GOOGLE_PROVIDER = "gmail"
+GOOGLE_CALENDAR_PROVIDER = "google_calendar"
+
+
+def _google_calendar_projection(
+    gmail_integration: Integration | None,
+    user_id: UUID,
+) -> Integration:
+    if not gmail_integration or not has_calendar_scopes(gmail_integration.scopes):
+        return Integration(
+            user_id=user_id,
+            provider=GOOGLE_CALENDAR_PROVIDER,
+            status="disconnected",
+            scopes=[],
+            permissions={},
+            access_token_encrypted=None,
+            refresh_token_encrypted=None,
+            token_expires_at=None,
+            last_synced_at=None,
+        )
+
+    permissions = gmail_integration.permissions or {}
+    return Integration(
+        id=gmail_integration.id,
+        user_id=user_id,
+        provider=GOOGLE_CALENDAR_PROVIDER,
+        status=gmail_integration.status,
+        scopes=gmail_integration.scopes,
+        permissions={
+            "read": permissions.get("calendar_read", True),
+            "write": False,
+        },
+        access_token_encrypted=None,
+        refresh_token_encrypted=None,
+        token_expires_at=gmail_integration.token_expires_at,
+        last_synced_at=gmail_integration.last_synced_at,
+        created_at=gmail_integration.created_at,
+    )
+
 @router.get("", response_model=list[IntegrationRead])
 async def list_integrations(
     session: AsyncSession = Depends(get_db),
@@ -45,6 +85,15 @@ async def list_integrations(
 
     integrations_list = []
     for provider in SUPPORTED_PROVIDERS:
+        if provider == GOOGLE_CALENDAR_PROVIDER:
+            integrations_list.append(
+                _google_calendar_projection(
+                    existing_integrations.get(GOOGLE_PROVIDER),
+                    current_user.id,
+                )
+            )
+            continue
+
         if provider in existing_integrations:
             integrations_list.append(existing_integrations[provider])
         else:
@@ -77,7 +126,8 @@ async def get_connect_url(
         raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
 
     try:
-        adapter = get_adapter(provider)
+        adapter_provider = GOOGLE_PROVIDER if provider == GOOGLE_CALENDAR_PROVIDER else provider
+        adapter = get_adapter(adapter_provider)
         oauth_url = adapter.get_oauth_url(state)
         return {"url": oauth_url}
     except ValueError as e:
@@ -154,10 +204,13 @@ async def oauth_callback(
                 "bot_user_id": token_data.get("bot_user_id", ""),
             }
         else:
+            calendar_enabled = provider == "gmail" and has_calendar_scopes(token_data.get("scopes", []))
             default_permissions = {
                 "read": True,
                 "draft": True,
                 "send_automatically": False,
+                "calendar_read": calendar_enabled,
+                "calendar_write": False,
             }
 
         if integration:
@@ -208,6 +261,24 @@ async def update_permissions(
     if provider not in SUPPORTED_PROVIDERS:
         raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
 
+    if provider == GOOGLE_CALENDAR_PROVIDER:
+        stmt = select(Integration).where(
+            Integration.user_id == current_user.id,
+            Integration.provider == GOOGLE_PROVIDER
+        )
+        result = await session.execute(stmt)
+        integration = result.scalars().first()
+        if not integration or not has_calendar_scopes(integration.scopes):
+            raise HTTPException(status_code=404, detail="Google Calendar is not connected")
+
+        permissions = dict(integration.permissions or {})
+        permissions["calendar_read"] = bool(permissions_in.permissions.get("read", False))
+        permissions["calendar_write"] = False
+        integration.permissions = permissions
+        await session.commit()
+        await session.refresh(integration)
+        return _google_calendar_projection(integration, current_user.id)
+
     stmt = select(Integration).where(
         Integration.user_id == current_user.id,
         Integration.provider == provider
@@ -236,6 +307,25 @@ async def disconnect_integration(
     """
     if provider not in SUPPORTED_PROVIDERS:
         raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
+
+    if provider == GOOGLE_CALENDAR_PROVIDER:
+        stmt = select(Integration).where(
+            Integration.user_id == current_user.id,
+            Integration.provider == GOOGLE_PROVIDER
+        )
+        result = await session.execute(stmt)
+        integration = result.scalars().first()
+        if not integration:
+            raise HTTPException(status_code=404, detail="Google account integration not found")
+
+        permissions = dict(integration.permissions or {})
+        permissions["calendar_read"] = False
+        permissions["calendar_write"] = False
+        permissions.pop("google_calendar_sync_token", None)
+        permissions.pop("google_calendar_initial_sync_at", None)
+        integration.permissions = permissions
+        await session.commit()
+        return {"ok": True, "message": "Google Calendar sync disabled; Gmail remains connected."}
 
     stmt = select(Integration).where(
         Integration.user_id == current_user.id,

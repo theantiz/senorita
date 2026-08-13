@@ -11,8 +11,18 @@ from core.config import settings
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.compose",
-    "https://www.googleapis.com/auth/gmail.send"
+    "https://www.googleapis.com/auth/gmail.send",
+    "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/calendar.events",
 ]
+
+CALENDAR_SCOPES = {
+    "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/calendar.events",
+}
+
+def has_calendar_scopes(scopes: list[str] | None) -> bool:
+    return CALENDAR_SCOPES.issubset(set(scopes or []))
 
 class GmailIntegrationAdapter(IntegrationAdapter):
     def __init__(self):
@@ -135,5 +145,4 @@ class GmailIntegrationAdapter(IntegrationAdapter):
         return datetime.now(timezone.utc) + timedelta(minutes=1) < integration.token_expires_at
 
 register_adapter("gmail", GmailIntegrationAdapter())
-
 
