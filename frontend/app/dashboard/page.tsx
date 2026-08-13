@@ -79,7 +79,7 @@ export default function Dashboard() {
   }, [token]);
 
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? "GOOD MORNING" : hour < 17 ? "GOOD AFTERNOON" : "GOOD EVENING";
+  const greeting = hour >= 5 && hour < 12 ? "GOOD MORNING" : hour >= 12 && hour < 17 ? "GOOD AFTERNOON" : hour >= 17 && hour < 22 ? "GOOD EVENING" : "LATE NIGHT";
   const todayStr = new Date().toISOString().split("T")[0];
   const openTasks = tasks.filter((t) => !t.completed_at);
   const todaysEvents = events.filter((e) => e.start_at?.startsWith(todayStr));

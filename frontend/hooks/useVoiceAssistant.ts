@@ -506,7 +506,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
   // ── Time-aware page-load greeting ─────────────────────────────────────────
   const playWelcome = useCallback(async () => {
     const h = new Date().getHours();
-    const period = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+    const period = (h >= 5 && h < 12) ? 'morning' : (h >= 12 && h < 17) ? 'afternoon' : (h >= 17 && h < 22) ? 'evening' : 'late_night';
 
     const lines: Record<string, string[]> = {
       morning: [
@@ -532,6 +532,14 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
         "Evening. I am here. Let us wrap things up properly.",
         "Good evening. The world slows down — but we do not have to. What is on your mind?",
         "Evening. Sit back. I have got things from here.",
+      ],
+      late_night: [
+        "Late night? The best ideas come when the rest of the world is asleep.",
+        "Still awake? Let's make this productive.",
+        "Burning the midnight oil. I'm right here with you.",
+        "Late night. Let's finish up and get some rest.",
+        "The night is quiet. Focus time. What do you need?",
+        "I never sleep. Neither do you, apparently. What's up?",
       ],
     };
 
