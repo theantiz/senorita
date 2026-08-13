@@ -36,7 +36,7 @@ if (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) {
 }
 
 Write-Host "Registering service $ServiceName with nssm..."
-nssm install $ServiceName "$PythonExe" "main.py"
+nssm install $ServiceName "$PythonExe" "-m uvicorn app.main:app --port 8000"
 nssm set $ServiceName AppDirectory "$BackendDir"
 
 # Restart on failure (KeepAlive)

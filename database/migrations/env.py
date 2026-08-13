@@ -9,9 +9,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
 from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
-from core.config import settings
-from db.base import Base
-from db.models import *  # noqa: F401, F403
+from app.core.config import settings
+from app.db.base import Base
+from app.db.models import *  # noqa: F401, F403
 
 config = context.config
 if config.config_file_name is not None:
