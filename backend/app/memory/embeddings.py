@@ -14,7 +14,7 @@ async def embed_text(text: str, task_type: str) -> list[float]:
     task_type should be "RETRIEVAL_DOCUMENT" or "RETRIEVAL_QUERY".
     """
     client = get_client()
-    result = client.models.embed_content(
+    result = await client.aio.models.embed_content(
         model="gemini-embedding-001",
         contents=text,
         config=genai.types.EmbedContentConfig(task_type=task_type)

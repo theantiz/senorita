@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "../components/AuthContext";
 import { getTasks, getCalendarEvents, getActivity, sendVoiceMessage, getLatestBriefing, getLatestEodBriefing, getRecentNotifications } from "@/lib/api";
 import dynamic from "next/dynamic";
@@ -78,11 +78,33 @@ export default function Dashboard() {
     loadData();
   }, [token]);
 
-  const [greeting, setGreeting] = useState("LOADING...");
-  useEffect(() => {
+  const getGreeting = useCallback(() => {
     const hour = new Date().getHours();
-    setGreeting(hour >= 5 && hour < 12 ? "GOOD MORNING" : hour >= 12 && hour < 17 ? "GOOD AFTERNOON" : hour >= 17 && hour < 22 ? "GOOD EVENING" : "LATE NIGHT");
+    if (hour >= 5 && hour < 12) return "GOOD MORNING";
+    if (hour >= 12 && hour < 17) return "GOOD AFTERNOON";
+    if (hour >= 17 && hour < 22) return "GOOD EVENING";
+    return "LATE NIGHT";
   }, []);
+
+  const [greeting, setGreeting] = useState(getGreeting);
+
+  // Update greeting when user switches back to this tab or when time changes
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        setGreeting(getGreeting());
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    // Also refresh every minute in case the user stares at the dashboard across a time boundary
+    const interval = setInterval(() => setGreeting(getGreeting()), 60_000);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      clearInterval(interval);
+    };
+  }, [getGreeting]);
   const todayStr = new Date().toISOString().split("T")[0];
   const openTasks = tasks.filter((t) => !t.completed_at);
   const todaysEvents = events.filter((e) => e.start_at?.startsWith(todayStr));

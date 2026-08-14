@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../components/AuthContext";
+import { API_BASE } from "@/lib/api";
 
 type MessageMode = {
   id: string;
@@ -21,7 +22,7 @@ export default function SettingsPage() {
     
     async function fetchModes() {
       try {
-        const res = await fetch("http://localhost:8000/api/v1/message-modes?scope=global", {
+        const res = await fetch(`${API_BASE}/message-modes?scope=global`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) {
@@ -47,7 +48,7 @@ export default function SettingsPage() {
     try {
       if (globalMode) {
         // Update
-        const res = await fetch(`http://localhost:8000/api/v1/message-modes/${globalMode.id}`, {
+        const res = await fetch(`${API_BASE}/message-modes/${globalMode.id}`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
@@ -60,7 +61,7 @@ export default function SettingsPage() {
         }
       } else {
         // Create
-        const res = await fetch(`http://localhost:8000/api/v1/message-modes`, {
+        const res = await fetch(`${API_BASE}/message-modes`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

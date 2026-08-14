@@ -147,7 +147,8 @@ async def _sync_user_google_calendar(session: AsyncSession, integration: Integra
             params["pageToken"] = page_token
 
         try:
-            response = service.events().list(**params).execute()
+            import asyncio
+            response = await asyncio.to_thread(lambda: service.events().list(**params).execute())
         except HttpError as exc:
             if getattr(exc.resp, "status", None) == 410:
                 logger.info(f"Google Calendar sync token expired for user {integration.user_id}; resetting cursor.")

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../components/AuthContext";
-import { sendChatMessage } from "@/lib/api";
+import { sendChatMessage, getChatHistory } from "@/lib/api";
 import dynamic from "next/dynamic";
 
 const VoiceOrb = dynamic(() => import("../components/VoiceOrb").then(mod => mod.VoiceOrb), { ssr: false });
@@ -14,8 +14,29 @@ export default function Chat() {
   const [messages, setMessages] = useState<{ role: string; text: string; ts?: string }[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const endRef = useRef<HTMLDivElement>(null);
   const { getFrequencies, startAnalyser, stopAnalyser } = useAudioAnalyser();
+
+  useEffect(() => {
+    async function loadHistory() {
+      if (!token) return;
+      try {
+        const history = await getChatHistory(token);
+        const formatted = history.map((h: any) => ({
+          role: h.role,
+          text: h.text,
+          ts: new Date(h.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }));
+        setMessages(formatted);
+      } catch (e) {
+        console.error("Failed to load history", e);
+      } finally {
+        setInitialLoading(false);
+      }
+    }
+    loadHistory();
+  }, [token]);
 
   const { status, activeStream, manualTrigger, isWakeWordEnabled, setIsWakeWordEnabled } = useVoiceAssistant({
     token,
@@ -128,7 +149,12 @@ export default function Chat() {
         <div className="absolute top-2 left-3 font-mono text-[8px] text-white/20 tracking-widest">COMMS LOG</div>
         <div className="absolute top-2 right-3 font-mono text-[8px] text-white/20 tracking-widest">ENCRYPTED</div>
 
-        {messages.length === 0 && (
+        {initialLoading ? (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <div className="w-8 h-8 border-2 border-white/20 border-t-white/80 rounded-full animate-spin mb-4" />
+            <p className="font-mono text-[10px] text-white/40 tracking-widest">DECRYPTING LOGS...</p>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-16 h-16 rounded-full border border-white/20 flex items-center justify-center mb-4 animate-pulse">
               <div className="w-10 h-10 rounded-full border border-white/40 flex items-center justify-center">
@@ -141,7 +167,7 @@ export default function Chat() {
             <p className="font-mono text-[10px] text-white/25 tracking-wider mt-1">AWAITING INPUT...</p>
             <p className="font-mono text-[9px] text-white/20 mt-3">Try: "Add a task: review report by Friday"</p>
           </div>
-        )}
+        ) : null}
 
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>

@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuth } from "./AuthContext";
-import { loginUser, setupAuth } from "@/lib/api";
+import { loginUser, setupAuth, setApiBaseUrl } from "@/lib/api";
 import { SectionReveal } from "./SectionReveal";
+import { invoke } from "@tauri-apps/api/core";
 
 export function AppWrapper({ children }: { children: React.ReactNode }) {
   const { token, setToken, setAuth } = useAuth();
@@ -19,8 +20,26 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
   // Until the component is mounted on the client we show a neutral blank so
   // both sides agree on the initial HTML and React doesn't complain.
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
-  if (!mounted) return null;
+  const [portLoaded, setPortLoaded] = useState(false);
+
+  useEffect(() => { 
+    setMounted(true); 
+    if (typeof window !== "undefined" && (window as any).__TAURI__) {
+      invoke<number>("get_backend_port")
+        .then((port) => {
+          setApiBaseUrl(`http://127.0.0.1:${port}/api/v1`);
+          setPortLoaded(true);
+        })
+        .catch((err) => {
+          console.error("Failed to fetch backend port", err);
+          setPortLoaded(true); // Fallback to default
+        });
+    } else {
+      setPortLoaded(true); // Fallback for standard web (dev mode)
+    }
+  }, []);
+
+  if (!mounted || !portLoaded) return null;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

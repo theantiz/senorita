@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../components/AuthContext';
+import { API_BASE } from '@/lib/api';
 
 import { 
   SiGmail,
@@ -314,9 +315,6 @@ export default function ConnectionsPage() {
   const [error, setError]               = useState<string | null>(null);
   const [toastMsg, setToastMsg]         = useState<string | null>(null);
 
-
-  const API = typeof window !== 'undefined' ? `http://${window.location.hostname}:8000/api/v1` : 'http://localhost:8000/api/v1';
-
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 3000);
@@ -330,7 +328,7 @@ export default function ConnectionsPage() {
   const fetchIntegrations = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await fetch(`${API}/integrations`, { headers: headers() });
+      const res = await fetch(`${API_BASE}/integrations`, { headers: headers() });
       if (!res.ok) throw new Error(await res.text());
       setIntegrations(await res.json());
       setError(null);
@@ -348,10 +346,9 @@ export default function ConnectionsPage() {
       showToast('WhatsApp is not available — no compliant personal-account API currently exists.');
       return;
     }
-    
     try {
       const res = await fetch(
-        `${API}/integrations/${provider}/connect?state=${provider}:${userId ?? 'unknown'}:${Date.now()}`,
+        `${API_BASE}/integrations/${provider}/connect?state=${provider}:${userId ?? 'unknown'}:${Date.now()}`,
         { headers: headers() },
       );
       if (!res.ok) throw new Error(await res.text());
@@ -366,7 +363,7 @@ export default function ConnectionsPage() {
 
   const handleDisconnect = async (provider: string) => {
     try {
-      const res = await fetch(`${API}/integrations/${provider}`, {
+      const res = await fetch(`${API_BASE}/integrations/${provider}`, {
         method: 'DELETE',
         headers: headers(),
       });
@@ -390,7 +387,7 @@ export default function ConnectionsPage() {
     );
 
     try {
-      const res = await fetch(`${API}/integrations/${provider}/permissions`, {
+      const res = await fetch(`${API_BASE}/integrations/${provider}/permissions`, {
         method: 'PATCH',
         headers: headers(),
         body: JSON.stringify({ permissions: updated }),

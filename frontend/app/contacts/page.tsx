@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../components/AuthContext";
+import { API_BASE } from "@/lib/api";
 
 type Contact = {
   id: string;
@@ -29,10 +30,10 @@ export default function ContactsPage() {
     async function fetchData() {
       try {
         const [contactsRes, modesRes] = await Promise.all([
-          fetch("http://localhost:8000/api/v1/contacts", {
+          fetch(`${API_BASE}/contacts`, {
             headers: { Authorization: `Bearer ${token}` }
           }),
-          fetch("http://localhost:8000/api/v1/message-modes?scope=contact", {
+          fetch(`${API_BASE}/message-modes?scope=contact`, {
             headers: { Authorization: `Bearer ${token}` }
           })
         ]);
@@ -56,7 +57,7 @@ export default function ContactsPage() {
     
     try {
       if (existingMode) {
-        const res = await fetch(`http://localhost:8000/api/v1/message-modes/${existingMode.id}`, {
+        const res = await fetch(`${API_BASE}/message-modes/${existingMode.id}`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
@@ -69,7 +70,7 @@ export default function ContactsPage() {
           setModes(prev => prev.map(m => m.id === updated.id ? updated : m));
         }
       } else {
-        const res = await fetch(`http://localhost:8000/api/v1/message-modes`, {
+        const res = await fetch(`${API_BASE}/message-modes`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

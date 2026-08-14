@@ -1,4 +1,10 @@
+import difflib
+import logging
+import os
+import platform
+import subprocess
 from datetime import datetime, time, timedelta
+from pathlib import Path
 from typing import Any, Optional
 from uuid import UUID
 
@@ -106,6 +112,14 @@ def get_pc_stats():
     """Get current PC hardware statistics including CPU, Memory, and Disk usage."""
     pass
 
+def open_application(app_name: str):
+    """Open or launch an application on the user's computer. Pass a simple app name like 'vs code', 'chrome', 'spotify', 'notepad', 'terminal', 'file explorer', 'calculator', 'discord', 'slack', 'firefox'."""
+    pass
+
+def analyze_repository(path: str):
+    """Analyze a code repository at the given file system path and provide a structured overview of its tech stack, architecture, file structure, dependencies, and suggested starting points for understanding the code. The path must be an absolute path to a directory on the user's machine."""
+    pass
+
 SENORITA_TOOLS = [
     create_task,
     create_reminder,
@@ -123,6 +137,8 @@ SENORITA_TOOLS = [
     send_slack_message,
     search_all_unanswered,
     get_pc_stats,
+    open_application,
+    analyze_repository,
 ]
 
 
@@ -146,6 +162,8 @@ async def execute_tool(session: AsyncSession, user_id: UUID, function_name: str,
         "send_slack_message": _handle_send_slack_message,
         "search_all_unanswered": _handle_search_all_unanswered,
         "get_pc_stats": _handle_get_pc_stats,
+        "open_application": _handle_open_application,
+        "analyze_repository": _handle_analyze_repository,
     }
     handler = handlers.get(function_name)
     if not handler:
@@ -390,8 +408,9 @@ async def _handle_summarize_email(session: AsyncSession, user_id: UUID, email_id
         return {"error": "Gmail not connected."}
 
     try:
+        import asyncio
         service = _get_gmail_service(integration)
-        msg_data = service.users().messages().get(userId='me', id=email.gmail_message_id, format='full').execute()
+        msg_data = await asyncio.to_thread(lambda: service.users().messages().get(userId='me', id=email.gmail_message_id, format='full').execute())
 
         # Decode body
         body = ""
@@ -404,7 +423,7 @@ async def _handle_summarize_email(session: AsyncSession, user_id: UUID, email_id
              body = base64.urlsafe_b64decode(msg_data['payload']['body']['data']).decode('utf-8')
 
         client = get_client()
-        resp = client.models.generate_content(
+        resp = await client.aio.models.generate_content(
             model=settings.GEMINI_MODEL,
             contents=[f"Summarize this email in a few concise sentences:\n\n{body}"]
         )
@@ -458,7 +477,7 @@ async def _handle_draft_email_reply(session: AsyncSession, user_id: UUID, email_
                 pats = [p.get("template") for p in tp["reusable_patterns"]]
                 tone_instructions += f"- Reusable phrasing patterns they use: {', '.join(pats)}\n"
 
-        resp = client.models.generate_content(
+        resp = await client.aio.models.generate_content(
             model=settings.GEMINI_MODEL,
             contents=[f"Draft a reply to the email '{email.subject}' from '{email.from_address}'.\nIntent: {intent}\nSnippet: {email.snippet}{tone_instructions}\n\nReturn ONLY the email body text."]
         )
@@ -474,8 +493,9 @@ async def _handle_draft_email_reply(session: AsyncSession, user_id: UUID, email_
         encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
         create_message = {'message': {'raw': encoded_message}}
 
+        import asyncio
         service = _get_gmail_service(integration)
-        draft = service.users().drafts().create(userId='me', body=create_message).execute()
+        draft = await asyncio.to_thread(lambda: service.users().drafts().create(userId='me', body=create_message).execute())
 
         return {"draft_id": draft['id'], "content": draft_text}
     except Exception as e:
@@ -500,8 +520,9 @@ async def _handle_send_email(session: AsyncSession, user_id: UUID, draft_id: str
         }
 
     try:
+        import asyncio
         service = _get_gmail_service(integration)
-        sent_message = service.users().drafts().send(userId='me', body={'id': draft_id}).execute()
+        sent_message = await asyncio.to_thread(lambda: service.users().drafts().send(userId='me', body={'id': draft_id}).execute())
 
         # Log success strictly as required
         log = ActionLog(
@@ -602,7 +623,7 @@ async def _handle_draft_slack_reply(
 
     try:
         client = get_client()
-        resp = client.models.generate_content(
+        resp = await client.aio.models.generate_content(
             model=settings.GEMINI_MODEL,
             contents=[
                 f"Draft a Slack reply for the following conversation.\n"
@@ -730,3 +751,513 @@ async def _handle_get_pc_stats(session: AsyncSession, user_id: UUID) -> dict:
         "ram_percent": psutil.virtual_memory().percent,
         "disk_percent": psutil.disk_usage('/').percent
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# App Launcher
+# ─────────────────────────────────────────────────────────────────────────────
+
+_log = logging.getLogger("senorita.tools")
+
+# Common app name aliases → launch commands (Windows-focused, with macOS fallbacks)
+_APP_ALIASES: dict[str, dict[str, list[str]]] = {
+    # ── IDEs & editors ──
+    "vs code":            {"Windows": ["code"], "Darwin": ["open", "-a", "Visual Studio Code"]},
+    "vscode":             {"Windows": ["code"], "Darwin": ["open", "-a", "Visual Studio Code"]},
+    "visual studio code": {"Windows": ["code"], "Darwin": ["open", "-a", "Visual Studio Code"]},
+    "cursor":             {"Windows": ["cursor"], "Darwin": ["open", "-a", "Cursor"]},
+    "sublime":            {"Windows": ["subl"], "Darwin": ["open", "-a", "Sublime Text"]},
+    "sublime text":       {"Windows": ["subl"], "Darwin": ["open", "-a", "Sublime Text"]},
+    "notepad":            {"Windows": ["notepad"], "Darwin": ["open", "-a", "TextEdit"]},
+    "notepad++":          {"Windows": ["cmd", "/c", "start", "notepad++"], "Darwin": ["open", "-a", "TextEdit"]},
+    # ── Browsers ──
+    "chrome":             {"Windows": ["cmd", "/c", "start", "chrome"], "Darwin": ["open", "-a", "Google Chrome"]},
+    "google chrome":      {"Windows": ["cmd", "/c", "start", "chrome"], "Darwin": ["open", "-a", "Google Chrome"]},
+    "firefox":            {"Windows": ["cmd", "/c", "start", "firefox"], "Darwin": ["open", "-a", "Firefox"]},
+    "brave":              {"Windows": ["cmd", "/c", "start", "brave"], "Darwin": ["open", "-a", "Brave Browser"]},
+    "edge":               {"Windows": ["cmd", "/c", "start", "msedge"], "Darwin": ["open", "-a", "Microsoft Edge"]},
+    "microsoft edge":     {"Windows": ["cmd", "/c", "start", "msedge"], "Darwin": ["open", "-a", "Microsoft Edge"]},
+    # ── Terminals ──
+    "terminal":           {"Windows": ["wt"], "Darwin": ["open", "-a", "Terminal"]},
+    "windows terminal":   {"Windows": ["wt"], "Darwin": ["open", "-a", "Terminal"]},
+    "powershell":         {"Windows": ["powershell"], "Darwin": ["open", "-a", "Terminal"]},
+    "cmd":                {"Windows": ["cmd"], "Darwin": ["open", "-a", "Terminal"]},
+    "command prompt":     {"Windows": ["cmd"], "Darwin": ["open", "-a", "Terminal"]},
+    "git bash":           {"Windows": ["cmd", "/c", "start", "", "git-bash.exe"], "Darwin": ["open", "-a", "Terminal"]},
+    # ── Communication ──
+    "spotify":            {"Windows": ["cmd", "/c", "start", "spotify:"], "Darwin": ["open", "-a", "Spotify"]},
+    "discord":            {"Windows": ["cmd", "/c", "start", "discord:"], "Darwin": ["open", "-a", "Discord"]},
+    "slack":              {"Windows": ["cmd", "/c", "start", "slack:"], "Darwin": ["open", "-a", "Slack"]},
+    "telegram":           {"Windows": ["cmd", "/c", "start", "tg:"], "Darwin": ["open", "-a", "Telegram"]},
+    "whatsapp":           {"Windows": ["cmd", "/c", "start", "whatsapp:"], "Darwin": ["open", "-a", "WhatsApp"]},
+    "zoom":               {"Windows": ["cmd", "/c", "start", "zoommtg:"], "Darwin": ["open", "-a", "zoom.us"]},
+    "teams":              {"Windows": ["cmd", "/c", "start", "msteams:"], "Darwin": ["open", "-a", "Microsoft Teams"]},
+    "microsoft teams":    {"Windows": ["cmd", "/c", "start", "msteams:"], "Darwin": ["open", "-a", "Microsoft Teams"]},
+    # ── Productivity ──
+    "word":               {"Windows": ["cmd", "/c", "start", "winword"], "Darwin": ["open", "-a", "Microsoft Word"]},
+    "excel":              {"Windows": ["cmd", "/c", "start", "excel"], "Darwin": ["open", "-a", "Microsoft Excel"]},
+    "powerpoint":         {"Windows": ["cmd", "/c", "start", "powerpnt"], "Darwin": ["open", "-a", "Microsoft PowerPoint"]},
+    "notion":             {"Windows": ["cmd", "/c", "start", "notion:"], "Darwin": ["open", "-a", "Notion"]},
+    "obsidian":           {"Windows": ["cmd", "/c", "start", "obsidian:"], "Darwin": ["open", "-a", "Obsidian"]},
+    # ── Dev tools ──
+    "postman":            {"Windows": ["cmd", "/c", "start", "postman:"], "Darwin": ["open", "-a", "Postman"]},
+    "figma":              {"Windows": ["cmd", "/c", "start", "figma:"], "Darwin": ["open", "-a", "Figma"]},
+    "docker":             {"Windows": ["cmd", "/c", "start", "", "Docker Desktop"], "Darwin": ["open", "-a", "Docker"]},
+    "docker desktop":     {"Windows": ["cmd", "/c", "start", "", "Docker Desktop"], "Darwin": ["open", "-a", "Docker"]},
+    "github desktop":     {"Windows": ["cmd", "/c", "start", "github:"], "Darwin": ["open", "-a", "GitHub Desktop"]},
+    "insomnia":           {"Windows": ["cmd", "/c", "start", "", "Insomnia"], "Darwin": ["open", "-a", "Insomnia"]},
+    # ── System utilities ──
+    "calculator":         {"Windows": ["calc"], "Darwin": ["open", "-a", "Calculator"]},
+    "calc":               {"Windows": ["calc"], "Darwin": ["open", "-a", "Calculator"]},
+    "file explorer":      {"Windows": ["explorer"], "Darwin": ["open", "."]},
+    "explorer":           {"Windows": ["explorer"], "Darwin": ["open", "."]},
+    "finder":             {"Windows": ["explorer"], "Darwin": ["open", "."]},
+    "paint":              {"Windows": ["mspaint"], "Darwin": ["open", "-a", "Preview"]},
+    "task manager":       {"Windows": ["taskmgr"], "Darwin": ["open", "-a", "Activity Monitor"]},
+    "activity monitor":   {"Windows": ["taskmgr"], "Darwin": ["open", "-a", "Activity Monitor"]},
+    "settings":           {"Windows": ["cmd", "/c", "start", "ms-settings:"], "Darwin": ["open", "-a", "System Preferences"]},
+    "control panel":      {"Windows": ["control"], "Darwin": ["open", "-a", "System Preferences"]},
+    "snipping tool":      {"Windows": ["snippingtool"], "Darwin": ["open", "-a", "Screenshot"]},
+    "snip & sketch":      {"Windows": ["cmd", "/c", "start", "ms-screenclip:"], "Darwin": ["open", "-a", "Screenshot"]},
+    # ── Media ──
+    "vlc":                {"Windows": ["cmd", "/c", "start", "", "vlc"], "Darwin": ["open", "-a", "VLC"]},
+    "obs":                {"Windows": ["cmd", "/c", "start", "", "obs64.exe"], "Darwin": ["open", "-a", "OBS"]},
+    "obs studio":         {"Windows": ["cmd", "/c", "start", "", "obs64.exe"], "Darwin": ["open", "-a", "OBS"]},
+    # ── AI tools ──
+    "antigravity":        {"Windows": ["agy"], "Darwin": ["agy"]},
+    "agy":                {"Windows": ["agy"], "Darwin": ["agy"]},
+}
+
+
+def _fuzzy_match_app(query: str, threshold: float = 0.6) -> str | None:
+    """Find the closest matching app alias using fuzzy string matching."""
+    matches = difflib.get_close_matches(query, _APP_ALIASES.keys(), n=1, cutoff=threshold)
+    return matches[0] if matches else None
+
+
+async def _handle_open_application(session: AsyncSession, user_id: UUID, app_name: str) -> dict:
+    """Launch an application on the host machine."""
+    app_key = app_name.strip().lower()
+    current_os = platform.system()  # 'Windows' or 'Darwin'
+
+    # 1. Exact match in alias map
+    resolved_key = app_key if app_key in _APP_ALIASES else _fuzzy_match_app(app_key)
+
+    if resolved_key:
+        os_commands = _APP_ALIASES[resolved_key]
+        cmd = os_commands.get(current_os)
+        if not cmd:
+            return {"error": f"'{app_name}' is not supported on {current_os}."}
+        try:
+            subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                shell=(current_os == "Windows"),
+            )
+            _log.info(f"APP_LAUNCH | Launched '{resolved_key}' (requested: '{app_name}') via alias map")
+
+            # Log to ActionLog for audit trail
+            log_entry = ActionLog(
+                user_id=user_id,
+                action_type="open_application",
+                payload={"app_name": app_name, "resolved": resolved_key, "command": cmd},
+                result="success",
+                confirmed_by_user=False,
+            )
+            session.add(log_entry)
+            await session.flush()
+
+            result = {"status": "launched", "app": app_name}
+            if resolved_key != app_key:
+                result["matched_as"] = resolved_key
+            return result
+
+        except FileNotFoundError:
+            _log.warning(f"APP_LAUNCH | Executable not found for '{resolved_key}'")
+            log_entry = ActionLog(
+                user_id=user_id,
+                action_type="open_application",
+                payload={"app_name": app_name, "resolved": resolved_key},
+                result="failed",
+                confirmed_by_user=False,
+            )
+            session.add(log_entry)
+            await session.flush()
+            return {"error": f"Could not find the executable for '{app_name}'. It may not be installed or not in PATH."}
+        except OSError as e:
+            _log.error(f"APP_LAUNCH | OS error launching '{resolved_key}': {e}")
+            return {"error": f"Failed to launch '{app_name}': {str(e)}"}
+
+    # 2. Fallback: try os.startfile on Windows or 'open -a' on macOS
+    _log.info(f"APP_LAUNCH | No alias match for '{app_name}', trying OS fallback")
+    try:
+        if current_os == "Windows":
+            os.startfile(app_key)
+        elif current_os == "Darwin":
+            subprocess.Popen(
+                ["open", "-a", app_name],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        else:
+            return {"error": f"Unsupported operating system: {current_os}"}
+
+        log_entry = ActionLog(
+            user_id=user_id,
+            action_type="open_application",
+            payload={"app_name": app_name, "method": "os_fallback"},
+            result="success",
+            confirmed_by_user=False,
+        )
+        session.add(log_entry)
+        await session.flush()
+
+        return {"status": "launched", "app": app_name}
+    except Exception as e:
+        # Suggest close matches if the app wasn't found at all
+        suggestions = difflib.get_close_matches(app_key, _APP_ALIASES.keys(), n=3, cutoff=0.4)
+        err = {"error": f"Could not open '{app_name}'. It may not be installed."}
+        if suggestions:
+            err["did_you_mean"] = suggestions
+        return err
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Repo Analyzer
+# ─────────────────────────────────────────────────────────────────────────────
+
+_IGNORE_DIRS = {
+    ".git", ".hg", ".svn", "node_modules", ".venv", "venv", "__pycache__",
+    ".next", ".nuxt", "dist", "build", ".tox", ".mypy_cache", ".pytest_cache",
+    "target", ".gradle", ".idea", ".vs", ".vscode", "vendor", "Pods",
+    "coverage", ".turbo", ".cache", "out", "bin", "obj", ".dart_tool",
+    ".pub-cache", "_build", "deps", "elm-stuff",
+}
+
+_KEY_CONFIG_FILES = {
+    # Package managers & build systems
+    "package.json", "requirements.txt", "pyproject.toml", "setup.py", "setup.cfg",
+    "Cargo.toml", "go.mod", "go.sum", "pom.xml", "build.gradle", "build.gradle.kts",
+    "Gemfile", "composer.json", "mix.exs", "pubspec.yaml", "Package.swift",
+    # Containerization & infra
+    "docker-compose.yml", "docker-compose.yaml", "Dockerfile",
+    ".env.example", "Makefile", "CMakeLists.txt", "Procfile",
+    # JS/TS config
+    "tsconfig.json", "next.config.js", "next.config.mjs", "next.config.ts",
+    "vite.config.ts", "vite.config.js", "webpack.config.js",
+    "tailwind.config.js", "tailwind.config.ts",
+    # Database & ORM
+    "alembic.ini", "prisma/schema.prisma",
+    # CI/CD
+    ".github/workflows", ".gitlab-ci.yml", "Jenkinsfile",
+    "azure-pipelines.yml", ".circleci/config.yml",
+}
+
+_CI_CD_PATHS = [
+    ".github/workflows",
+    ".gitlab-ci.yml",
+    "Jenkinsfile",
+    "azure-pipelines.yml",
+    ".circleci/config.yml",
+    ".travis.yml",
+    "bitbucket-pipelines.yml",
+    "vercel.json",
+    "netlify.toml",
+    "fly.toml",
+    "railway.json",
+    "render.yaml",
+]
+
+_README_FILES = {"README.md", "README.txt", "README.rst", "README", "readme.md"}
+
+_MAX_FILE_READ_BYTES = 8_000
+_MAX_TREE_DEPTH = 5
+_MAX_TREE_ENTRIES = 500
+
+# Extensions that count as "code" for LOC counting
+_CODE_EXTENSIONS = {
+    ".py", ".js", ".ts", ".tsx", ".jsx", ".rs", ".go", ".java", ".kt",
+    ".c", ".cpp", ".h", ".hpp", ".cs", ".rb", ".php", ".swift", ".m",
+    ".scala", ".ex", ".exs", ".erl", ".hs", ".lua", ".r", ".dart",
+    ".vue", ".svelte", ".html", ".css", ".scss", ".less", ".sass",
+    ".sql", ".sh", ".bash", ".zsh", ".ps1", ".bat", ".cmd",
+    ".yml", ".yaml", ".toml", ".json", ".xml", ".graphql",
+}
+
+
+def _walk_repo(
+    root: Path, max_depth: int = _MAX_TREE_DEPTH
+) -> tuple[list[str], dict[str, int], list[Path], list[Path], int]:
+    """
+    Walk the repo directory and return:
+    - tree_lines: indented file tree strings (box-drawing formatted)
+    - ext_counts: {extension: count}
+    - config_files: list of Paths to key config files found
+    - readme_files: list of Paths to README files found
+    - total_loc: approximate total lines of code across all code files
+    """
+    tree_lines: list[str] = []
+    ext_counts: dict[str, int] = {}
+    config_files: list[Path] = []
+    readme_files: list[Path] = []
+    total_loc = 0
+    entry_count = 0
+
+    def _recurse(directory: Path, depth: int, prefix: str):
+        nonlocal entry_count, total_loc
+        if depth > max_depth or entry_count > _MAX_TREE_ENTRIES:
+            return
+
+        try:
+            entries = sorted(
+                directory.iterdir(),
+                key=lambda e: (not e.is_dir(), e.name.lower()),
+            )
+        except PermissionError:
+            return
+
+        # Filter out ignored/hidden dirs
+        visible = [
+            e for e in entries
+            if not (e.is_dir() and (e.name in _IGNORE_DIRS or e.name.startswith(".")))
+        ]
+
+        for idx, entry in enumerate(visible):
+            entry_count += 1
+            if entry_count > _MAX_TREE_ENTRIES:
+                tree_lines.append(f"{prefix}... (truncated, too many entries)")
+                return
+
+            is_last = idx == len(visible) - 1
+            connector = "└── " if is_last else "├── "
+            extension = "    " if is_last else "│   "
+
+            if entry.is_dir():
+                tree_lines.append(f"{prefix}{connector}{entry.name}/")
+                _recurse(entry, depth + 1, prefix + extension)
+            else:
+                tree_lines.append(f"{prefix}{connector}{entry.name}")
+                ext = entry.suffix.lower() if entry.suffix else "(no ext)"
+                ext_counts[ext] = ext_counts.get(ext, 0) + 1
+
+                if entry.name in _KEY_CONFIG_FILES:
+                    config_files.append(entry)
+                if entry.name in _README_FILES:
+                    readme_files.append(entry)
+
+                # Count lines of code
+                if ext in _CODE_EXTENSIONS:
+                    try:
+                        total_loc += sum(1 for _ in open(entry, "rb"))
+                    except (PermissionError, OSError):
+                        pass
+
+    _recurse(root, 0, "")
+    return tree_lines, ext_counts, config_files, readme_files, total_loc
+
+
+def _safe_read(path: Path, max_bytes: int = _MAX_FILE_READ_BYTES) -> str:
+    """Read a file safely, returning its content truncated to max_bytes."""
+    try:
+        content = path.read_text(encoding="utf-8", errors="replace")
+        if len(content) > max_bytes:
+            return content[:max_bytes] + "\n... (truncated)"
+        return content
+    except Exception:
+        return "(could not read file)"
+
+
+def _get_git_info(repo_path: Path) -> dict[str, str] | None:
+    """Extract git metadata from the repo if it's a git repository."""
+    git_dir = repo_path / ".git"
+    if not git_dir.exists():
+        return None
+
+    info: dict[str, str] = {}
+    try:
+        # Current branch
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True, text=True, cwd=str(repo_path), timeout=5,
+        )
+        if result.returncode == 0:
+            info["branch"] = result.stdout.strip()
+
+        # Last commit
+        result = subprocess.run(
+            ["git", "log", "-1", "--format=%h %s (%ar)"],
+            capture_output=True, text=True, cwd=str(repo_path), timeout=5,
+        )
+        if result.returncode == 0:
+            info["last_commit"] = result.stdout.strip()
+
+        # Total commit count
+        result = subprocess.run(
+            ["git", "rev-list", "--count", "HEAD"],
+            capture_output=True, text=True, cwd=str(repo_path), timeout=5,
+        )
+        if result.returncode == 0:
+            info["total_commits"] = result.stdout.strip()
+
+        # Remote URL
+        result = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True, text=True, cwd=str(repo_path), timeout=5,
+        )
+        if result.returncode == 0:
+            info["remote_url"] = result.stdout.strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    return info if info else None
+
+
+def _detect_ci_cd(repo_path: Path) -> list[str]:
+    """Detect CI/CD configurations present in the repo."""
+    found = []
+    for ci_path in _CI_CD_PATHS:
+        full_path = repo_path / ci_path
+        if full_path.exists():
+            if full_path.is_dir():
+                # e.g. .github/workflows — list the workflow files
+                try:
+                    workflow_files = [f.name for f in full_path.iterdir() if f.is_file()]
+                    found.append(f"{ci_path}/ ({', '.join(workflow_files[:5])})")
+                except PermissionError:
+                    found.append(f"{ci_path}/")
+            else:
+                found.append(ci_path)
+    return found
+
+
+async def _handle_analyze_repository(session: AsyncSession, user_id: UUID, path: str) -> dict:
+    """Analyze a code repository and return a structured overview."""
+    repo_path = Path(path)
+
+    if not repo_path.exists():
+        return {"error": f"Path does not exist: {path}"}
+    if not repo_path.is_dir():
+        return {"error": f"Path is not a directory: {path}"}
+
+    _log.info(f"REPO_ANALYZE | Starting analysis of {repo_path.name} at {path}")
+
+    # Walk the repo
+    tree_lines, ext_counts, config_files, readme_files, total_loc = _walk_repo(repo_path)
+
+    # Git metadata
+    git_info = _get_git_info(repo_path)
+
+    # CI/CD detection
+    ci_cd = _detect_ci_cd(repo_path)
+
+    # Collect key file contents
+    file_contents: dict[str, str] = {}
+    for cf in config_files:
+        rel = str(cf.relative_to(repo_path))
+        file_contents[rel] = _safe_read(cf)
+    for rf in readme_files:
+        rel = str(rf.relative_to(repo_path))
+        file_contents[rel] = _safe_read(rf, max_bytes=12_000)
+
+    # Build the analysis context
+    tree_str = "\n".join(tree_lines[:300])
+    if len(tree_lines) > 300:
+        tree_str += "\n... (tree truncated)"
+
+    total_files = sum(ext_counts.values())
+    ext_summary = "\n".join(
+        f"  {ext}: {count} files"
+        for ext, count in sorted(ext_counts.items(), key=lambda x: -x[1])[:20]
+    )
+
+    config_contents = ""
+    for fname, content in file_contents.items():
+        config_contents += f"\n--- {fname} ---\n{content}\n"
+
+    git_section = ""
+    if git_info:
+        git_section = "\n## Git Info\n"
+        if "branch" in git_info:
+            git_section += f"  Current branch: {git_info['branch']}\n"
+        if "last_commit" in git_info:
+            git_section += f"  Last commit: {git_info['last_commit']}\n"
+        if "total_commits" in git_info:
+            git_section += f"  Total commits: {git_info['total_commits']}\n"
+        if "remote_url" in git_info:
+            git_section += f"  Remote: {git_info['remote_url']}\n"
+
+    ci_section = ""
+    if ci_cd:
+        ci_section = "\n## CI/CD Configurations\n  " + "\n  ".join(ci_cd) + "\n"
+
+    analysis_prompt = f"""You are a senior software engineer. Analyze this code repository and provide a clear, structured overview.
+
+Repository: {repo_path.name}
+Path: {path}
+Total files: {total_files}
+Approximate lines of code: {total_loc:,}
+{git_section}
+{ci_section}
+## File Tree
+{tree_str}
+
+## File Type Distribution
+{ext_summary}
+
+## Key Config & Documentation Files
+{config_contents if config_contents else "(none found)"}
+
+Provide your analysis in this exact format:
+
+**Tech Stack**: List the languages, frameworks, and key libraries with versions where visible.
+**Architecture**: Describe the high-level architecture (monorepo, client-server, microservices, etc.) and how the components relate. Mention any notable infrastructure (Docker, CI/CD, etc.).
+**Entry Points**: Where does the code start? Main files, scripts, or commands to run the project.
+**Key Dependencies**: List the most important external dependencies and what they're used for.
+**Directory Guide**: Brief explanation of what each top-level directory contains and its role in the system.
+**Getting Started**: Concrete steps someone new would take to set up, run, and start understanding this codebase.
+**Notable Patterns**: Any interesting design patterns, conventions, architecture decisions, or things that stand out.
+**Potential Concerns**: Any red flags, missing pieces, or areas that might need attention (optional, only if relevant).
+
+Be concise but thorough. Write as if briefing a developer who needs to contribute to this repo tomorrow."""
+
+    try:
+        client = get_client()
+        resp = await client.aio.models.generate_content(
+            model=settings.GEMINI_MODEL,
+            contents=[analysis_prompt],
+        )
+        analysis = resp.text.strip() if resp.text else "Analysis could not be generated."
+    except Exception as e:
+        _log.error(f"REPO_ANALYZE | Gemini analysis failed: {e}")
+        analysis = f"AI analysis failed: {str(e)}"
+
+    # Log to ActionLog
+    log_entry = ActionLog(
+        user_id=user_id,
+        action_type="analyze_repository",
+        payload={"path": path, "repo_name": repo_path.name, "total_files": total_files, "total_loc": total_loc},
+        result="success",
+        confirmed_by_user=False,
+    )
+    session.add(log_entry)
+    await session.flush()
+
+    _log.info(f"REPO_ANALYZE | Completed analysis of {repo_path.name}: {total_files} files, ~{total_loc:,} LOC")
+
+    response = {
+        "repository": repo_path.name,
+        "path": str(repo_path),
+        "total_files": total_files,
+        "total_lines_of_code": total_loc,
+        "file_types": dict(sorted(ext_counts.items(), key=lambda x: -x[1])[:15]),
+        "config_files_found": [str(cf.relative_to(repo_path)) for cf in config_files],
+        "analysis": analysis,
+    }
+
+    if git_info:
+        response["git"] = git_info
+    if ci_cd:
+        response["ci_cd"] = ci_cd
+
+    return response

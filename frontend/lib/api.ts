@@ -1,4 +1,8 @@
-const API_BASE = typeof window !== "undefined" ? `http://${window.location.hostname}:8000/api/v1` : "http://localhost:8000/api/v1";
+export let API_BASE = typeof window !== "undefined" ? `http://${window.location.hostname}:8000/api/v1` : "http://localhost:8000/api/v1";
+
+export function setApiBaseUrl(url: string) {
+  API_BASE = url;
+}
 
 /** Clear auth state and redirect to login (called on any 401). */
 function handleUnauthorized() {
@@ -77,6 +81,10 @@ export async function getMemory(token: string) {
 
 export async function getActivity(token: string) {
   return apiFetch("/activity", {}, token);
+}
+
+export async function getChatHistory(token: string) {
+  return apiFetch("/chat", {}, token);
 }
 
 export async function sendChatMessage(token: string, message: string) {

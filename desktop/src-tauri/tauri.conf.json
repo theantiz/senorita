@@ -2,9 +2,9 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Señorita",
   "version": "0.1.0",
-  "identifier": "com.senorita.app",
+  "identifier": "com.senorita.desktop",
   "build": {
-    "frontendDist": "../frontend/out",
+    "frontendDist": "../../frontend/out",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "cd ../frontend && npm run dev",
     "beforeBuildCommand": "cd ../frontend && npm run build"
@@ -23,9 +23,13 @@
       "csp": null
     }
   },
+  "plugins": {},
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": {
+      "../../backend/dist/backend-dir": "backend-dir"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

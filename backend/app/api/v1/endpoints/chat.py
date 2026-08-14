@@ -30,6 +30,29 @@ async def chat_endpoint(request: ChatRequest, session: AsyncSession = Depends(ge
     return {"response": response_text}
 
 
+@router.get("")
+async def get_chat_history(session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from sqlalchemy import select
+    from app.db.models import Conversation
+    stmt = (
+        select(Conversation)
+        .where(Conversation.user_id == current_user.id)
+        .order_by(Conversation.created_at.asc())
+        .limit(100)
+    )
+    result = await session.execute(stmt)
+    history = result.scalars().all()
+    
+    return [
+        {
+            "role": h.role,
+            "text": h.content,
+            "ts": h.created_at.isoformat()
+        }
+        for h in history
+    ]
+
+
 @router.post("/tts")
 async def tts_endpoint(request: TTSRequest, current_user: User = Depends(get_current_user)):
     """Convert text to speech using edge-tts and return base64-encoded MP3 audio."""

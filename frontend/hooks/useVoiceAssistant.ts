@@ -27,7 +27,7 @@ const WAKE_TRIGGERS = [
   'hey senorita',
 ];
 
-// ─── Chrome TTS keepalive ─────────────────────────────────────────────────────
+// ─── Chrome TTS keepalive ─────────────────────────────────────────────────────────────
 let _keepalive: ReturnType<typeof setInterval> | null = null;
 function startKeepalive() {
   if (_keepalive) return;
@@ -41,6 +41,10 @@ function startKeepalive() {
 function stopKeepalive() {
   if (_keepalive) { clearInterval(_keepalive); _keepalive = null; }
 }
+
+// ─── Module-level singletons (persist across component remounts) ────────────
+let _welcomePlayedThisSession = false;
+let _globalSpeakingLock = false;
 
 // ─── Browser TTS fallback helpers ─────────────────────────────────────────────
 const MALE_NAMES   = ['Daniel', 'Alex', 'Fred', 'Aaron', 'Rishi', 'Arthur', 'Bruce', 'Tom', 'George'];
@@ -201,8 +205,16 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
   }, []);
 
-  // ── Speak full response (voice command reply) ─────────────────────────────
+  // ── Speak full response (voice command reply) ─────────────────────────
   const speakResponse = useCallback(async (text: string, audioBase64?: string) => {
+    // Acquire global lock — cancel any in-progress speech first
+    if (_globalSpeakingLock) {
+      cancelTTS();
+      // Brief pause for cleanup
+      await new Promise(r => setTimeout(r, 100));
+    }
+    _globalSpeakingLock = true;
+
     setStatus(VoiceAssistantStatus.SPEAKING_RESPONSE);
 
     // Cancel any existing speech
@@ -222,6 +234,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
       try {
         await playAudioBase64(audioBase64);
         isSpeakingRef.current = false;
+        _globalSpeakingLock = false;
         setVoiceResponse(null);
         setStatus(VoiceAssistantStatus.IDLE_LISTENING);
         return;
@@ -234,9 +247,10 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     await speakWithBackend(text);
 
     isSpeakingRef.current = false;
+    _globalSpeakingLock = false;
     setVoiceResponse(null);
     setStatus(VoiceAssistantStatus.IDLE_LISTENING);
-  }, [playAudioBase64, speakWithBackend]);
+  }, [cancelTTS, playAudioBase64, speakWithBackend]);
 
   // ── Stop recognition ──────────────────────────────────────────────────────
   const stopRecognition = useCallback((): Promise<void> => new Promise(res => {
@@ -338,7 +352,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
         const elapsed     = Date.now() - recStart;
 
         const shouldStop =
-          (hasSpoken  && silencedFor > 2200) ||
+          (hasSpoken  && silencedFor > 1200) ||
           (!hasSpoken && silencedFor > 9000) ||
           elapsed > 20_000;
 
@@ -567,12 +581,10 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     setStatus(VoiceAssistantStatus.IDLE_LISTENING);
   }, [speakWithBackend]);
 
-  const welcomePlayedRef = useRef(false);
-
-  // Auto-greet on first mount
+  // Auto-greet on first mount (only once per browser session)
   useEffect(() => {
-    if (welcomePlayedRef.current) return;
-    welcomePlayedRef.current = true;
+    if (_welcomePlayedThisSession) return;
+    _welcomePlayedThisSession = true;
     playWelcome();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -27,7 +27,7 @@ async def _classify_email(snippet: str) -> dict:
             "'needs_reply' (boolean) and 'deadline_detected' (string, ISO 8601 format, or null if no deadline is present).\n"
             f"Snippet: {snippet}"
         )
-        resp = client.models.generate_content(model=settings.GEMINI_MODEL, contents=[prompt])
+        resp = await client.aio.models.generate_content(model=settings.GEMINI_MODEL, contents=[prompt])
         raw_json = resp.text.strip()
         # Remove markdown codeblocks if Gemini adds them
         if raw_json.startswith("```json"):
@@ -76,8 +76,8 @@ async def _sync_user_gmail(session: AsyncSession, integration: Integration):
 
     # 3. Fetch messages
     try:
-        # We fetch a modest batch of recent unread messages
-        results = service.users().messages().list(userId='me', q="is:unread", maxResults=20).execute()
+        import asyncio
+        results = await asyncio.to_thread(lambda: service.users().messages().list(userId='me', q="is:unread", maxResults=20).execute())
         messages = results.get('messages', [])
 
         for msg_ref in messages:
@@ -89,7 +89,7 @@ async def _sync_user_gmail(session: AsyncSession, integration: Integration):
             if existing.scalar_one_or_none():
                 continue
 
-            msg_data = service.users().messages().get(userId='me', id=msg_id, format='metadata', metadataHeaders=['From', 'Subject']).execute()
+            msg_data = await asyncio.to_thread(lambda id=msg_id: service.users().messages().get(userId='me', id=id, format='metadata', metadataHeaders=['From', 'Subject']).execute())
 
             headers = msg_data.get("payload", {}).get("headers", [])
             from_address = next((h["value"] for h in headers if h["name"].lower() == "from"), "Unknown")
@@ -129,7 +129,8 @@ async def _sync_user_gmail(session: AsyncSession, integration: Integration):
 async def _sync_user_gmail_sent(session: AsyncSession, integration: Integration, service):
     """Polls the Sent folder for outbound emails. Skips classification entirely."""
     try:
-        results = service.users().messages().list(userId='me', q="in:sent", maxResults=20).execute()
+        import asyncio
+        results = await asyncio.to_thread(lambda: service.users().messages().list(userId='me', q="in:sent", maxResults=20).execute())
         messages = results.get('messages', [])
 
         for msg_ref in messages:
@@ -142,10 +143,10 @@ async def _sync_user_gmail_sent(session: AsyncSession, integration: Integration,
             if existing.scalar_one_or_none():
                 continue
 
-            msg_data = service.users().messages().get(
-                userId='me', id=msg_id, format='metadata',
+            msg_data = await asyncio.to_thread(lambda id=msg_id: service.users().messages().get(
+                userId='me', id=id, format='metadata',
                 metadataHeaders=['From', 'To', 'Subject']
-            ).execute()
+            ).execute())
 
             headers = msg_data.get("payload", {}).get("headers", [])
             from_address = next((h["value"] for h in headers if h["name"].lower() == "from"), "Unknown")
