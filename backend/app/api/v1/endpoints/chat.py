@@ -129,12 +129,15 @@ async def chat_voice_endpoint(
         # Clean up temp file
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
-        # Best-effort cleanup of the Gemini-hosted file
+        # Best-effort cleanup of the Gemini-hosted file in the background to save latency
         if uploaded_file is not None and uploaded_file.name:
-            try:
-                await client.aio.files.delete(name=uploaded_file.name)
-            except Exception:
-                pass
+            import asyncio
+            async def _delete(name):
+                try:
+                    await client.aio.files.delete(name=name)
+                except Exception as e:
+                    logger.warning(f"Background delete failed: {e}")
+            asyncio.create_task(_delete(uploaded_file.name))
 
     if transcribed_text == "UNCLEAR_AUDIO" or not transcribed_text:
         return {"response": "I didn't quite catch that. Could you please repeat?", "transcription": ""}
