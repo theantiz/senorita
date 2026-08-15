@@ -128,6 +128,10 @@ def suggest_task_batch():
     """Analyze pending tasks and unanswered messages to suggest batches of similar, low-effort tasks that can be knocked out together. Only returns batches if there are 3 or more similar items (e.g. 3+ short replies pending, or 3+ tasks for the same project or contact)."""
     pass
 
+def web_research(query: str, depth: str):
+    """Search the web to answer questions about current events, real-world entities, companies, products, people, prices, or anything time-sensitive that you cannot answer confidently from memory alone. Use depth='quick' (1-2 searches, fast answer) for simple factual lookups, or depth='thorough' (3-6 searches, comprehensive) for complex research topics. NEVER use this tool to look up private/personal information about non-public private individuals. Always cite sources in your response when presenting web research results."""
+    pass
+
 SENORITA_TOOLS = [
     create_task,
     create_reminder,
@@ -149,6 +153,7 @@ SENORITA_TOOLS = [
     analyze_repository,
     read_news,
     suggest_task_batch,
+    web_research,
 ]
 
 
@@ -176,6 +181,7 @@ async def execute_tool(session: AsyncSession, user_id: UUID, function_name: str,
         "analyze_repository": _handle_analyze_repository,
         "read_news": _handle_read_news,
         "suggest_task_batch": _handle_suggest_task_batch,
+        "web_research": _handle_web_research,
     }
     handler = handlers.get(function_name)
     if not handler:
@@ -1378,3 +1384,98 @@ async def _handle_read_news(session: AsyncSession, user_id: UUID, topic: str | N
             
     except Exception as e:
         return {"error": f"Failed to fetch news: {str(e)}"}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WEB RESEARCH (Gemini Google Search Grounding)
+# ─────────────────────────────────────────────────────────────────────────────
+
+_PRIVACY_REFUSAL_KEYWORDS = [
+    "address of", "phone number of", "where does .* live",
+    "home address", "personal email", "stalk", "dox",
+    "social security", "private life of", "dating life",
+]
+
+def _is_privacy_violating_query(query: str) -> bool:
+    """Check if a query is attempting to look up private info about a non-public individual."""
+    import re
+    q = query.lower()
+    for pattern in _PRIVACY_REFUSAL_KEYWORDS:
+        if re.search(pattern, q):
+            return True
+    return False
+
+
+async def _handle_web_research(session: AsyncSession, user_id: UUID, query: str, depth: str = "quick") -> dict[str, Any]:
+    # Privacy gate
+    if _is_privacy_violating_query(query):
+        return {
+            "refused": True,
+            "reason": "This query appears to be seeking private or personal information about an individual. "
+                       "I cannot assist with lookups that could enable surveillance or stalking of private persons. "
+                       "I can research public figures, companies, products, or general topics."
+        }
+
+    client = get_client()
+    search_tool = types.Tool(google_search=types.GoogleSearch())
+
+    num_searches = 2 if depth == "quick" else 5
+    search_instruction = (
+        f"Research the following query using {num_searches} web searches. "
+        f"Provide a comprehensive, factual answer synthesized from the search results. "
+        f"CRITICAL: Paraphrase all information in your own words — never reproduce long verbatim quotes from any source. "
+        f"After your summary, list each source you used with its title and URL."
+    )
+
+    prompt = f"{search_instruction}\n\nQuery: {query}"
+
+    try:
+        response = await client.aio.models.generate_content(
+            model=settings.GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[search_tool],
+            ),
+        )
+
+        summary_text = (response.text or "").strip()
+
+        # Extract grounding metadata for citations
+        sources: list[dict[str, str]] = []
+        if response.candidates:
+            candidate = response.candidates[0]
+            grounding = getattr(candidate, "grounding_metadata", None)
+            if grounding:
+                chunks = getattr(grounding, "grounding_chunks", None) or []
+                for chunk in chunks:
+                    web = getattr(chunk, "web", None)
+                    if web:
+                        sources.append({
+                            "title": getattr(web, "title", "") or "",
+                            "url": getattr(web, "uri", "") or "",
+                        })
+                # Also check support chunks
+                supports = getattr(grounding, "grounding_supports", None) or []
+                seen_urls = {s["url"] for s in sources}
+                for support in supports:
+                    for ref in getattr(support, "grounding_chunk_indices", []):
+                        if ref < len(chunks):
+                            web = getattr(chunks[ref], "web", None)
+                            if web:
+                                url = getattr(web, "uri", "") or ""
+                                if url and url not in seen_urls:
+                                    sources.append({
+                                        "title": getattr(web, "title", "") or "",
+                                        "url": url,
+                                    })
+                                    seen_urls.add(url)
+
+        return {
+            "summary": summary_text,
+            "sources": sources,
+            "depth": depth,
+            "query": query,
+        }
+
+    except Exception as e:
+        return {"error": f"Web research failed: {str(e)}"}

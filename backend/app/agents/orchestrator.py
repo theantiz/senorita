@@ -102,7 +102,7 @@ Assistant: {final_text}
                     )
                     session.add(task)
 
-            from db.models import MemoryEntry
+            from app.db.models import MemoryEntry
             embedding = await embed_text(fact, task_type="RETRIEVAL_DOCUMENT")
             mem = MemoryEntry(
                 user_id=user_id,
