@@ -515,7 +515,7 @@ async def _check_meeting_prep(session, user: User) -> list[tuple]:
 
         full_context = "\n\n".join(attendees_context)
 
-        prompt = f"""You are Senorita, styled after JARVIS from Iron Man.
+        prompt = f"""You are Senorita, styled after F.R.I.D.A.Y. from Iron Man (a highly competent female AI).
 Write a short, concise meeting preparation brief for the user's upcoming meeting '{event.title}'.
 Cover what's relevant to walk into this meeting informed.
 Write 3-5 sentences per recognized attendee focusing on recent topics, open commitments, and anything pending.
