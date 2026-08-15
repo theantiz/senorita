@@ -6,7 +6,7 @@ from uuid import UUID
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
-    from backports.zoneinfo import ZoneInfo
+    from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -46,7 +46,7 @@ async def _extract_dates_from_memories(memories, user_tz_name):
             model=settings.GEMINI_MODEL,
             contents=prompt,
         )
-        text = response.text.strip()
+        text = (response.text or '').strip()
         if text.startswith("```json"): text = text[7:]
         if text.startswith("```"): text = text[3:]
         if text.endswith("```"): text = text[:-3]
@@ -168,7 +168,7 @@ async def generate_daily_briefing(session: AsyncSession, user: User) -> Briefing
             model=settings.GEMINI_MODEL,
             contents=prompt,
         )
-        briefing_text = response.text.strip()
+        briefing_text = (response.text or '').strip()
     except Exception as e:
         logger.error(f"Failed to generate briefing text: {e}")
         briefing_text = "I encountered a system fault while assembling your briefing, sir. Apologies."

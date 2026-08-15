@@ -121,7 +121,7 @@ async def infer_tone_profile(session: AsyncSession, user_id: UUID, contact_id: U
 
     try:
         resp = client.models.generate_content(model=settings.GEMINI_MODEL, contents=[prompt])
-        raw_json = resp.text.strip()
+        raw_json = (resp.text or '').strip()
         if raw_json.startswith("```json"):
             raw_json = raw_json[7:-3]
         elif raw_json.startswith("```"):

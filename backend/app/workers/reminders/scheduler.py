@@ -7,7 +7,7 @@ from sqlalchemy.orm import joinedload
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
-    from backports.zoneinfo import ZoneInfo
+    from zoneinfo import ZoneInfo
 import logging
 
 from app.core.state import get_pause_state

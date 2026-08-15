@@ -62,8 +62,8 @@ async def tts_endpoint(request: TTSRequest, current_user: User = Depends(get_cur
         communicate = edge_tts.Communicate(request.text, "en-US-AriaNeural")
         tts_audio = b""
         async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                tts_audio += chunk["data"]
+            if chunk.get("type") == "audio" and "data" in chunk:
+                tts_audio += chunk["data"]  # type: ignore[reportTypedDictNotRequiredAccess]
         audio_base64 = base64.b64encode(tts_audio).decode("utf-8") if tts_audio else None
     except Exception as e:
         logger.error(f"TTS Error: {e}")
@@ -120,7 +120,7 @@ async def chat_voice_endpoint(
             model=settings.GEMINI_MODEL,
             contents=[uploaded_file, prompt],
         )
-        transcribed_text = response.text.strip()
+        transcribed_text = (response.text or '').strip()
 
     except Exception as e:
         return {"response": f"Sorry, I had trouble processing the audio: {str(e)}"}
@@ -130,7 +130,7 @@ async def chat_voice_endpoint(
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
         # Best-effort cleanup of the Gemini-hosted file
-        if uploaded_file is not None:
+        if uploaded_file is not None and uploaded_file.name:
             try:
                 await client.aio.files.delete(name=uploaded_file.name)
             except Exception:
@@ -148,8 +148,8 @@ async def chat_voice_endpoint(
         communicate = edge_tts.Communicate(response_text, "en-US-AriaNeural")
         tts_audio = b""
         async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                tts_audio += chunk["data"]
+            if chunk.get("type") == "audio" and "data" in chunk:
+                tts_audio += chunk["data"]  # type: ignore[reportTypedDictNotRequiredAccess]
         if tts_audio:
             audio_base64 = base64.b64encode(tts_audio).decode("utf-8")
     except Exception as e:

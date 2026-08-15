@@ -17,7 +17,7 @@ from app.core.config import settings
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
-    from backports.zoneinfo import ZoneInfo
+    from zoneinfo import ZoneInfo
 
 import base64
 import json
@@ -174,7 +174,7 @@ async def execute_tool(session: AsyncSession, user_id: UUID, function_name: str,
     except Exception as e:
         return {"error": str(e)}
 
-async def _handle_create_task(session: AsyncSession, user_id: UUID, title: str, due_at: str = None, priority: str = None, project: str = None, contact_name: str = None) -> dict:
+async def _handle_create_task(session: AsyncSession, user_id: UUID, title: str, due_at: str | None = None, priority: str | None = None, project: str | None = None, contact_name: str | None = None) -> dict:
     contact_id = None
     if contact_name:
         # Fuzzy match
@@ -215,7 +215,7 @@ async def _handle_create_reminder(session: AsyncSession, user_id: UUID, type: st
     await session.flush()
     return {"id": str(reminder.id), "type": reminder.type}
 
-async def _handle_create_calendar_event(session: AsyncSession, user_id: UUID, title: str, start_at: str, end_at: str, attendees: list[str] = None) -> dict:
+async def _handle_create_calendar_event(session: AsyncSession, user_id: UUID, title: str, start_at: str, end_at: str, attendees: list[str] | None = None) -> dict:
     start_dt = datetime.fromisoformat(start_at.replace("Z", "+00:00"))
     end_dt = datetime.fromisoformat(end_at.replace("Z", "+00:00"))
 
@@ -254,12 +254,12 @@ async def _handle_create_calendar_event(session: AsyncSession, user_id: UUID, ti
     session.add(event)
     await session.flush()
 
-    resp = {"id": str(event.id), "title": event.title}
+    resp: dict[str, Any] = {"id": str(event.id), "title": event.title}
     if conflict_flags:
         resp["conflict_info"] = conflict_flags
     return resp
 
-async def _handle_read_calendar_events(session: AsyncSession, user_id: UUID, date: str = None, limit: int = None) -> dict:
+async def _handle_read_calendar_events(session: AsyncSession, user_id: UUID, date: str | None = None, limit: int | None = None) -> dict:
     user = (await session.execute(select(User).where(User.id == user_id))).scalars().first()
     try:
         user_tz = ZoneInfo(user.timezone if user else "UTC")
@@ -305,7 +305,7 @@ async def _handle_read_calendar_events(session: AsyncSession, user_id: UUID, dat
         ],
     }
 
-async def _handle_search_memory(session: AsyncSession, user_id: UUID, query: str, category: str = None) -> dict:
+async def _handle_search_memory(session: AsyncSession, user_id: UUID, query: str, category: str | None = None) -> dict:
     query_embedding = await embed_text(query, task_type="RETRIEVAL_QUERY")
     results = await search_similar_memory(session, user_id, query_embedding, top_k=5)
 
@@ -316,13 +316,13 @@ async def _handle_search_memory(session: AsyncSession, user_id: UUID, query: str
         "hits": [{"content": r.content, "category": r.category, "created_at": r.created_at.isoformat()} for r in results]
     }
 
-async def _handle_store_memory(session: AsyncSession, user_id: UUID, content: str, category: str, importance_score: float = None) -> dict:
+async def _handle_store_memory(session: AsyncSession, user_id: UUID, content: str, category: str, importance_score: float | None = None) -> dict:
     if importance_score is None:
         prompt = f"Score the importance of this fact from 0.0 to 1.0, and provide a 1-line justification. Fact: '{content}'. Return ONLY a JSON object with 'score' (float) and 'justification' (string)."
         try:
             chat = start_chat()
             response = await chat.send_message(prompt)
-            text = response.text.strip()
+            text = (response.text or '').strip()
             if text.startswith("```json"):
                 text = text[7:-3]
             elif text.startswith("```"):
@@ -427,7 +427,7 @@ async def _handle_summarize_email(session: AsyncSession, user_id: UUID, email_id
             model=settings.GEMINI_MODEL,
             contents=[f"Summarize this email in a few concise sentences:\n\n{body}"]
         )
-        return {"summary": resp.text.strip(), "original_snippet": email.snippet}
+        return {"summary": (resp.text or '').strip(), "original_snippet": email.snippet}
     except Exception as e:
         return {"error": str(e)}
 
@@ -481,7 +481,7 @@ async def _handle_draft_email_reply(session: AsyncSession, user_id: UUID, email_
             model=settings.GEMINI_MODEL,
             contents=[f"Draft a reply to the email '{email.subject}' from '{email.from_address}'.\nIntent: {intent}\nSnippet: {email.snippet}{tone_instructions}\n\nReturn ONLY the email body text."]
         )
-        draft_text = resp.text.strip()
+        draft_text = (resp.text or '').strip()
 
         message = PyEmailMessage()
         message.set_content(draft_text)
@@ -632,7 +632,7 @@ async def _handle_draft_slack_reply(
                 f"Return ONLY the message text, no extra commentary."
             ],
         )
-        draft_text = resp.text.strip()
+        draft_text = (resp.text or '').strip()
         return {"channel_id": channel_id, "draft": draft_text}
     except Exception as e:
         return {"error": str(e)}
@@ -745,7 +745,7 @@ async def _handle_search_all_unanswered(session: AsyncSession, user_id: UUID) ->
     return {"unanswered_messages": results}
 
 async def _handle_get_pc_stats(session: AsyncSession, user_id: UUID) -> dict:
-    import psutil
+    import psutil  # type: ignore[reportMissingModuleSource]
     return {
         "cpu_percent": psutil.cpu_percent(interval=1),
         "ram_percent": psutil.virtual_memory().percent,
@@ -893,7 +893,7 @@ async def _handle_open_application(session: AsyncSession, user_id: UUID, app_nam
     _log.info(f"APP_LAUNCH | No alias match for '{app_name}', trying OS fallback")
     try:
         if current_os == "Windows":
-            os.startfile(app_key)
+            os.startfile(app_key)  # type: ignore[attr-defined]
         elif current_os == "Darwin":
             subprocess.Popen(
                 ["open", "-a", app_name],
@@ -917,7 +917,7 @@ async def _handle_open_application(session: AsyncSession, user_id: UUID, app_nam
     except Exception as e:
         # Suggest close matches if the app wasn't found at all
         suggestions = difflib.get_close_matches(app_key, _APP_ALIASES.keys(), n=3, cutoff=0.4)
-        err = {"error": f"Could not open '{app_name}'. It may not be installed."}
+        err: dict[str, Any] = {"error": f"Could not open '{app_name}'. It may not be installed."}
         if suggestions:
             err["did_you_mean"] = suggestions
         return err
@@ -1227,7 +1227,7 @@ Be concise but thorough. Write as if briefing a developer who needs to contribut
             model=settings.GEMINI_MODEL,
             contents=[analysis_prompt],
         )
-        analysis = resp.text.strip() if resp.text else "Analysis could not be generated."
+        analysis = (resp.text or '').strip() if resp.text else "Analysis could not be generated."
     except Exception as e:
         _log.error(f"REPO_ANALYZE | Gemini analysis failed: {e}")
         analysis = f"AI analysis failed: {str(e)}"

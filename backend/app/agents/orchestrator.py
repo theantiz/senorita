@@ -9,7 +9,7 @@ from app.db.models import ActionLog, Contact, Conversation, Task, User
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
-    from backports.zoneinfo import ZoneInfo
+    from zoneinfo import ZoneInfo
 import asyncio
 import json
 
@@ -53,7 +53,7 @@ Assistant: {final_text}
     try:
         chat = start_chat()
         response = await chat.send_message(prompt)
-        text = response.text.strip()
+        text = (response.text or '').strip()
         if text.startswith("```json"):
             text = text[7:-3]
         elif text.startswith("```"):
@@ -156,7 +156,8 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
     #    call iterations — the stateful chat object strips thought parts when we
     #    manually inject history, which causes the 400 INVALID_ARGUMENT error on
     #    thinking models like gemini-3.1-flash-lite.
-    contents: list[types.Content] = []
+    from typing import Any
+    contents: list[Any] = []
 
     # Inject prior text turns for context (no thought parts needed for old turns)
     conv_history.reverse()  # chronological order
@@ -175,6 +176,7 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
     )
 
     # g. Stateless agentic loop — up to 5 tool-call rounds
+    response = None
     for _ in range(6):  # 1 initial call + up to 5 tool-call rounds
         from google.genai.errors import ClientError
 
@@ -217,8 +219,8 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
         # Execute all tool calls and collect function responses
         text_responses = []
         for fc in function_calls:
-            fn_name = fc.name
-            args = fc.args
+            fn_name = fc.name or ""
+            args = fc.args or {}
 
             action = ActionLog(
                 user_id=user.id,
@@ -240,7 +242,7 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
         contents.append(types.Content(role="user", parts=[types.Part.from_text(text="\n\n".join(text_responses))]))
 
     # h. Persist to conversations table
-    final_text = response.text or ""
+    final_text = (response.text or "") if response else ""
 
     session.add(Conversation(
         user_id=user.id,

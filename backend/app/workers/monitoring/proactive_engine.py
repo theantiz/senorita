@@ -122,7 +122,7 @@ def _extract_date_from_content(content: str) -> datetime | None:
             f"Text: {content}"
         )
         resp = client.models.generate_content(model=settings.GEMINI_MODEL, contents=[prompt])
-        raw = resp.text.strip()
+        raw = (resp.text or '').strip()
         if raw.upper() == "NONE" or not raw:
             return None
         return datetime.strptime(raw[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
@@ -158,7 +158,7 @@ def _compose_notification(trigger_type: str, context_text: str, extra: str = "")
             "Reply with ONLY the notification text."
         )
         resp = client.models.generate_content(model=settings.GEMINI_MODEL, contents=[prompt])
-        return resp.text.strip()
+        return (resp.text or '').strip()
     except Exception as e:
         logger.warning(f"Notification composition failed: {e}")
         return context_text
@@ -462,7 +462,7 @@ Reply with ONLY the spoken notification text.
 """
         try:
             resp = client.models.generate_content(model=settings.GEMINI_MODEL, contents=[prompt])
-            message = resp.text.strip()
+            message = (resp.text or '').strip()
         except Exception as e:
             logger.error(f"Failed to generate meeting prep brief: {e}")
             message = f"Sir, I encountered a fault preparing your briefing for '{event.title}'."

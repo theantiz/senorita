@@ -28,11 +28,11 @@ from app.db.session import AsyncSession, engine
 async def seed_admin():
     """Ensure an admin user always exists. Creates one if missing."""
     from sqlalchemy import delete, select
-    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.ext.asyncio import async_sessionmaker
 
     from db.models import AuthToken, User
 
-    async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async_session = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with async_session() as session:
         # Check specifically for "admin" user
         stmt = select(User).where(User.name == "admin")

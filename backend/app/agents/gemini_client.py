@@ -13,7 +13,7 @@ def get_client() -> genai.Client:
         _client_instance = genai.Client(api_key=settings.GEMINI_API_KEY)
     return _client_instance
 
-def start_chat(tools: list | None = None, system_instruction: str = None):
+def start_chat(tools: list | None = None, system_instruction: str | None = None):
     client = get_client()
     config = types.GenerateContentConfig(
         tools=tools,

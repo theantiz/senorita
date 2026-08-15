@@ -10,7 +10,7 @@ from app.workers.reminders.scheduler import check_reminders
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
-    from backports.zoneinfo import ZoneInfo
+    from zoneinfo import ZoneInfo
 
 @pytest.mark.asyncio
 async def test_check_reminders_fires_past_reminder(db_session):

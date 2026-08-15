@@ -28,7 +28,7 @@ async def _classify_email(snippet: str) -> dict:
             f"Snippet: {snippet}"
         )
         resp = await client.aio.models.generate_content(model=settings.GEMINI_MODEL, contents=[prompt])
-        raw_json = resp.text.strip()
+        raw_json = (resp.text or '').strip()
         # Remove markdown codeblocks if Gemini adds them
         if raw_json.startswith("```json"):
             raw_json = raw_json[7:-3]

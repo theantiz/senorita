@@ -1,4 +1,5 @@
 from google import genai
+from google.genai import types
 
 from app.core.config import settings
 
@@ -17,6 +18,6 @@ async def embed_text(text: str, task_type: str) -> list[float]:
     result = await client.aio.models.embed_content(
         model="gemini-embedding-001",
         contents=text,
-        config=genai.types.EmbedContentConfig(task_type=task_type)
+        config=types.EmbedContentConfig(task_type=task_type)
     )
-    return result.embeddings[0].values if result.embeddings else []
+    return (result.embeddings[0].values or []) if result.embeddings else []

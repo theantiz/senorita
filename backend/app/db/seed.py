@@ -5,8 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import settings
 from app.db.models import Contact, MemoryEntry, User
@@ -14,7 +13,7 @@ from app.db.models import Contact, MemoryEntry, User
 
 async def seed_db():
     engine = create_async_engine(settings.DATABASE_URL)
-    async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async_session = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
     async with async_session() as session:
         # Create user

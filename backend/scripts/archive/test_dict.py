@@ -11,10 +11,10 @@ SENORITA_TOOLS_MANUAL = [
                 name="default_api:create_reminder",
                 description="Set a reminder for the user. Type is one of: time, date, recurring, event, context, location.",
                 parameters=types.Schema(
-                    type="OBJECT",
+                    type=types.Type.OBJECT,
                     properties={
-                        "type": types.Schema(type="STRING"),
-                        "trigger_payload": types.Schema(type="OBJECT")
+                        "type": types.Schema(type=types.Type.STRING),
+                        "trigger_payload": types.Schema(type=types.Type.OBJECT)
                     }
                 )
             )
@@ -41,11 +41,11 @@ async def main():
     contents = [
         {"role": "user", "parts": [{"text": "Create a reminder to buy milk."}]}
     ]
-    config = types.GenerateContentConfig(tools=SENORITA_TOOLS_MANUAL, temperature=0.0)
+    config = types.GenerateContentConfig(tools=SENORITA_TOOLS_MANUAL, temperature=0.0)  # type: ignore[reportArgumentType]
 
     print("Calling Turn 1...")
     resp1 = await client.aio.models.generate_content(
-        model="gemini-3.1-flash-lite", contents=contents, config=config
+        model="gemini-3.1-flash-lite", contents=contents, config=config  # type: ignore[reportArgumentType]
     )
     print("Turn 1 complete!")
 

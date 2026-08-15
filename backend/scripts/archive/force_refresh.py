@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO)
 async def main():
     try:
         # get_db is a generator, so we need to iterate it
-        async for session in get_db():
+        async for session in get_db():  # type: ignore[reportGeneralTypeIssues]
             stmt = select(Integration).where(Integration.provider == "gmail")
             result = await session.execute(stmt)
             integrations = result.scalars().all()
