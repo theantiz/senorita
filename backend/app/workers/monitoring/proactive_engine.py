@@ -142,6 +142,7 @@ def _compose_notification(trigger_type: str, context_text: str, extra: str = "")
             "stalled_task": f"Task due soon with no recent activity: {context_text}",
             "calendar_conflict": f"Calendar conflict detected: {context_text}",
             "unanswered_message": f"Unanswered message pending for over 4 hours: {context_text}",
+            "task_update_request": f"Pending task needs update: {context_text}",
         }
         return templates.get(trigger_type, context_text)
 
@@ -256,6 +257,71 @@ async def _check_stalled_tasks(session, user: User) -> list[tuple]:
         importance = priority_map.get(task.priority or "medium", 0.6)
         candidates.append((importance, "stalled_task", message, None))
 
+    return candidates
+
+
+# ─────────────────────────────────────────────────────────
+# Check B2 — ask for updates on any lingering tasks
+# ─────────────────────────────────────────────────────────
+
+async def _ask_for_task_updates(session, user: User) -> list[tuple]:
+    """Find pending tasks that haven't had any activity in 2 days and ask for an update."""
+    candidates = []
+    now = datetime.now(timezone.utc)
+    activity_cutoff = now - timedelta(days=2)
+    
+    result = await session.execute(
+        select(Task).where(
+            and_(
+                Task.user_id == user.id,
+                Task.status == 'pending',
+                Task.created_at < activity_cutoff,
+            )
+        )
+    )
+    tasks = result.scalars().all()
+    
+    for task in tasks:
+        # Check recent action logs for this task
+        recent = await session.execute(
+            select(func.count(ActionLog.id)).where(
+                and_(
+                    ActionLog.user_id == user.id,
+                    ActionLog.created_at >= activity_cutoff,
+                    func.cast(ActionLog.payload, JSONB).op("->>")("task_id") == str(task.id),
+                )
+            )
+        )
+        if (recent.scalar() or 0) > 0:
+            continue
+            
+        # Also check if we already asked for an update on this task recently (deduplication)
+        recent_notif = await session.execute(
+            select(func.count(NotificationLog.id)).where(
+                and_(
+                    NotificationLog.user_id == user.id,
+                    NotificationLog.trigger_type == "task_update_request",
+                    NotificationLog.created_at >= now - timedelta(days=3),
+                    NotificationLog.message.like(f"%{task.title[:15]}%") 
+                )
+            )
+        )
+        if (recent_notif.scalar() or 0) > 0:
+            continue
+
+        message = _compose_notification(
+            trigger_type="task_update_request",
+            context_text=(
+                f"Your task '{task.title}' has been pending for a while. "
+                f"Do you have any updates on its status?"
+            ),
+            extra=task.description or "",
+        )
+        
+        priority_map = {"high": 0.7, "medium": 0.5, "low": 0.4}
+        importance = priority_map.get(task.priority or "medium", 0.5)
+        candidates.append((importance, "task_update_request", message, None))
+        
     return candidates
 
 
@@ -491,6 +557,7 @@ async def _process_user(session, user: User):
     all_candidates = []
     all_candidates.extend(await _check_memory_dates(session, user))
     all_candidates.extend(await _check_stalled_tasks(session, user))
+    all_candidates.extend(await _ask_for_task_updates(session, user))
     all_candidates.extend(await _check_calendar_conflicts(session, user))
     all_candidates.extend(await _check_unanswered_messages(session, user))
     all_candidates.extend(await _check_meeting_prep(session, user))
