@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.gemini_client import get_client
-from app.agents.tool_registry import _handle_search_all_unanswered
+from app.agents.tool_registry import _handle_search_all_unanswered, _handle_suggest_task_batch
 from app.core.config import settings
 from app.db.models import Briefing, CalendarEvent, MemoryEntry, Task, User
 
@@ -127,7 +127,10 @@ async def generate_daily_briefing(session: AsyncSession, user: User) -> Briefing
             except Exception:
                 pass
 
-    has_data = bool(events or due_today or overdue or messages or upcoming_dates)
+    batch_res = await _handle_suggest_task_batch(session, user.id)
+    task_batches = batch_res.get("batches", [])
+
+    has_data = bool(events or due_today or overdue or messages or upcoming_dates or task_batches)
     detail_level = getattr(user, 'briefing_detail_level', 'standard')
 
     data_payload = {
@@ -137,6 +140,7 @@ async def generate_daily_briefing(session: AsyncSession, user: User) -> Briefing
         "unanswered_messages": messages,
         "upcoming_dates": upcoming_dates,
         "implicit_followups_created_yesterday": len(implicit_tasks),
+        "task_batches": task_batches,
     }
 
     if not has_data:
@@ -160,6 +164,7 @@ async def generate_daily_briefing(session: AsyncSession, user: User) -> Briefing
     3. If there is NO DATA AT ALL, acknowledge it honestly and elegantly (e.g. "Your schedule is entirely clear today, sir. Try not to let the silence deafen you.")
     4. Adhere strictly to the F.R.I.D.A.Y. persona. Do NOT output any markdown headers, just the spoken text.
     5. If 'implicit_followups_created_yesterday' > 0, explicitly mention it (e.g. "Also, I created N follow-up tasks from our conversations yesterday").
+    6. If 'task_batches' has items and the detail level is 'detailed', explicitly suggest knocking them out (e.g. "You have 4 similar replies pending — ask me to batch them").
     """
 
     client = get_client()

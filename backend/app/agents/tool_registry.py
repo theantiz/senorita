@@ -124,6 +124,10 @@ def read_news(topic: Optional[str] = None):
     """Fetch the latest news headlines. Topic can be 'world', 'nation', 'business', 'technology', 'entertainment', 'sports', 'science', or 'health'. Defaults to general world news."""
     pass
 
+def suggest_task_batch():
+    """Analyze pending tasks and unanswered messages to suggest batches of similar, low-effort tasks that can be knocked out together. Only returns batches if there are 3 or more similar items (e.g. 3+ short replies pending, or 3+ tasks for the same project or contact)."""
+    pass
+
 SENORITA_TOOLS = [
     create_task,
     create_reminder,
@@ -144,6 +148,7 @@ SENORITA_TOOLS = [
     open_application,
     analyze_repository,
     read_news,
+    suggest_task_batch,
 ]
 
 
@@ -170,6 +175,7 @@ async def execute_tool(session: AsyncSession, user_id: UUID, function_name: str,
         "open_application": _handle_open_application,
         "analyze_repository": _handle_analyze_repository,
         "read_news": _handle_read_news,
+        "suggest_task_batch": _handle_suggest_task_batch,
     }
     handler = handlers.get(function_name)
     if not handler:
@@ -179,6 +185,60 @@ async def execute_tool(session: AsyncSession, user_id: UUID, function_name: str,
         return await handler(session, user_id, **kwargs)
     except Exception as e:
         return {"error": str(e)}
+
+async def _handle_suggest_task_batch(session: AsyncSession, user_id: UUID) -> dict:
+    from collections import defaultdict
+    batches = []
+    
+    # 1. Unanswered messages
+    messages_res = await _handle_search_all_unanswered(session, user_id)
+    unanswered_messages = messages_res.get("unanswered_messages", [])
+    if len(unanswered_messages) >= 3:
+        batches.append({
+            "batch_type": "messages",
+            "count": len(unanswered_messages),
+            "description": f"{len(unanswered_messages)} unanswered messages across Email and Slack",
+            "items": unanswered_messages
+        })
+        
+    # 2. Pending Tasks by project and contact
+    stmt = select(Task).where(Task.user_id == user_id, Task.status != 'done')
+    result = await session.execute(stmt)
+    pending_tasks = result.scalars().all()
+    
+    by_project = defaultdict(list)
+    by_contact = defaultdict(list)
+    
+    for t in pending_tasks:
+        if t.project:
+            by_project[t.project].append(t)
+        if t.contact_id:
+            by_contact[t.contact_id].append(t)
+            
+    for proj, tasks in by_project.items():
+        if len(tasks) >= 3:
+            batches.append({
+                "batch_type": "project",
+                "project": proj,
+                "count": len(tasks),
+                "description": f"{len(tasks)} tasks pending for project '{proj}'",
+                "items": [{"id": str(t.id), "title": t.title} for t in tasks]
+            })
+            
+    for cid, tasks in by_contact.items():
+        if len(tasks) >= 3:
+            batches.append({
+                "batch_type": "contact",
+                "contact_id": str(cid),
+                "count": len(tasks),
+                "description": f"{len(tasks)} tasks pending for the same contact",
+                "items": [{"id": str(t.id), "title": t.title} for t in tasks]
+            })
+            
+    if not batches:
+        return {"status": "No batchable groups of 3+ items found."}
+        
+    return {"batches": batches}
 
 async def _handle_create_task(session: AsyncSession, user_id: UUID, title: str, due_at: str | None = None, priority: str | None = None, project: str | None = None, contact_name: str | None = None) -> dict:
     contact_id = None
