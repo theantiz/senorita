@@ -120,6 +120,10 @@ def analyze_repository(path: str):
     """Analyze a code repository at the given file system path and provide a structured overview of its tech stack, architecture, file structure, dependencies, and suggested starting points for understanding the code. The path must be an absolute path to a directory on the user's machine."""
     pass
 
+def read_news(topic: Optional[str] = None):
+    """Fetch the latest news headlines. Topic can be 'world', 'nation', 'business', 'technology', 'entertainment', 'sports', 'science', or 'health'. Defaults to general world news."""
+    pass
+
 SENORITA_TOOLS = [
     create_task,
     create_reminder,
@@ -139,6 +143,7 @@ SENORITA_TOOLS = [
     get_pc_stats,
     open_application,
     analyze_repository,
+    read_news,
 ]
 
 
@@ -164,6 +169,7 @@ async def execute_tool(session: AsyncSession, user_id: UUID, function_name: str,
         "get_pc_stats": _handle_get_pc_stats,
         "open_application": _handle_open_application,
         "analyze_repository": _handle_analyze_repository,
+        "read_news": _handle_read_news,
     }
     handler = handlers.get(function_name)
     if not handler:
@@ -1261,3 +1267,54 @@ Be concise but thorough. Write as if briefing a developer who needs to contribut
         response["ci_cd"] = ci_cd
 
     return response
+
+
+async def _handle_read_news(session: AsyncSession, user_id: UUID, topic: str | None = None) -> dict[str, Any]:
+    import xml.etree.ElementTree as ET
+    import httpx
+    
+    topic_map = {
+        "world": "WORLD",
+        "nation": "NATION",
+        "business": "BUSINESS",
+        "technology": "TECHNOLOGY",
+        "entertainment": "ENTERTAINMENT",
+        "sports": "SPORTS",
+        "science": "SCIENCE",
+        "health": "HEALTH"
+    }
+    
+    base_url = "https://news.google.com/rss"
+    if topic and topic.lower() in topic_map:
+        base_url = f"https://news.google.com/rss/headlines/section/topic/{topic_map[topic.lower()]}"
+        
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(base_url, timeout=10.0)
+            response.raise_for_status()
+            
+            root = ET.fromstring(response.text)
+            channel = root.find("channel")
+            if channel is None:
+                return {"error": "Could not parse news feed"}
+                
+            items = channel.findall("item")[:10]
+            news_list = []
+            for item in items:
+                title = item.findtext("title") or ""
+                link = item.findtext("link") or ""
+                pubDate = item.findtext("pubDate") or ""
+                source_elem = item.find("source")
+                source = source_elem.text if source_elem is not None else ""
+                
+                news_list.append({
+                    "title": title,
+                    "source": source,
+                    "published_at": pubDate,
+                    "link": link
+                })
+                
+            return {"topic": topic or "general", "news": news_list}
+            
+    except Exception as e:
+        return {"error": f"Failed to fetch news: {str(e)}"}
