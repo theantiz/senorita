@@ -3,9 +3,20 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+import sys
+
+def get_env_path() -> str:
+    # If bundled via PyInstaller, __file__ is in _internal/app/core/config.pyc
+    # So parents[2] is _internal.
+    bundled_path = Path(__file__).resolve().parents[2] / ".env"
+    if bundled_path.exists():
+        return str(bundled_path)
+    # Fallback to current directory or standard location
+    return ".env"
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=str(Path(__file__).resolve().parents[2] / ".env"),
+        env_file=[str(Path(__file__).resolve().parents[2] / ".env"), ".env"],
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -28,7 +39,7 @@ class Settings(BaseSettings):
     # Server
     HOST: str = "127.0.0.1"
     PORT: int = 8000
-    CORS_ORIGINS: str = "http://localhost:3000,http://tauri.localhost,tauri://localhost"
+    CORS_ORIGINS: str = "http://localhost:3000,http://tauri.localhost,tauri://localhost,https://tauri.localhost,http://senorita.localhost,https://senorita.localhost,asset://localhost,https://asset.localhost"
 
     # Workers
     REMINDER_POLL_INTERVAL_SECONDS: int = 10

@@ -20,26 +20,13 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
   // Until the component is mounted on the client we show a neutral blank so
   // both sides agree on the initial HTML and React doesn't complain.
   const [mounted, setMounted] = useState(false);
-  const [portLoaded, setPortLoaded] = useState(false);
 
   useEffect(() => { 
     setMounted(true); 
-    if (typeof window !== "undefined" && (window as any).__TAURI__) {
-      invoke<number>("get_backend_port")
-        .then((port) => {
-          setApiBaseUrl(`http://127.0.0.1:${port}/api/v1`);
-          setPortLoaded(true);
-        })
-        .catch((err) => {
-          console.error("Failed to fetch backend port", err);
-          setPortLoaded(true); // Fallback to default
-        });
-    } else {
-      setPortLoaded(true); // Fallback for standard web (dev mode)
-    }
+    setApiBaseUrl(`http://localhost:14231/api/v1`);
   }, []);
 
-  if (!mounted || !portLoaded) return null;
+  if (!mounted) return null;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,12 +34,14 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
     setLoading(true);
     setError("");
     try {
+      const { getApiBaseUrl } = require('@/lib/api');
       const res = await loginUser(nameInput.trim());
       if (res.token) {
         setAuth(res.token, res.user?.id ?? "");
       }
     } catch (err: any) {
-      setError("Login failed. Try using 'admin' or check the server logs for the admin token.");
+      const { getApiBaseUrl } = require('@/lib/api');
+      setError(`Login failed. (${err.message}) URL: ${getApiBaseUrl()}`);
     } finally {
       setLoading(false);
     }

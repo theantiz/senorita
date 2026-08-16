@@ -94,11 +94,7 @@ pub fn run() {
                     .show();
             }
 
-            // Find a free port
-            let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind to any port");
-            let port = listener.local_addr().expect("Failed to get local address").port();
-            drop(listener); // Free the port so the backend can use it
-
+            let port: u16 = 14231;
             // Manage the state
             app.manage(AppState { backend_port: port });
 
