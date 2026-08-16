@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     )
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://senorita:senorita@localhost:5432/senorita"
+    DATABASE_URL: str = "postgresql+asyncpg://senorita:senorita@localhost:5433/senorita"
 
     # Auth
     SECRET_KEY: str = "change-me-to-a-random-secret"
@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     # Server
     HOST: str = "127.0.0.1"
     PORT: int = 8000
-    CORS_ORIGINS: str = "http://localhost:3000"
+    CORS_ORIGINS: str = "http://localhost:3000,http://tauri.localhost,tauri://localhost"
 
     # Workers
     REMINDER_POLL_INTERVAL_SECONDS: int = 10

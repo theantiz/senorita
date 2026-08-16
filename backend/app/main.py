@@ -30,7 +30,7 @@ async def seed_admin():
     from sqlalchemy import delete, select
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from db.models import AuthToken, User
+    from app.db.models import AuthToken, User
 
     async_session = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with async_session() as session:
@@ -84,10 +84,10 @@ async def lifespan(app: FastAPI):
     # Start background workers if not testing
     import os
     if not os.environ.get("TESTING"):
-        from integrations.gmail_sync import start_gmail_sync_engine
-        from integrations.google_calendar_sync import start_google_calendar_sync_engine
-        from workers.monitoring.proactive_engine import start_proactive_engine
-        from workers.reminders.scheduler import start_scheduler_in_background
+        from app.integrations.gmail_sync import start_gmail_sync_engine
+        from app.integrations.google_calendar_sync import start_google_calendar_sync_engine
+        from app.workers.monitoring.proactive_engine import start_proactive_engine
+        from app.workers.reminders.scheduler import start_scheduler_in_background
 
         sch = start_scheduler_in_background()
         start_proactive_engine(sch)

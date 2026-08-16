@@ -49,6 +49,7 @@ pub fn run() {
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
             let _tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "quit" => {
@@ -108,13 +109,25 @@ pub fn run() {
             let backend_command = app.shell().command(backend_exe.to_str().unwrap())
                 .args(["--port", &port.to_string()]);
             
+            let app_handle = app.handle().clone();
             match backend_command.spawn() {
                 Ok((mut rx, mut _child)) => {
                     tauri::async_runtime::spawn(async move {
                         while let Some(event) = rx.recv().await {
                             match event {
                                 tauri_plugin_shell::process::CommandEvent::Stdout(line) => {
-                                    log::info!("Backend: {}", String::from_utf8_lossy(&line));
+                                    let text = String::from_utf8_lossy(&line);
+                                    log::info!("Backend: {}", text);
+                                    if text.contains("Token: ") {
+                                        let parts: Vec<&str> = text.split("Token: ").collect();
+                                        if parts.len() > 1 {
+                                            let token = parts[1].trim();
+                                            let _ = app_handle.notification().builder()
+                                                .title("Señorita Admin Token")
+                                                .body(&format!("Your admin token is: {}", token))
+                                                .show();
+                                        }
+                                    }
                                 }
                                 tauri_plugin_shell::process::CommandEvent::Stderr(line) => {
                                     log::error!("Backend Error: {}", String::from_utf8_lossy(&line));
