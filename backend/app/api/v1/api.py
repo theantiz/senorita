@@ -16,6 +16,7 @@ from app.api.v1.endpoints import (
     slack,
     system,
     tasks,
+    tools,
 )
 
 api_router = APIRouter()
@@ -24,6 +25,7 @@ api_router.include_router(health.router)
 api_router.include_router(auth.router)
 api_router.include_router(contacts.router)
 api_router.include_router(tasks.router)
+api_router.include_router(tools.router)
 api_router.include_router(reminders.router)
 api_router.include_router(calendar.router)
 api_router.include_router(memory.router)

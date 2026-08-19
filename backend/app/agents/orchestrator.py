@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.gemini_client import get_client, start_chat
 from app.agents.prompts import build_system_instruction
-from app.agents.tool_registry import SENORITA_TOOLS, execute_tool
+from app.agents.tool_registry import SENORITA_TOOLS, discover_tools_for_message, execute_tool, gemini_tools_for_names
 from app.core.config import settings
 from app.core.logger import logger
 from app.core.state import get_pause_state
@@ -262,8 +262,10 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
     sys_inst = build_system_instruction(user, memories, contacts)
     contents = _build_contents(conv_history, message_text)
     client = get_client()
+    discovered_tool_names = discover_tools_for_message(message_text)
+    available_tools = gemini_tools_for_names(discovered_tool_names)
     config = types.GenerateContentConfig(
-        tools=SENORITA_TOOLS,
+        tools=available_tools,
         system_instruction=sys_inst,
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
     )
