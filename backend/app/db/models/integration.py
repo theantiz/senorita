@@ -60,7 +60,7 @@ class Integration(Base):
         CheckConstraint(
             provider.in_([
                 "gmail",
-
+                "whatsapp",
                 "slack",
                 "google_calendar",
                 "outlook",

@@ -1,0 +1,181 @@
+"""initial backend schema baseline
+
+Revision ID: 000_initial_schema
+Revises:
+Create Date: 2026-08-19 00:00:00.000000
+
+"""
+
+from typing import Sequence, Union
+
+import pgvector.sqlalchemy
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+from alembic import op
+
+# revision identifiers, used by Alembic.
+revision: str = "000_initial_schema"
+down_revision: Union[str, None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto;")
+    op.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+
+    op.create_table(
+        "users",
+        sa.Column("id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column("name", sa.Text(), nullable=False),
+        sa.Column("timezone", sa.Text(), nullable=False),
+        sa.Column("autonomy_level", sa.Integer(), server_default="2", nullable=False),
+        sa.Column("style_profile", postgresql.JSONB(astext_type=sa.Text()), server_default="{}", nullable=False),
+        sa.Column("memory_capture_sensitivity", sa.Text(), server_default="conservative", nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.CheckConstraint(
+            "memory_capture_sensitivity IN ('off', 'conservative', 'proactive')",
+            name="chk_users_memory_capture_sensitivity",
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_table(
+        "auth_tokens",
+        sa.Column("id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("token_hash", sa.Text(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_table(
+        "contacts",
+        sa.Column("id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("name", sa.Text(), nullable=False),
+        sa.Column("relationship_type", sa.Text(), nullable=False),
+        sa.Column("tone_profile", postgresql.JSONB(astext_type=sa.Text()), server_default="{}", nullable=False),
+        sa.Column("last_discussed_topic", sa.Text(), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_table(
+        "memory_entries",
+        sa.Column("id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("content", sa.Text(), nullable=False),
+        sa.Column("category", sa.Text(), nullable=False),
+        sa.Column("source_ref", sa.Text(), nullable=True),
+        sa.Column("confidence", sa.Float(), nullable=True),
+        sa.Column("importance_score", sa.Float(), nullable=True),
+        sa.Column("locked", sa.Boolean(), server_default="false", nullable=False),
+        sa.Column("status", sa.Text(), server_default="active", nullable=False),
+        sa.Column("embedding", pgvector.sqlalchemy.Vector(dim=3072), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.CheckConstraint(
+            "category IN ('person', 'preference', 'date', 'promise', 'context')",
+            name="memory_category_check",
+        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_table(
+        "reminders",
+        sa.Column("id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("type", sa.Text(), nullable=False),
+        sa.Column("trigger_payload", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("status", sa.Text(), server_default="active", nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.CheckConstraint(
+            "type IN ('time', 'date', 'recurring', 'event', 'context', 'location')",
+            name="reminder_type_check",
+        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_table(
+        "tasks",
+        sa.Column("id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("title", sa.Text(), nullable=False),
+        sa.Column("description", sa.Text(), nullable=True),
+        sa.Column("due_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("priority", sa.Text(), nullable=True),
+        sa.Column("status", sa.Text(), server_default="pending", nullable=False),
+        sa.Column("project", sa.Text(), nullable=True),
+        sa.Column("contact_id", postgresql.UUID(as_uuid=True), nullable=True),
+        sa.Column("reminder_id", postgresql.UUID(as_uuid=True), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.ForeignKeyConstraint(["contact_id"], ["contacts.id"]),
+        sa.ForeignKeyConstraint(["reminder_id"], ["reminders.id"]),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_table(
+        "calendar_events",
+        sa.Column("id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("title", sa.Text(), nullable=False),
+        sa.Column("start_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("end_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("attendees", postgresql.JSONB(astext_type=sa.Text()), server_default="[]", nullable=False),
+        sa.Column("source_calendar", sa.Text(), server_default="local", nullable=False),
+        sa.Column("conflict_flags", postgresql.JSONB(astext_type=sa.Text()), server_default="[]", nullable=False),
+        sa.Column("surfaced", sa.Boolean(), server_default="false", nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_table(
+        "action_log",
+        sa.Column("id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("action_type", sa.Text(), nullable=False),
+        sa.Column("payload", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("result", sa.Text(), nullable=False),
+        sa.Column("confirmed_by_user", sa.Boolean(), server_default="false", nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.CheckConstraint("result IN ('success', 'failed', 'pending')", name="action_result_check"),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_table(
+        "conversations",
+        sa.Column("id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("gemini_interaction_id", sa.Text(), nullable=True),
+        sa.Column("role", sa.Text(), nullable=False),
+        sa.Column("content", sa.Text(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.CheckConstraint("role IN ('user', 'assistant')", name="conversation_role_check"),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_table(
+        "notification_log",
+        sa.Column("id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("trigger_type", sa.Text(), nullable=False),
+        sa.Column("message", sa.Text(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+
+
+def downgrade() -> None:
+    op.drop_table("notification_log")
+    op.drop_table("conversations")
+    op.drop_table("action_log")
+    op.drop_table("calendar_events")
+    op.drop_table("tasks")
+    op.drop_table("reminders")
+    op.drop_table("memory_entries")
+    op.drop_table("contacts")
+    op.drop_table("auth_tokens")
+    op.drop_table("users")
+    op.execute("DROP EXTENSION IF EXISTS vector;")
+    op.execute("DROP EXTENSION IF EXISTS pgcrypto;")

@@ -15,8 +15,6 @@ from uuid import UUID
 
 import httpx
 from google.genai import types
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,7 +36,6 @@ from app.agents.tool_system import (
     ToolRegistry,
 )
 from app.core.config import settings
-from app.core.crypto import decrypt
 from app.db.models import (
     ActionLog,
     CalendarEvent,
@@ -52,6 +49,7 @@ from app.db.models import (
     User,
 )
 from app.integrations.base import get_adapter
+from app.integrations.providers import get_email_provider, get_messaging_provider
 from app.memory.embeddings import embed_text
 from app.memory.retrieval import search_similar_memory
 from app.services.message_mode_service import resolve_mode
@@ -599,7 +597,8 @@ async def execute_tool(session: AsyncSession, user_id: UUID, function_name: str,
         }
 
     confirmed = bool(kwargs.pop("_confirmed", False))
-    context = ToolContext(user_id=user_id)
+    idempotency_key = kwargs.pop("_idempotency_key", None) or kwargs.pop("idempotency_key", None)
+    context = ToolContext(user_id=user_id, idempotency_key=str(idempotency_key) if idempotency_key else None)
     result = await get_tool_executor().execute(session, context, function_name, kwargs, confirmed=confirmed)
     return result.to_dict()
 
@@ -1228,14 +1227,6 @@ async def _handle_get_relationship_context(session: AsyncSession, user_id: UUID,
     }
 
 
-def _get_gmail_service(integration: Integration):
-    if not integration.access_token_encrypted:
-        raise ToolInputError("Gmail is connected but has no usable access token.")
-    access_token = decrypt(integration.access_token_encrypted)
-    creds = Credentials(token=access_token)
-    return build("gmail", "v1", credentials=creds, cache_discovery=False)
-
-
 async def _handle_read_emails(
     session: AsyncSession, user_id: UUID, filter: str | None = "unread", limit: int | None = 10
 ) -> dict:
@@ -1342,10 +1333,7 @@ async def _handle_summarize_email(session: AsyncSession, user_id: UUID, email_id
         return {"error": "Gmail not connected."}
 
     try:
-        service = _get_gmail_service(integration)
-        msg_data = await asyncio.to_thread(
-            lambda: service.users().messages().get(userId="me", id=email.gmail_message_id, format="full").execute()
-        )
+        msg_data = await get_email_provider("gmail").get_message(integration, email.gmail_message_id, format="full")
 
         body = _decode_gmail_body(msg_data.get("payload") or {})
         if not body:
@@ -1437,10 +1425,7 @@ async def _handle_draft_email_reply(session: AsyncSession, user_id: UUID, email_
         encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
         create_message = {"message": {"raw": encoded_message}}
 
-        service = _get_gmail_service(integration)
-        draft = await asyncio.to_thread(
-            lambda: service.users().drafts().create(userId="me", body=create_message).execute()
-        )
+        draft = await get_email_provider("gmail").create_draft(integration, create_message["message"]["raw"])
 
         return {"draft_id": draft["id"], "content": draft_text}
     except ToolInputError as exc:
@@ -1467,10 +1452,7 @@ async def _handle_send_email(session: AsyncSession, user_id: UUID, draft_id: str
         return {"error": "confirmation_required", "detail": f"Message mode is {mode}. Please confirm before sending."}
 
     try:
-        service = _get_gmail_service(integration)
-        sent_message = await asyncio.to_thread(
-            lambda: service.users().drafts().send(userId="me", body={"id": draft_id}).execute()
-        )
+        sent_message = await get_email_provider("gmail").send_draft(integration, draft_id)
 
         # Log success strictly as required
         log = ActionLog(
@@ -1713,19 +1695,8 @@ async def _handle_send_slack_message(session: AsyncSession, user_id: UUID, chann
             "channel_id": channel_id,
         }
 
-    if not integration.access_token_encrypted:
-        return {"error": "Slack is connected but has no usable access token."}
-    access_token = decrypt(integration.access_token_encrypted)
-
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(
-                "https://slack.com/api/chat.postMessage",
-                headers={"Authorization": f"Bearer {access_token}"},
-                json={"channel": channel_id, "text": message},
-            )
-            resp.raise_for_status()
-            data = resp.json()
+        data = await get_messaging_provider("slack").send_message(integration, channel_id, message)
 
         if not data.get("ok"):
             raise ValueError(f"Slack API error: {data.get('error')}")
@@ -3308,7 +3279,6 @@ TOOL_DEFINITIONS = [
         risk=RiskLevel.MEDIUM,
         side_effects=("creates_email_draft",),
         timeout=35.0,
-        retries=1,
         idempotent=False,
     ),
     _tool_def(

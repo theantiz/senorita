@@ -110,7 +110,7 @@ Señorita is a personal AI that knows your context, remembers your life, anticip
 | Next.js Frontend | `frontend/` | TypeScript | Dashboard, chat, memory, tasks UI |
 | Tauri Shell | `desktop/` | Rust + TypeScript | Native desktop wrapper, system tray |
 | PostgreSQL | (Docker / managed) | SQL | Persistent storage |
-| Alembic | `database/migrations/` | Python | Schema versioning |
+| Alembic | `backend/alembic/` | Python | Schema versioning |
 | launchd Agent | `infrastructure/macos/` | XML + Bash | macOS auto-start |
 | NSSM Service | `infrastructure/windows/` | XML + PowerShell | Windows auto-start |
 
@@ -207,7 +207,7 @@ backend/
 ```
 uvicorn main:app
   └─ lifespan()
-       ├─ Base.metadata.create_all()     # idempotent table creation
+       ├─ Alembic migrations             # schema owned by backend/alembic
        ├─ start_scheduler_in_background()
        │    ├─ scheduler.add_job(check_reminders, interval=60s)
        │    └─ scheduler.start()  →  returns scheduler instance
@@ -655,7 +655,7 @@ JWT issued by `POST /auth/setup` (name + timezone → user upsert + token).
 | APScheduler (not Celery) | Lower ops overhead for Phase 1; Celery available in Phase 2+ if distributed workers are needed |
 | `google-genai` 1.0.0 pinned | The `interactions` API requires ≥ 2.3.0, which is not yet in the pinned venv; STT uses `models.generate_content` with a multimodal audio Part |
 | Unified dispatch at `workers/notifications/dispatch.py` | Both the reminder scheduler and proactive engine call the same function; Phase 2 replaces the stub with a real Tauri IPC bridge without touching callers |
-| Alembic under `database/migrations/`, not `backend/` | Keeps DB concerns separate from app code; `env.py` adds `backend/` to `sys.path` at runtime |
+| Alembic under `backend/alembic/` | The backend owns the runtime models and migration history; fresh databases are initialized with `alembic upgrade head` from `backend/` |
 | `surfaced` boolean on `CalendarEvent` | Prevents re-dispatching the same conflict notification across successive proactive cycles |
 | Importance-first cap enforcement | When cap is hit mid-cycle, *lowest-importance* candidates are skipped — highest-value alerts always dispatch first |
 
@@ -706,7 +706,7 @@ Key variables:
 | Variable | Default | Description |
 |---|---|---|
 | `GEMINI_API_KEY` | — | **Required.** Google Gemini API key |
-| `DATABASE_URL` | `postgresql+asyncpg://senorita:senorita@localhost:5432/senorita` | Async DB URL |
+| `DATABASE_URL` | `postgresql+asyncpg://senorita:senorita@localhost:5433/senorita` | Async DB URL |
 | `SECRET_KEY` | `change-me` | JWT signing secret |
 | `PORT` | `8000` | Backend listen port |
 | `PROACTIVE_CHECK_INTERVAL_SECONDS` | `900` | Proactive engine poll interval (15 min) |
@@ -720,9 +720,9 @@ cd backend
 python3.12 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 # Apply DB migrations
-cd ../database/migrations && alembic upgrade head
+alembic upgrade head
 # Start
-cd ../../backend && uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 8000
 ```
 
 ### 4. Frontend
@@ -785,4 +785,3 @@ The UI follows a **JARVIS/HUD aesthetic**:
 ## License
 
 MIT © Jay D. Chothiyawala
-

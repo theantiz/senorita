@@ -59,3 +59,14 @@ class ToolResult:
             error=ToolError(code=code, message=message, retryable=retryable),
             metadata=metadata or {},
         )
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "ToolResult":
+        error = payload.get("error")
+        return cls(
+            success=bool(payload.get("success")),
+            tool=str(payload.get("tool") or ""),
+            data=payload.get("data"),
+            error=ToolError(**error) if isinstance(error, dict) else None,
+            metadata=payload.get("metadata") or {},
+        )

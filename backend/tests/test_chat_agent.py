@@ -24,7 +24,7 @@ async def test_chat_basic_response(client: AsyncClient, mock_gemini_client):
     # Setup user
     import uuid
     username = f"test_chat_user_{uuid.uuid4().hex[:8]}"
-    setup_res = await client.post("/api/v1/auth/setup", json={"name": username, "timezone": "UTC"})
+    setup_res = await client.post("/api/v1/auth/login", json={"name": username})
     assert setup_res.status_code == 200, setup_res.text
     token = setup_res.json()["token"]
     

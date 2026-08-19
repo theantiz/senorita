@@ -5,11 +5,16 @@ Core no-database tests live in:
 - `backend/tests/test_tool_registry_helpers.py`
 - `backend/tests/test_tool_system.py`
 
+DB-backed tool hardening tests live in:
+
+- `backend/tests/test_tool_system_persistence.py`
+
 Run focused tests:
 
 ```bash
 cd backend
 .venv/bin/python -m pytest tests/test_tool_registry_helpers.py tests/test_tool_system.py
+.venv/bin/python -m pytest tests/test_tool_system_persistence.py
 ```
 
 Run the backend suite:
@@ -24,6 +29,6 @@ The backend pytest config scopes collection to `tests/` so archived/manual scrip
 Useful checks:
 
 ```bash
-backend/.venv/bin/python -m ruff check backend/app/agents backend/app/api/v1/endpoints/tools.py backend/tests/test_tool_system.py
-backend/.venv/bin/python -m ruff format --check backend/app/agents backend/app/api/v1/endpoints/tools.py backend/tests/test_tool_system.py
+backend/.venv/bin/python -m ruff check backend/app/agents backend/app/api/v1/endpoints/tools.py backend/app/integrations/providers.py backend/tests/test_tool_system.py backend/tests/test_tool_system_persistence.py
+backend/.venv/bin/python -m ruff format --check backend/app/agents backend/app/api/v1/endpoints/tools.py backend/app/integrations/providers.py backend/tests/test_tool_system.py backend/tests/test_tool_system_persistence.py
 ```

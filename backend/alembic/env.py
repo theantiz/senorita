@@ -5,6 +5,8 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
+import pgvector  # noqa: F401 — registers pgvector types with SQLAlchemy
+import pgvector.sqlalchemy  # noqa: F401
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
@@ -70,5 +72,3 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
-import pgvector.sqlalchemy
-import pgvector

@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agents.gemini_client import get_client, start_chat
 from app.agents.prompts import build_system_instruction
 from app.agents.tool_registry import SENORITA_TOOLS, discover_tools_for_message, execute_tool, gemini_tools_for_names
+from app.agents.tool_system.persistence import redact_sensitive_arguments
 from app.core.config import settings
 from app.core.logger import logger
 from app.core.state import get_pause_state
@@ -125,12 +126,12 @@ async def _record_tool_result(
     args: dict,
     tool_result: dict[str, Any],
 ) -> None:
-    result = "failed" if "error" in tool_result else "success"
+    result = "failed" if tool_result.get("error") else "success"
     session.add(
         ActionLog(
             user_id=user_id,
             action_type=function_name,
-            payload=args,
+            payload=redact_sensitive_arguments(args),
             result=result,
         )
     )
@@ -144,8 +145,6 @@ async def _execute_tool_calls_for_model(session: AsyncSession, user_id: UUID, fu
         args = function_call.args or {}
 
         tool_result = await execute_tool(session, user_id, function_name, args)
-        if "error" in tool_result:
-            await session.rollback()
 
         await _record_tool_result(session, user_id, function_name, args, tool_result)
         text_responses.append(

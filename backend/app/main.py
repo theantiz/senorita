@@ -63,8 +63,9 @@ async def seed_admin():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan — startup/shutdown."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    if settings.TESTING:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
 
     await seed_admin()
 

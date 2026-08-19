@@ -1,7 +1,7 @@
 """create integrations table
 
 Revision ID: 001_integrations
-Revises: 
+Revises:
 Create Date: 2026-07-24
 
 """
@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "001_integrations"
-down_revision: Union[str, None] = None
+down_revision: Union[str, None] = "000_initial_schema"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
