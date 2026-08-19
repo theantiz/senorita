@@ -187,3 +187,49 @@ export async function getLatestEodBriefing(token: string) {
 export async function getRecentNotifications(token: string) {
   return apiFetch("/notifications/recent", {}, token);
 }
+
+export async function getDocuments(token: string) {
+  return apiFetch("/documents", {}, token);
+}
+
+export async function getDocument(token: string, id: string) {
+  return apiFetch(`/documents/${id}`, {}, token);
+}
+
+export async function uploadDocument(token: string, file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+  };
+
+  const response = await fetch(`${API_BASE}/documents`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      handleUnauthorized();
+      throw new Error("Unauthorized (401)");
+    }
+    let detail = response.statusText;
+    try {
+      const body = await response.json();
+      if (body.detail) detail = body.detail;
+    } catch {}
+    throw new Error(detail);
+  }
+
+  return response.json();
+}
+
+export async function deleteDocument(token: string, id: string) {
+  return apiFetch(`/documents/${id}`, { method: "DELETE" }, token);
+}
+
+export async function getDocumentQuestions(token: string, id: string) {
+  return apiFetch(`/documents/${id}/questions`, {}, token);
+}

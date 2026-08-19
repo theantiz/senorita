@@ -13,6 +13,8 @@ from app.db.models.reminder import Reminder
 from app.db.models.slack_message import SlackMessage
 from app.db.models.task import Task
 from app.db.models.user import User
+from app.db.models.document import Document
+from app.db.models.document_chunk import DocumentChunk
 
 __all__ = [
     "User",
@@ -30,4 +32,6 @@ __all__ = [
     "SlackMessage",
     "MessageMode",
     "Briefing",
+    "Document",
+    "DocumentChunk",
 ]

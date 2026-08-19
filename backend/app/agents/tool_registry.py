@@ -132,6 +132,14 @@ def web_research(query: str, depth: str):
     """Search the web to answer questions about current events, real-world entities, companies, products, people, prices, or anything time-sensitive that you cannot answer confidently from memory alone. Use depth='quick' (1-2 searches, fast answer) for simple factual lookups, or depth='thorough' (3-6 searches, comprehensive) for complex research topics. NEVER use this tool to look up private/personal information about non-public private individuals. Always cite sources in your response when presenting web research results."""
     pass
 
+def search_document(query: str, document_id: str):
+    """Search through uploaded documents to answer questions about their content. Pass document_id to search a specific document, or pass 'all' to search across all the user's uploaded documents. Returns the most relevant text chunks with source document names. Use this whenever the user asks about content in their uploaded documents."""
+    pass
+
+def generate_document_questions(document_id: str):
+    """Generate 2-4 genuinely useful clarifying questions about an uploaded document. These are questions a thoughtful assistant would ask after reading the document (ambiguous terms, missing info, implied decisions). The result is cached so repeated calls are fast."""
+    pass
+
 SENORITA_TOOLS = [
     create_task,
     create_reminder,
@@ -154,6 +162,8 @@ SENORITA_TOOLS = [
     read_news,
     suggest_task_batch,
     web_research,
+    search_document,
+    generate_document_questions,
 ]
 
 
@@ -182,6 +192,8 @@ async def execute_tool(session: AsyncSession, user_id: UUID, function_name: str,
         "read_news": _handle_read_news,
         "suggest_task_batch": _handle_suggest_task_batch,
         "web_research": _handle_web_research,
+        "search_document": _handle_search_document,
+        "generate_document_questions": _handle_generate_document_questions,
     }
     handler = handlers.get(function_name)
     if not handler:
@@ -1479,3 +1491,85 @@ async def _handle_web_research(session: AsyncSession, user_id: UUID, query: str,
 
     except Exception as e:
         return {"error": f"Web research failed: {str(e)}"}
+
+async def _handle_search_document(session: AsyncSession, user_id: UUID, query: str, document_id: str) -> dict[str, Any]:
+    from app.db.models.document_chunk import DocumentChunk
+    from app.db.models.document import Document
+
+    query_embedding = await embed_text(query, task_type="RETRIEVAL_QUERY")
+    if not query_embedding:
+        return {"error": "Failed to generate query embedding"}
+
+    stmt = (
+        select(DocumentChunk)
+        .where(DocumentChunk.user_id == user_id)
+    )
+    if document_id and document_id != "all":
+        try:
+            from uuid import UUID as UUIDType
+            doc_uuid = UUIDType(document_id)
+            stmt = stmt.where(DocumentChunk.document_id == doc_uuid)
+        except ValueError:
+            pass
+
+    stmt = stmt.order_by(DocumentChunk.embedding.cosine_distance(query_embedding)).limit(5)
+    result = await session.execute(stmt)
+    chunks = result.scalars().all()
+
+    if not chunks:
+        return {"results": [], "message": "No matching content found in documents."}
+
+    results = []
+    for c in chunks:
+        # Get document filename
+        doc = await session.get(Document, c.document_id)
+        results.append({
+            "chunk_text": c.chunk_text[:500],
+            "chunk_index": c.chunk_index,
+            "document_id": str(c.document_id),
+            "document_filename": doc.filename if doc else "unknown",
+        })
+
+    return {"results": results, "query": query}
+
+
+async def _handle_generate_document_questions(session: AsyncSession, user_id: UUID, document_id: str) -> dict[str, Any]:
+    import json as _json
+    from app.db.models.document import Document
+
+    try:
+        from uuid import UUID as UUIDType
+        doc_uuid = UUIDType(document_id)
+    except ValueError:
+        return {"error": "Invalid document ID"}
+
+    doc = await session.get(Document, doc_uuid)
+    if not doc or doc.user_id != user_id:
+        return {"error": "Document not found"}
+
+    # Return cached if available
+    if doc.cached_questions:
+        return {"questions": _json.loads(doc.cached_questions), "document": doc.filename}
+
+    try:
+        client = get_client()
+        prompt = (
+            f"You have just read the following document. Generate 2-4 genuinely useful "
+            f"clarifying questions that a thoughtful assistant would ask after reading it. "
+            f"Focus on: ambiguous terms, missing information needed to act on the document, "
+            f"decisions implied but not confirmed. Do NOT generate generic quiz questions. "
+            f"Return ONLY a JSON array of strings.\n\n"
+            f"Document: {doc.filename}\nContent:\n{doc.full_text[:12000]}"
+        )
+        resp = await client.aio.models.generate_content(
+            model=settings.GEMINI_MODEL, contents=prompt
+        )
+        text = (resp.text or "").strip()
+        if text.startswith("```json"): text = text[7:-3]
+        elif text.startswith("```"): text = text[3:-3]
+        questions = _json.loads(text.strip())
+        doc.cached_questions = _json.dumps(questions)
+        await session.commit()
+        return {"questions": questions, "document": doc.filename}
+    except Exception as e:
+        return {"error": f"Failed to generate questions: {str(e)}"}
