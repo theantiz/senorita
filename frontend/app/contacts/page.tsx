@@ -99,12 +99,15 @@ export default function ContactsPage() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
-      <div>
-        <h1 className="text-3xl font-display font-semibold text-white tracking-tight">Contacts</h1>
-        <p className="text-white/50 mt-2 text-sm max-w-xl leading-relaxed">
-          Manage individuals you communicate with and set contact-specific override behaviors.
-        </p>
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="hud-kicker mb-1">// CONTACT POLICY MATRIX</p>
+          <h1 className="hud-title">CONTACTS</h1>
+        </div>
+        <div className="hud-counter w-fit">
+          {contacts.length} CONTACTS
+        </div>
       </div>
 
       {loading ? (
@@ -112,16 +115,14 @@ export default function ContactsPage() {
           <div className="w-5 h-5 border-2 border-white/20 border-t-white/80 rounded-full animate-spin" />
         </div>
       ) : contacts.length === 0 ? (
-        <div className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-2xl p-12 text-center">
-          <p className="text-white/50 text-sm">No contacts found.</p>
-        </div>
+        <div className="hud-empty">[ NO CONTACTS FOUND ]</div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
           {contacts.map((contact) => (
-            <div key={contact.id} className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div key={contact.id} className="hud-panel hud-cut-md flex flex-col justify-between gap-5 p-5 md:flex-row md:items-center">
               <div>
-                <h3 className="text-lg font-semibold text-white">{contact.name}</h3>
-                <span className="inline-block mt-1 px-2 py-0.5 rounded bg-white/5 text-xs text-white/50 border border-white/10 uppercase tracking-wider">
+                <h3 className="font-display text-lg font-semibold text-white">{contact.name}</h3>
+                <span className="mt-2 inline-block border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs uppercase tracking-wider text-white/50">
                   {contact.relationship_type}
                 </span>
               </div>
@@ -131,7 +132,7 @@ export default function ContactsPage() {
                 <select
                   value={getContactMode(contact.id)}
                   onChange={(e) => handleModeChange(contact.id, e.target.value)}
-                  className="bg-black/50 border border-white/10 text-sm text-white rounded-lg px-3 py-2 outline-none focus:border-[#4A90E2]"
+                  className="hud-select min-w-56"
                 >
                   <option value="default">System Default (Fallback)</option>
                   <option value="draft_only">Draft Only</option>

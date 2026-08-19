@@ -2,21 +2,12 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 
-import sys
-
-def get_env_path() -> str:
-    # If bundled via PyInstaller, __file__ is in _internal/app/core/config.pyc
-    # So parents[2] is _internal.
-    bundled_path = Path(__file__).resolve().parents[2] / ".env"
-    if bundled_path.exists():
-        return str(bundled_path)
-    # Fallback to current directory or standard location
-    return ".env"
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=[str(Path(__file__).resolve().parents[2] / ".env"), ".env"],
+        env_file=[str(BACKEND_DIR / ".env"), ".env"],
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -34,18 +25,25 @@ class Settings(BaseSettings):
     GEMINI_MODEL: str = "gemini-3.1-flash-lite"
 
     # Embeddings
-    EMBEDDING_MODEL: str = "text-embedding-004"
+    EMBEDDING_MODEL: str = "gemini-embedding-001"
+
+    # Voice
+    VOICE_TTS_VOICE: str = "en-US-AriaNeural"
+    VOICE_TTS_RATE: str = "+0%"
+    VOICE_MAX_UPLOAD_BYTES: int = 8 * 1024 * 1024
 
     # Server
     HOST: str = "127.0.0.1"
     PORT: int = 8000
+    LOG_LEVEL: str = "INFO"
     CORS_ORIGINS: str = "http://localhost:3000,http://tauri.localhost,tauri://localhost,https://tauri.localhost,http://senorita.localhost,https://senorita.localhost,asset://localhost,https://asset.localhost"
 
     # Workers
+    TESTING: bool = False
     REMINDER_POLL_INTERVAL_SECONDS: int = 10
     PROACTIVE_CHECK_INTERVAL_SECONDS: int = 120  # 2 minutes
-    PROACTIVE_WINDOW_DAYS: int = 21              # memory date look-ahead window
-    DAILY_NOTIFICATION_CAP: int = 5             # max proactive notifications/day/user
+    PROACTIVE_WINDOW_DAYS: int = 21  # memory date look-ahead window
+    DAILY_NOTIFICATION_CAP: int = 5  # max proactive notifications/day/user
 
     # Gmail Integration
     GMAIL_CLIENT_ID: str = ""
@@ -58,11 +56,9 @@ class Settings(BaseSettings):
     SLACK_SIGNING_SECRET: str = ""
     SLACK_REDIRECT_URI: str = "http://localhost:8000/api/v1/integrations/slack/callback"
 
-
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
 
 settings = Settings()
-

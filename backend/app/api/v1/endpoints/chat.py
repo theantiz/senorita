@@ -1,116 +1,152 @@
+import asyncio
 import base64
 import os
+import re
 import tempfile
+from dataclasses import dataclass
 
 import edge_tts
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from google.genai import types
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.gemini_client import get_client
 from app.agents.orchestrator import handle_message
+from app.api.deps import get_current_user, get_db
 from app.core.config import settings
 from app.core.logger import logger
-from app.api.deps import get_current_user
 from app.db.models import User
-from app.api.deps import get_db
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
+SUPPORTED_AUDIO_MIME_EXTENSIONS = {
+    "audio/webm": ".webm",
+    "audio/ogg": ".ogg",
+    "audio/mp4": ".mp4",
+    "audio/wav": ".wav",
+    "audio/x-wav": ".wav",
+    "audio/mpeg": ".mp3",
+    "audio/mp3": ".mp3",
+    "audio/flac": ".flac",
+    "audio/aac": ".aac",
+    "audio/aiff": ".aiff",
+}
+
+
+@dataclass
+class TranscriptionResult:
+    text: str
+    mime_type: str
+    byte_size: int
+
+
 class ChatRequest(BaseModel):
-    message: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    message: str = Field(min_length=1, max_length=12_000)
+
 
 class TTSRequest(BaseModel):
-    text: str
+    model_config = ConfigDict(str_strip_whitespace=True)
 
-@router.post("")
-async def chat_endpoint(request: ChatRequest, session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    response_text = await handle_message(session, current_user, request.message)
-    return {"response": response_text}
+    text: str = Field(min_length=1, max_length=4_000)
 
 
-@router.get("")
-async def get_chat_history(session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    from sqlalchemy import select
-    from app.db.models import Conversation
-    stmt = (
-        select(Conversation)
-        .where(Conversation.user_id == current_user.id)
-        .order_by(Conversation.created_at.asc())
-        .limit(100)
-    )
-    result = await session.execute(stmt)
-    history = result.scalars().all()
-    
-    return [
-        {
-            "role": h.role,
-            "text": h.content,
-            "ts": h.created_at.isoformat()
-        }
-        for h in history
-    ]
+def _normalize_audio_mime(content_type: str | None) -> str:
+    mime_type = (content_type or "audio/webm").split(";")[0].strip().lower()
+    return mime_type if mime_type in SUPPORTED_AUDIO_MIME_EXTENSIONS else "audio/webm"
 
 
-@router.post("/tts")
-async def tts_endpoint(request: TTSRequest, current_user: User = Depends(get_current_user)):
-    """Convert text to speech using edge-tts and return base64-encoded MP3 audio."""
-    if not request.text.strip():
-        return {"audio_base64": None}
+def _clean_text_for_speech(text: str) -> str:
+    text = re.sub(r"```.*?```", " ", text, flags=re.DOTALL)
+    text = re.sub(r"[*_#`>\[\]]", "", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def _split_tts_chunks(text: str, max_chars: int = 900) -> list[str]:
+    clean = _clean_text_for_speech(text)
+    if not clean:
+        return []
+
+    sentences = re.findall(r"[^.!?;]+[.!?;]*", clean)
+    chunks: list[str] = []
+    current = ""
+    for sentence in sentences or [clean]:
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+        if len(sentence) > max_chars:
+            chunks.extend(sentence[i : i + max_chars] for i in range(0, len(sentence), max_chars))
+            continue
+        if current and len(current) + len(sentence) + 1 > max_chars:
+            chunks.append(current)
+            current = sentence
+        else:
+            current = f"{current} {sentence}".strip()
+
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+async def synthesize_speech_base64(text: str) -> str | None:
+    """Generate speech via edge-tts and return base64 MP3 data."""
     try:
-        communicate = edge_tts.Communicate(request.text, "en-US-AriaNeural")
-        tts_audio = b""
-        async for chunk in communicate.stream():
-            if chunk.get("type") == "audio" and "data" in chunk:
-                tts_audio += chunk["data"]  # type: ignore[reportTypedDictNotRequiredAccess]
-        audio_base64 = base64.b64encode(tts_audio).decode("utf-8") if tts_audio else None
-    except Exception as e:
-        logger.error(f"TTS Error: {e}")
-        audio_base64 = None
-    return {"audio_base64": audio_base64}
+        chunks: list[bytes] = []
+        for speech_chunk in _split_tts_chunks(text):
+            communicate = edge_tts.Communicate(
+                speech_chunk,
+                settings.VOICE_TTS_VOICE,
+                rate=settings.VOICE_TTS_RATE,
+            )
+            async for chunk in communicate.stream():
+                if chunk.get("type") == "audio" and "data" in chunk:
+                    chunks.append(chunk["data"])  # type: ignore[reportTypedDictNotRequiredAccess]
+        tts_audio = b"".join(chunks)
+        return base64.b64encode(tts_audio).decode("utf-8") if tts_audio else None
+    except Exception:
+        logger.exception("TTS generation failed")
+        return None
 
 
-@router.post("/voice")
-async def chat_voice_endpoint(
-    audio: UploadFile = File(...),
-    session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    # Read the audio bytes
-    audio_bytes = await audio.read()
+async def _delete_uploaded_file(client, file_name: str) -> None:
+    try:
+        await client.aio.files.delete(name=file_name)
+    except Exception:
+        logger.warning("Background voice upload cleanup failed", exc_info=True)
+
+
+async def transcribe_audio_bytes(audio_bytes: bytes, content_type: str | None) -> TranscriptionResult:
+    """Upload audio to Gemini Files API and return precise multilingual transcription."""
     if not audio_bytes:
-        return {"response": "I didn't hear anything.", "transcription": ""}
+        return TranscriptionResult(text="", mime_type=_normalize_audio_mime(content_type), byte_size=0)
 
-    # Normalise MIME type — strip codec params (e.g. "audio/webm;codecs=opus" → "audio/webm")
-    # Gemini's Files API accepts the base type just fine.
-    raw_mime = (audio.content_type or "audio/webm").split(";")[0].strip() or "audio/webm"
+    if len(audio_bytes) > settings.VOICE_MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Audio clip is too large. Try a shorter command.",
+        )
 
-    # Determine a safe file extension from the mime type
-    ext_map = {
-        "audio/webm": ".webm", "audio/ogg": ".ogg", "audio/mp4": ".mp4",
-        "audio/wav": ".wav", "audio/mpeg": ".mp3", "audio/flac": ".flac",
-        "audio/aac": ".aac", "audio/aiff": ".aiff",
-    }
-    suffix = ext_map.get(raw_mime, ".webm")
-
+    raw_mime = _normalize_audio_mime(content_type)
+    suffix = SUPPORTED_AUDIO_MIME_EXTENSIONS[raw_mime]
     prompt = (
-        "Transcribe this audio precisely. "
-        "If it is garbled, unclear, or you cannot understand what is being said, "
-        "reply EXACTLY with 'UNCLEAR_AUDIO'."
+        "Transcribe this user command precisely. The user may speak English, Hindi, Gujarati, "
+        "or a mix of them. Preserve the spoken language using the English alphabet where possible. "
+        "Return only the transcription text. If the audio is silent, garbled, clipped, or unclear, "
+        "reply exactly with UNCLEAR_AUDIO."
     )
 
     tmp_path = None
     uploaded_file = None
-    client = get_client()  # raises ValueError early if API key is missing
+    client = get_client()
 
     try:
-        # Write bytes to a temp file — the Files API requires a file path, not raw bytes
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(audio_bytes)
             tmp_path = tmp.name
 
-        # Upload via Files API (handles webm/opus correctly; inline Part.from_bytes does not)
         uploaded_file = await client.aio.files.upload(
             file=tmp_path,
             config=types.UploadFileConfig(mime_type=raw_mime),
@@ -120,46 +156,84 @@ async def chat_voice_endpoint(
             model=settings.GEMINI_MODEL,
             contents=[uploaded_file, prompt],
         )
-        transcribed_text = (response.text or '').strip()
-
-    except Exception as e:
-        return {"response": f"Sorry, I had trouble processing the audio: {str(e)}"}
-
+        return TranscriptionResult(
+            text=(response.text or "").strip(),
+            mime_type=raw_mime,
+            byte_size=len(audio_bytes),
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Voice transcription failed")
+        return TranscriptionResult(text="", mime_type=raw_mime, byte_size=len(audio_bytes))
     finally:
-        # Clean up temp file
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
-        # Best-effort cleanup of the Gemini-hosted file in the background to save latency
         if uploaded_file is not None and uploaded_file.name:
-            import asyncio
-            async def _delete(name):
-                try:
-                    await client.aio.files.delete(name=name)
-                except Exception as e:
-                    logger.warning(f"Background delete failed: {e}")
-            asyncio.create_task(_delete(uploaded_file.name))
+            asyncio.create_task(_delete_uploaded_file(client, uploaded_file.name))
 
-    if transcribed_text == "UNCLEAR_AUDIO" or not transcribed_text:
+
+@router.post("")
+async def chat_endpoint(
+    request: ChatRequest, session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    response_text = await handle_message(session, current_user, request.message)
+    return {"response": response_text}
+
+
+@router.get("")
+async def get_chat_history(session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from sqlalchemy import select
+
+    from app.db.models import Conversation
+
+    stmt = (
+        select(Conversation)
+        .where(Conversation.user_id == current_user.id)
+        .order_by(Conversation.created_at.asc())
+        .limit(100)
+    )
+    result = await session.execute(stmt)
+    history = result.scalars().all()
+
+    return [
+        {
+            "role": h.role,
+            "text": h.content,
+            "ts": h.created_at.isoformat(),
+        }
+        for h in history
+    ]
+
+
+@router.post("/tts")
+async def tts_endpoint(request: TTSRequest, current_user: User = Depends(get_current_user)):
+    """Convert text to speech using edge-tts and return base64-encoded MP3 audio."""
+    return {"audio_base64": await synthesize_speech_base64(request.text)}
+
+
+@router.post("/voice")
+async def chat_voice_endpoint(
+    audio: UploadFile = File(...),
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    audio_bytes = await audio.read()
+    transcription = await transcribe_audio_bytes(audio_bytes, audio.content_type)
+
+    if not transcription.text:
+        return {"response": "I didn't hear anything.", "transcription": ""}
+    if transcription.text == "UNCLEAR_AUDIO":
         return {"response": "I didn't quite catch that. Could you please repeat?", "transcription": ""}
 
-    # Pass the transcribed text to the orchestrator
-    response_text = await handle_message(session, current_user, transcribed_text)
+    response_text = await handle_message(session, current_user, transcription.text)
 
-    # Generate TTS audio via edge-tts (free Microsoft Neural TTS)
-    audio_base64 = None
-    try:
-        communicate = edge_tts.Communicate(response_text, "en-US-AriaNeural")
-        tts_audio = b""
-        async for chunk in communicate.stream():
-            if chunk.get("type") == "audio" and "data" in chunk:
-                tts_audio += chunk["data"]  # type: ignore[reportTypedDictNotRequiredAccess]
-        if tts_audio:
-            audio_base64 = base64.b64encode(tts_audio).decode("utf-8")
-    except Exception as e:
-        logger.error(f"TTS Error: {e}")
+    audio_base64 = await synthesize_speech_base64(response_text)
 
     return {
         "response": response_text,
-        "transcription": transcribed_text,
+        "transcription": transcription.text,
         "audio_base64": audio_base64,
+        "audio_mime": transcription.mime_type,
+        "audio_bytes": transcription.byte_size,
     }

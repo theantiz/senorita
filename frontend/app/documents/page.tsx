@@ -103,12 +103,12 @@ export default function Documents() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="font-mono text-[9px] text-white/40 tracking-[0.3em] mb-1">// DOCUMENT INTELLIGENCE CORE</p>
-          <h2 className="font-hud text-lg font-bold text-white/90 tracking-widest">DOCUMENTS</h2>
+          <p className="hud-kicker mb-1">// DOCUMENT INTELLIGENCE CORE</p>
+          <h2 className="hud-title">DOCUMENTS</h2>
         </div>
-        <div className="font-mono text-[9px] text-white/30 border border-white/10 px-3 py-1.5 tracking-widest">
+        <div className="hud-counter w-fit">
           {documents.length} FILES
         </div>
       </div>
@@ -159,9 +159,7 @@ export default function Documents() {
 
       {/* Empty State */}
       {!loading && documents.length === 0 && (
-        <div className="text-center py-12 border border-white/10">
-          <p className="font-mono text-[10px] text-white/30 tracking-widest">[ NO DOCUMENTS UPLOADED ]</p>
-        </div>
+        <div className="hud-empty">[ NO DOCUMENTS UPLOADED ]</div>
       )}
 
       {/* Document List */}
@@ -180,7 +178,7 @@ export default function Documents() {
                 style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}
               >
                 <div
-                  className="flex items-center gap-4 px-4 py-3 group cursor-pointer"
+                  className="group flex cursor-pointer flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:gap-4"
                   onClick={() => toggleExpand(doc.id)}
                 >
                   {/* File icon */}
@@ -199,22 +197,25 @@ export default function Documents() {
                   </div>
 
                   {/* Chunk count */}
-                  <span className="font-mono text-[8px] text-white/40 border border-white/20 px-1.5 py-0.5 shrink-0">
-                    {doc.chunk_count} CHUNKS
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2 md:contents">
+                    {/* Chunk count */}
+                    <span className="font-mono text-[8px] text-white/40 border border-white/20 px-1.5 py-0.5 shrink-0">
+                      {doc.chunk_count} CHUNKS
+                    </span>
 
-                  {/* Date */}
-                  <span className="font-mono text-[8px] text-white/30 shrink-0">
-                    {new Date(doc.created_at).toLocaleDateString()}
-                  </span>
+                    {/* Date */}
+                    <span className="font-mono text-[8px] text-white/30 shrink-0">
+                      {new Date(doc.created_at).toLocaleDateString()}
+                    </span>
 
-                  {/* Delete */}
-                  <button
-                    onClick={(e) => handleDelete(e, doc.id)}
-                    className="shrink-0 font-mono text-[8px] border border-red-500/20 text-red-500/40 px-2 py-0.5 tracking-widest hover:border-red-400/50 hover:text-red-400 transition-colors"
-                  >
-                    PURGE
-                  </button>
+                    {/* Delete */}
+                    <button
+                      onClick={(e) => handleDelete(e, doc.id)}
+                      className="shrink-0 font-mono text-[8px] border border-red-500/20 text-red-500/40 px-2 py-0.5 tracking-widest hover:border-red-400/50 hover:text-red-400 transition-colors"
+                    >
+                      PURGE
+                    </button>
+                  </div>
                 </div>
 
                 {/* Expanded Detail */}
@@ -245,7 +246,7 @@ export default function Documents() {
                               className="w-full text-left px-3 py-2 border border-white/10 bg-white/[0.02] hover:border-white/30 hover:bg-white/[0.04] transition-all group"
                             >
                               <span className="font-mono text-[9px] text-white/60 group-hover:text-white/90">
-                                → {q}
+                                ASK: {q}
                               </span>
                             </button>
                           ))}

@@ -94,7 +94,15 @@ export async function sendChatMessage(token: string, message: string) {
   }, token);
 }
 
-export async function sendVoiceMessage(token: string, formData: FormData) {
+export interface VoiceMessageResponse {
+  response: string;
+  transcription?: string;
+  audio_base64?: string | null;
+  audio_mime?: string;
+  audio_bytes?: number;
+}
+
+export async function sendVoiceMessage(token: string, formData: FormData): Promise<VoiceMessageResponse> {
   const headers: Record<string, string> = {
     "Authorization": `Bearer ${token}`
   };
@@ -117,7 +125,12 @@ export async function sendVoiceMessage(token: string, formData: FormData) {
         handleUnauthorized();
         throw new Error("Unauthorized (401)");
       }
-      throw new Error(`API Error: ${response.statusText}`);
+      let detail = response.statusText;
+      try {
+        const body = await response.json();
+        if (body.detail) detail = body.detail;
+      } catch {}
+      throw new Error(`API Error: ${detail}`);
     }
     
     return response.json();

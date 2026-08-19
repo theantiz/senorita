@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../components/AuthContext";
-import { getTasks, getCalendarEvents, getActivity, sendVoiceMessage, getLatestBriefing, getLatestEodBriefing, getRecentNotifications } from "@/lib/api";
+import { getTasks, getCalendarEvents, getActivity, getLatestBriefing, getLatestEodBriefing, getRecentNotifications } from "@/lib/api";
 import dynamic from "next/dynamic";
 
 const VoiceOrb = dynamic(() => import("../components/VoiceOrb").then(mod => mod.VoiceOrb), { ssr: false });
@@ -11,7 +11,7 @@ import { useVoiceAssistant, VoiceAssistantStatus } from "../../hooks/useVoiceAss
 
 function HudCard({ children, title, code }: { children: React.ReactNode; title: string; code: string }) {
   return (
-    <div className="relative border border-white/15 bg-white/10[0.02] p-5" style={{ clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%)' }}>
+    <div className="hud-panel hud-cut-md relative p-4 md:p-5">
       {/* Top label */}
       <div className="flex items-center justify-between mb-4">
         <p className="font-mono text-[9px] text-white/40 tracking-[0.25em] uppercase">{title}</p>
@@ -119,7 +119,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* AI Voice Assistant Orb */}
-      <div className="border border-white/20 bg-white/10[0.01] p-1 relative h-48 md:h-64 flex flex-col justify-end" style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))' }}>
+      <div className="hud-panel relative flex h-48 flex-col justify-end overflow-hidden p-1 md:h-64" style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))' }}>
         <div className="absolute inset-0">
           <VoiceOrb 
             getFrequencies={getFrequencies} 
@@ -137,16 +137,16 @@ export default function Dashboard() {
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/10">
+      <div className="mb-8 flex flex-col gap-4 border-b border-white/10 pb-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="font-mono text-[9px] text-white/40 tracking-[0.3em] mb-1">
+          <p className="hud-kicker mb-1">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase()}
           </p>
-          <h2 className="font-hud text-xl font-bold text-white/90 tracking-widest text-white">
+          <h2 className="font-hud text-xl font-bold tracking-widest text-white">
             {greeting}
           </h2>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex flex-wrap items-center gap-3 md:gap-6">
           <button 
             onClick={toggleWakeWord}
             className={`font-mono text-[10px] tracking-widest px-3 py-1 border transition-colors ${
@@ -165,11 +165,11 @@ export default function Dashboard() {
       </div>
 
       {/* show the history of today's activities */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {stats.map((s) => (
           <div
             key={s.label}
-            className="border border-white/20 bg-white/10[0.03] p-5 relative"
+            className="hud-panel hud-cut-md relative p-5"
             style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
           >
             <p className="font-mono text-[8px] tracking-[0.25em] mb-2 text-white/40">{s.label}</p>
@@ -182,7 +182,7 @@ export default function Dashboard() {
       </div>
 
       {/* display the morning and evening briefings side-by-side */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <HudCard title="// MORNING BRIEFING" code="BRF-001">
           {loading ? (
             <div className="flex items-center gap-2">
@@ -211,7 +211,7 @@ export default function Dashboard() {
       </div>
 
       {/* render the main task and calendar panels */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Tasks */}
         <HudCard title="// TASK QUEUE" code="TQ-001">
           {loading ? (
@@ -226,7 +226,7 @@ export default function Dashboard() {
               {openTasks.slice(0, 6).map((t) => (
                 <li key={t.id} className="flex items-center gap-2.5 group">
                   <div className="w-1 h-1 bg-white/40 rotate-45 shrink-0 group-hover:bg-white transition-colors" />
-                  <span className="font-mono text-[10px] text-white/90/70 group-hover:text-white/80 transition-colors flex-1 truncate">{t.title}</span>
+                  <span className="font-mono text-[10px] text-white/70 group-hover:text-white/90 transition-colors flex-1 truncate">{t.title}</span>
                   {t.priority === 'high' && (
                     <span className="font-mono text-[7px] text-red-400 border border-red-500/30 px-1 py-px shrink-0">HIGH</span>
                   )}
@@ -258,8 +258,8 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div>
-                    <p className="font-mono text-[10px] text-white/80/80">{e.title}</p>
-                    {e.location && <p className="font-mono text-[9px] text-white/40 mt-0.5">⌖ {e.location}</p>}
+                    <p className="font-mono text-[10px] text-white/80">{e.title}</p>
+                    {e.location && <p className="font-mono text-[9px] text-white/40 mt-0.5">LOC: {e.location}</p>}
                   </div>
                 </li>
               ))}
@@ -290,7 +290,7 @@ export default function Dashboard() {
                       {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
-                  <p className="font-mono text-[10px] text-white/80/90 whitespace-pre-wrap">{n.message}</p>
+                  <p className="font-mono text-[10px] text-white/80 whitespace-pre-wrap">{n.message}</p>
                 </li>
               ))}
             </ul>

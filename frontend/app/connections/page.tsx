@@ -160,7 +160,6 @@ function Toggle({
 }) {
   return (
     <button
-      id={`toggle-${Math.random()}`}
       type="button"
       onClick={() => !disabled && onChange(!enabled)}
       disabled={disabled}
@@ -204,7 +203,7 @@ function ProviderCard({
 
   return (
     <article
-      className="relative overflow-hidden transition-all duration-300"
+      className="hud-cut-md relative overflow-hidden transition-all duration-300"
       style={{
         background: 'rgba(255,255,255,0.02)',
         border: connected
@@ -266,7 +265,7 @@ function ProviderCard({
               <button
                 id={`disconnect-${meta.key}`}
                 onClick={() => onDisconnect(meta.key)}
-                className="px-3 py-1.5 font-mono text-[11px] tracking-widest text-white/30 hover:text-red-400 border border-white/05 hover:border-red-400/20 transition-all duration-200"
+                className="px-3 py-1.5 font-mono text-[11px] tracking-widest text-white/30 hover:text-red-400 border border-white/5 hover:border-red-400/20 transition-all duration-200"
               >
                 REVOKE
               </button>
@@ -423,19 +422,13 @@ export default function ConnectionsPage() {
       )}
 
       {/* ── Header ── */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <span className="font-mono text-[10px] text-white/30 tracking-widest uppercase">07</span>
-          <div className="h-px flex-1 bg-white/[0.05]" />
+      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="hud-kicker mb-1">// EXTERNAL SERVICES</p>
+          <h1 className="hud-title">CONNECTIONS</h1>
         </div>
-        <h1 className="text-2xl font-semibold text-white tracking-tight mb-2">Connections</h1>
-        <p className="text-sm text-white/40 leading-relaxed max-w-xl">
-          Connect external services so Señorita can act across your digital life.
-          All credentials are encrypted at rest — never stored in plaintext.
-        </p>
-
         {!loading && (
-          <div className="flex items-center gap-4 mt-5">
+          <div className="flex flex-wrap items-center gap-4">
             <div
               className="inline-flex items-center gap-2 px-3 py-1.5"
               style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.2)' }}
@@ -512,7 +505,7 @@ export default function ConnectionsPage() {
       {/* ── Security note ── */}
       {!loading && (
         <div
-          className="mt-8 p-4"
+          className="hud-panel-quiet mt-8 p-4"
           style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.05)' }}
         >
           <p className="font-mono text-[10px] text-white/30 tracking-widest uppercase mb-2">Security</p>

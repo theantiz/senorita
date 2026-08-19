@@ -34,6 +34,7 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-inter), sans-serif;
+    text-rendering: geometricPrecision;
   }
 
   ::-webkit-scrollbar {
@@ -47,6 +48,50 @@
   }
   ::-webkit-scrollbar-thumb:hover {
     background: hsl(190 90% 50%);
+  }
+}
+
+@layer components {
+  .hud-panel {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.025);
+  }
+
+  .hud-panel-quiet {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.018);
+  }
+
+  .hud-cut-sm {
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  }
+
+  .hud-cut-md {
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  }
+
+  .hud-kicker {
+    @apply font-mono text-[9px] uppercase tracking-[0.3em] text-white/40;
+  }
+
+  .hud-title {
+    @apply font-hud text-lg font-bold uppercase tracking-widest text-white/90;
+  }
+
+  .hud-counter {
+    @apply border border-white/10 px-3 py-1.5 font-mono text-[9px] uppercase tracking-widest text-white/35;
+  }
+
+  .hud-empty {
+    @apply border border-white/10 py-12 text-center font-mono text-[10px] uppercase tracking-widest text-white/30;
+  }
+
+  .hud-input {
+    @apply border border-white/20 bg-black/40 p-2 font-mono text-[10px] tracking-widest text-white outline-none transition-colors placeholder:text-white/20 focus:border-white/50;
+  }
+
+  .hud-select {
+    @apply border border-white/20 bg-black/40 p-2 font-mono text-[9px] tracking-widest text-white/70 outline-none transition-colors focus:border-white/50;
   }
 }
 
@@ -108,6 +153,10 @@
   }
   .font-mono-hud {
     font-family: var(--font-geist-mono), monospace;
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
 

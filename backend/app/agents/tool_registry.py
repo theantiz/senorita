@@ -48,97 +48,127 @@ from app.services.message_mode_service import resolve_mode
 
 # Dummy functions for SDK schema extraction
 
-def create_task(title: str, due_at: Optional[str] = None, priority: Optional[str] = None, project: Optional[str] = None, contact_name: Optional[str] = None):
+
+def create_task(
+    title: str,
+    due_at: Optional[str] = None,
+    priority: Optional[str] = None,
+    project: Optional[str] = None,
+    contact_name: Optional[str] = None,
+):
     """Create a new task for the user. If due_at is omitted it has no deadline. If contact_name is provided, it tries to link the task to an existing contact."""
     pass
+
 
 def create_reminder(type: str, trigger_payload: dict):
     """Set a reminder for the user. Type is one of: time, date, recurring, event, context, location."""
     pass
 
+
 def create_calendar_event(title: str, start_at: str, end_at: str, attendees: Optional[list[str]] = None):
     """Add an event to the calendar. start_at and end_at must be ISO 8601 strings."""
     pass
+
 
 def read_calendar_events(date: Optional[str] = None, limit: Optional[int] = None):
     """Read the user's calendar events. If date is provided, use YYYY-MM-DD and return that day's events; otherwise returns today's events. Includes manually-created and synced Google Calendar events."""
     pass
 
+
 def search_memory(query: str, category: Optional[str] = None):
     """Search the user's memory for relevant facts, preferences, people, dates, or context."""
     pass
+
 
 def store_memory(content: str, category: str, importance_score: Optional[float] = None):
     """Save a new memory or fact about the user. Category must be one of: person, preference, date, promise, context."""
     pass
 
+
 def find_contact(name: str):
     """Find a contact by fuzzy name matching."""
     pass
+
 
 def read_emails(filter: Optional[str], limit: Optional[int]):
     """Read emails from the database. Filter can be 'unread', 'needs_reply', or a sender's email/name. Limit defaults to 10 if omitted."""
     pass
 
+
 def summarize_email(email_id: str):
     """Fetch the full email body live from Gmail and summarize it using Gemini."""
     pass
+
 
 def draft_email_reply(email_id: str, intent: str):
     """Draft a reply to a specific email and save it in the user's Gmail Drafts."""
     pass
 
+
 def send_email(draft_id: str):
     """Send an existing email draft from Gmail."""
     pass
+
 
 def read_slack_messages(filter: Optional[str] = None, limit: Optional[int] = None):
     """Read messages from Slack. Filter can be 'needs_reply', a channel ID/name, or a sender's Slack user ID. Limit defaults to 10."""
     pass
 
+
 def draft_slack_reply(channel_id: str, intent: str):
     """Draft a reply for a Slack channel or DM and return the proposed text for review."""
     pass
+
 
 def send_slack_message(channel_id: str, message: str):
     """Send a message to a Slack channel or DM using the connected Slack bot."""
     pass
 
+
 def search_all_unanswered():
     """Search for unanswered messages across all connected channels (Gmail, Slack)."""
     pass
+
 
 def get_pc_stats():
     """Get current PC hardware statistics including CPU, Memory, and Disk usage."""
     pass
 
+
 def open_application(app_name: str):
     """Open or launch an application on the user's computer. Pass a simple app name like 'vs code', 'chrome', 'spotify', 'notepad', 'terminal', 'file explorer', 'calculator', 'discord', 'slack', 'firefox'."""
     pass
+
 
 def analyze_repository(path: str):
     """Analyze a code repository at the given file system path and provide a structured overview of its tech stack, architecture, file structure, dependencies, and suggested starting points for understanding the code. The path must be an absolute path to a directory on the user's machine."""
     pass
 
+
 def read_news(topic: Optional[str] = None):
     """Fetch the latest news headlines. Topic can be 'world', 'nation', 'business', 'technology', 'entertainment', 'sports', 'science', or 'health'. Defaults to general world news."""
     pass
+
 
 def suggest_task_batch():
     """Analyze pending tasks and unanswered messages to suggest batches of similar, low-effort tasks that can be knocked out together. Only returns batches if there are 3 or more similar items (e.g. 3+ short replies pending, or 3+ tasks for the same project or contact)."""
     pass
 
+
 def web_research(query: str, depth: str):
     """Search the web to answer questions about current events, real-world entities, companies, products, people, prices, or anything time-sensitive that you cannot answer confidently from memory alone. Use depth='quick' (1-2 searches, fast answer) for simple factual lookups, or depth='thorough' (3-6 searches, comprehensive) for complex research topics. NEVER use this tool to look up private/personal information about non-public private individuals. Always cite sources in your response when presenting web research results."""
     pass
+
 
 def search_document(query: str, document_id: str):
     """Search through uploaded documents to answer questions about their content. Pass document_id to search a specific document, or pass 'all' to search across all the user's uploaded documents. Returns the most relevant text chunks with source document names. Use this whenever the user asks about content in their uploaded documents."""
     pass
 
+
 def generate_document_questions(document_id: str):
     """Generate 2-4 genuinely useful clarifying questions about an uploaded document. These are questions a thoughtful assistant would ask after reading the document (ambiguous terms, missing info, implied decisions). The result is cached so repeated calls are fast."""
     pass
+
 
 SENORITA_TOOLS = [
     create_task,
@@ -169,7 +199,11 @@ SENORITA_TOOLS = [
 
 # Python Implementations
 
+
 async def execute_tool(session: AsyncSession, user_id: UUID, function_name: str, kwargs: dict) -> dict[str, Any]:
+    if not isinstance(kwargs, dict):
+        return {"error": f"Invalid arguments for {function_name}: expected an object."}
+
     handlers = {
         "create_task": _handle_create_task,
         "create_reminder": _handle_create_reminder,
@@ -201,64 +235,85 @@ async def execute_tool(session: AsyncSession, user_id: UUID, function_name: str,
 
     try:
         return await handler(session, user_id, **kwargs)
-    except Exception as e:
-        return {"error": str(e)}
+    except TypeError as exc:
+        logging.getLogger("senorita.tools").warning("Invalid arguments for tool %s: %s", function_name, exc)
+        return {"error": f"Invalid arguments for {function_name}: {exc}"}
+    except Exception:
+        logging.getLogger("senorita.tools").exception("Tool %s failed", function_name)
+        return {"error": f"{function_name} failed. See server logs for details."}
+
 
 async def _handle_suggest_task_batch(session: AsyncSession, user_id: UUID) -> dict:
     from collections import defaultdict
+
     batches = []
-    
+
     # 1. Unanswered messages
     messages_res = await _handle_search_all_unanswered(session, user_id)
     unanswered_messages = messages_res.get("unanswered_messages", [])
     if len(unanswered_messages) >= 3:
-        batches.append({
-            "batch_type": "messages",
-            "count": len(unanswered_messages),
-            "description": f"{len(unanswered_messages)} unanswered messages across Email and Slack",
-            "items": unanswered_messages
-        })
-        
+        batches.append(
+            {
+                "batch_type": "messages",
+                "count": len(unanswered_messages),
+                "description": f"{len(unanswered_messages)} unanswered messages across Email and Slack",
+                "items": unanswered_messages,
+            }
+        )
+
     # 2. Pending Tasks by project and contact
-    stmt = select(Task).where(Task.user_id == user_id, Task.status != 'done')
+    stmt = select(Task).where(Task.user_id == user_id, Task.status != "done")
     result = await session.execute(stmt)
     pending_tasks = result.scalars().all()
-    
+
     by_project = defaultdict(list)
     by_contact = defaultdict(list)
-    
+
     for t in pending_tasks:
         if t.project:
             by_project[t.project].append(t)
         if t.contact_id:
             by_contact[t.contact_id].append(t)
-            
+
     for proj, tasks in by_project.items():
         if len(tasks) >= 3:
-            batches.append({
-                "batch_type": "project",
-                "project": proj,
-                "count": len(tasks),
-                "description": f"{len(tasks)} tasks pending for project '{proj}'",
-                "items": [{"id": str(t.id), "title": t.title} for t in tasks]
-            })
-            
+            batches.append(
+                {
+                    "batch_type": "project",
+                    "project": proj,
+                    "count": len(tasks),
+                    "description": f"{len(tasks)} tasks pending for project '{proj}'",
+                    "items": [{"id": str(t.id), "title": t.title} for t in tasks],
+                }
+            )
+
     for cid, tasks in by_contact.items():
         if len(tasks) >= 3:
-            batches.append({
-                "batch_type": "contact",
-                "contact_id": str(cid),
-                "count": len(tasks),
-                "description": f"{len(tasks)} tasks pending for the same contact",
-                "items": [{"id": str(t.id), "title": t.title} for t in tasks]
-            })
-            
+            batches.append(
+                {
+                    "batch_type": "contact",
+                    "contact_id": str(cid),
+                    "count": len(tasks),
+                    "description": f"{len(tasks)} tasks pending for the same contact",
+                    "items": [{"id": str(t.id), "title": t.title} for t in tasks],
+                }
+            )
+
     if not batches:
         return {"status": "No batchable groups of 3+ items found."}
-        
+
     return {"batches": batches}
 
-async def _handle_create_task(session: AsyncSession, user_id: UUID, title: str, due_at: str | None = None, priority: str | None = None, project: str | None = None, contact_name: str | None = None) -> dict:
+
+async def _handle_create_task(
+    session: AsyncSession,
+    user_id: UUID,
+    title: str,
+    due_at: str | None = None,
+    priority: str | None = None,
+    project: str | None = None,
+    contact_name: str | None = None,
+) -> dict:
     contact_id = None
     if contact_name:
         # Fuzzy match
@@ -266,21 +321,24 @@ async def _handle_create_task(session: AsyncSession, user_id: UUID, title: str, 
         result = await session.execute(stmt)
         contacts = result.scalars().all()
         if not contacts:
-            return {"ambiguous": True, "suggested_name": contact_name, "error": f"No contact found matching '{contact_name}'. Please clarify."}
+            return {
+                "ambiguous": True,
+                "suggested_name": contact_name,
+                "error": f"No contact found matching '{contact_name}'. Please clarify.",
+            }
         if len(contacts) > 1:
             names = [c.name for c in contacts]
-            return {"ambiguous": True, "suggested_name": contact_name, "error": f"Multiple contacts found: {names}. Please specify."}
+            return {
+                "ambiguous": True,
+                "suggested_name": contact_name,
+                "error": f"Multiple contacts found: {names}. Please specify.",
+            }
         contact_id = contacts[0].id
 
     task_due = datetime.fromisoformat(due_at.replace("Z", "+00:00")) if due_at else None
 
     task = Task(
-        user_id=user_id,
-        title=title,
-        due_at=task_due,
-        priority=priority,
-        project=project,
-        contact_id=contact_id
+        user_id=user_id, title=title, due_at=task_due, priority=priority, project=project, contact_id=contact_id
     )
     session.add(task)
     # The orchestrator is responsible for committing and verifying success!
@@ -289,25 +347,23 @@ async def _handle_create_task(session: AsyncSession, user_id: UUID, title: str, 
     await session.flush()
     return {"id": str(task.id), "title": task.title, "contact_id": str(contact_id) if contact_id else None}
 
+
 async def _handle_create_reminder(session: AsyncSession, user_id: UUID, type: str, trigger_payload: dict) -> dict:
-    reminder = Reminder(
-        user_id=user_id,
-        type=type,
-        trigger_payload=trigger_payload
-    )
+    reminder = Reminder(user_id=user_id, type=type, trigger_payload=trigger_payload)
     session.add(reminder)
     await session.flush()
     return {"id": str(reminder.id), "type": reminder.type}
 
-async def _handle_create_calendar_event(session: AsyncSession, user_id: UUID, title: str, start_at: str, end_at: str, attendees: list[str] | None = None) -> dict:
+
+async def _handle_create_calendar_event(
+    session: AsyncSession, user_id: UUID, title: str, start_at: str, end_at: str, attendees: list[str] | None = None
+) -> dict:
     start_dt = datetime.fromisoformat(start_at.replace("Z", "+00:00"))
     end_dt = datetime.fromisoformat(end_at.replace("Z", "+00:00"))
 
     # Check for conflicts
     stmt = select(CalendarEvent).where(
-        CalendarEvent.user_id == user_id,
-        CalendarEvent.start_at < end_dt,
-        CalendarEvent.end_at > start_dt
+        CalendarEvent.user_id == user_id, CalendarEvent.start_at < end_dt, CalendarEvent.end_at > start_dt
     )
     result = await session.execute(stmt)
     conflicts = result.scalars().all()
@@ -333,7 +389,7 @@ async def _handle_create_calendar_event(session: AsyncSession, user_id: UUID, ti
         attendees=attendees or [],
         source="manual",
         source_calendar="local",
-        conflict_flags=conflict_flags
+        conflict_flags=conflict_flags,
     )
     session.add(event)
     await session.flush()
@@ -343,7 +399,10 @@ async def _handle_create_calendar_event(session: AsyncSession, user_id: UUID, ti
         resp["conflict_info"] = conflict_flags
     return resp
 
-async def _handle_read_calendar_events(session: AsyncSession, user_id: UUID, date: str | None = None, limit: int | None = None) -> dict:
+
+async def _handle_read_calendar_events(
+    session: AsyncSession, user_id: UUID, date: str | None = None, limit: int | None = None
+) -> dict:
     user = (await session.execute(select(User).where(User.id == user_id))).scalars().first()
     try:
         user_tz = ZoneInfo(user.timezone if user else "UTC")
@@ -389,6 +448,7 @@ async def _handle_read_calendar_events(session: AsyncSession, user_id: UUID, dat
         ],
     }
 
+
 async def _handle_search_memory(session: AsyncSession, user_id: UUID, query: str, category: str | None = None) -> dict:
     query_embedding = await embed_text(query, task_type="RETRIEVAL_QUERY")
     results = await search_similar_memory(session, user_id, query_embedding, top_k=5)
@@ -397,16 +457,21 @@ async def _handle_search_memory(session: AsyncSession, user_id: UUID, query: str
         results = [r for r in results if r.category == category]
 
     return {
-        "hits": [{"content": r.content, "category": r.category, "created_at": r.created_at.isoformat()} for r in results]
+        "hits": [
+            {"content": r.content, "category": r.category, "created_at": r.created_at.isoformat()} for r in results
+        ]
     }
 
-async def _handle_store_memory(session: AsyncSession, user_id: UUID, content: str, category: str, importance_score: float | None = None) -> dict:
+
+async def _handle_store_memory(
+    session: AsyncSession, user_id: UUID, content: str, category: str, importance_score: float | None = None
+) -> dict:
     if importance_score is None:
         prompt = f"Score the importance of this fact from 0.0 to 1.0, and provide a 1-line justification. Fact: '{content}'. Return ONLY a JSON object with 'score' (float) and 'justification' (string)."
         try:
             chat = start_chat()
             response = await chat.send_message(prompt)
-            text = (response.text or '').strip()
+            text = (response.text or "").strip()
             if text.startswith("```json"):
                 text = text[7:-3]
             elif text.startswith("```"):
@@ -420,15 +485,12 @@ async def _handle_store_memory(session: AsyncSession, user_id: UUID, content: st
 
     # NOTE: Entries with importance_score < 0.3 must be excluded from future proactive-surfacing logic.
     mem = MemoryEntry(
-        user_id=user_id,
-        content=content,
-        category=category,
-        importance_score=importance_score,
-        embedding=embedding
+        user_id=user_id, content=content, category=category, importance_score=importance_score, embedding=embedding
     )
     session.add(mem)
     await session.flush()
     return {"id": str(mem.id), "content": mem.content, "importance_score": importance_score}
+
 
 async def _handle_find_contact(session: AsyncSession, user_id: UUID, name: str) -> dict:
     stmt = select(Contact).where(Contact.user_id == user_id, Contact.name.ilike(f"%{name}%"))
@@ -436,23 +498,28 @@ async def _handle_find_contact(session: AsyncSession, user_id: UUID, name: str) 
     contacts = result.scalars().all()
 
     if not contacts:
-        return {"ambiguous": True, "suggested_name": name, "error": f"No contact found matching '{name}'. Please clarify if this is a new person."}
+        return {
+            "ambiguous": True,
+            "suggested_name": name,
+            "error": f"No contact found matching '{name}'. Please clarify if this is a new person.",
+        }
 
     if len(contacts) > 1:
         names = [c.name for c in contacts]
-        return {"ambiguous": True, "suggested_name": name, "error": f"Multiple contacts found: {names}. Please specify."}
+        return {
+            "ambiguous": True,
+            "suggested_name": name,
+            "error": f"Multiple contacts found: {names}. Please specify.",
+        }
 
-    return {
-        "contact": [
-            {"id": str(c.id), "name": c.name, "relationship_type": c.relationship_type}
-            for c in contacts
-        ]
-    }
+    return {"contact": [{"id": str(c.id), "name": c.name, "relationship_type": c.relationship_type} for c in contacts]}
+
 
 def _get_gmail_service(integration: Integration):
     access_token = decrypt(integration.access_token_encrypted)
     creds = Credentials(token=access_token)
-    return build('gmail', 'v1', credentials=creds, cache_discovery=False)
+    return build("gmail", "v1", credentials=creds, cache_discovery=False)
+
 
 async def _handle_read_emails(session: AsyncSession, user_id: UUID, filter: str = "unread", limit: int = 10) -> dict:
     stmt = select(EmailMessage).where(EmailMessage.user_id == user_id)
@@ -477,50 +544,71 @@ async def _handle_read_emails(session: AsyncSession, user_id: UUID, filter: str 
                 "subject": e.subject,
                 "snippet": e.snippet,
                 "received_at": e.received_at.isoformat(),
-                "needs_reply": e.needs_reply
-            } for e in emails
+                "needs_reply": e.needs_reply,
+            }
+            for e in emails
         ]
     }
+
 
 async def _handle_summarize_email(session: AsyncSession, user_id: UUID, email_id: str) -> dict:
     email = await session.get(EmailMessage, email_id)
     if not email:
         return {"error": "Email not found."}
 
-    integration = (await session.execute(select(Integration).where(Integration.user_id == user_id, Integration.provider == "gmail"))).scalars().first()
+    integration = (
+        (
+            await session.execute(
+                select(Integration).where(Integration.user_id == user_id, Integration.provider == "gmail")
+            )
+        )
+        .scalars()
+        .first()
+    )
     if not integration or integration.status != "connected":
         return {"error": "Gmail not connected."}
 
     try:
         import asyncio
+
         service = _get_gmail_service(integration)
-        msg_data = await asyncio.to_thread(lambda: service.users().messages().get(userId='me', id=email.gmail_message_id, format='full').execute())
+        msg_data = await asyncio.to_thread(
+            lambda: service.users().messages().get(userId="me", id=email.gmail_message_id, format="full").execute()
+        )
 
         # Decode body
         body = ""
-        if 'parts' in msg_data['payload']:
-            for part in msg_data['payload']['parts']:
-                if part['mimeType'] == 'text/plain':
-                    body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
+        if "parts" in msg_data["payload"]:
+            for part in msg_data["payload"]["parts"]:
+                if part["mimeType"] == "text/plain":
+                    body = base64.urlsafe_b64decode(part["body"]["data"]).decode("utf-8")
                     break
-        elif 'body' in msg_data['payload'] and 'data' in msg_data['payload']['body']:
-             body = base64.urlsafe_b64decode(msg_data['payload']['body']['data']).decode('utf-8')
+        elif "body" in msg_data["payload"] and "data" in msg_data["payload"]["body"]:
+            body = base64.urlsafe_b64decode(msg_data["payload"]["body"]["data"]).decode("utf-8")
 
         client = get_client()
         resp = await client.aio.models.generate_content(
-            model=settings.GEMINI_MODEL,
-            contents=[f"Summarize this email in a few concise sentences:\n\n{body}"]
+            model=settings.GEMINI_MODEL, contents=[f"Summarize this email in a few concise sentences:\n\n{body}"]
         )
-        return {"summary": (resp.text or '').strip(), "original_snippet": email.snippet}
+        return {"summary": (resp.text or "").strip(), "original_snippet": email.snippet}
     except Exception as e:
         return {"error": str(e)}
+
 
 async def _handle_draft_email_reply(session: AsyncSession, user_id: UUID, email_id: str, intent: str) -> dict:
     email = await session.get(EmailMessage, email_id)
     if not email:
         return {"error": "Email not found."}
 
-    integration = (await session.execute(select(Integration).where(Integration.user_id == user_id, Integration.provider == "gmail"))).scalars().first()
+    integration = (
+        (
+            await session.execute(
+                select(Integration).where(Integration.user_id == user_id, Integration.provider == "gmail")
+            )
+        )
+        .scalars()
+        .first()
+    )
     if not integration or integration.status != "connected":
         return {"error": "Gmail not connected."}
 
@@ -563,30 +651,44 @@ async def _handle_draft_email_reply(session: AsyncSession, user_id: UUID, email_
 
         resp = await client.aio.models.generate_content(
             model=settings.GEMINI_MODEL,
-            contents=[f"Draft a reply to the email '{email.subject}' from '{email.from_address}'.\nIntent: {intent}\nSnippet: {email.snippet}{tone_instructions}\n\nReturn ONLY the email body text."]
+            contents=[
+                f"Draft a reply to the email '{email.subject}' from '{email.from_address}'.\nIntent: {intent}\nSnippet: {email.snippet}{tone_instructions}\n\nReturn ONLY the email body text."
+            ],
         )
-        draft_text = (resp.text or '').strip()
+        draft_text = (resp.text or "").strip()
 
         message = PyEmailMessage()
         message.set_content(draft_text)
-        message['To'] = email.from_address
-        message['Subject'] = f"Re: {email.subject}"
-        message['In-Reply-To'] = email.gmail_message_id
-        message['References'] = email.gmail_message_id
+        message["To"] = email.from_address
+        message["Subject"] = f"Re: {email.subject}"
+        message["In-Reply-To"] = email.gmail_message_id
+        message["References"] = email.gmail_message_id
 
         encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
-        create_message = {'message': {'raw': encoded_message}}
+        create_message = {"message": {"raw": encoded_message}}
 
         import asyncio
-        service = _get_gmail_service(integration)
-        draft = await asyncio.to_thread(lambda: service.users().drafts().create(userId='me', body=create_message).execute())
 
-        return {"draft_id": draft['id'], "content": draft_text}
+        service = _get_gmail_service(integration)
+        draft = await asyncio.to_thread(
+            lambda: service.users().drafts().create(userId="me", body=create_message).execute()
+        )
+
+        return {"draft_id": draft["id"], "content": draft_text}
     except Exception as e:
         return {"error": str(e)}
 
+
 async def _handle_send_email(session: AsyncSession, user_id: UUID, draft_id: str) -> dict:
-    integration = (await session.execute(select(Integration).where(Integration.user_id == user_id, Integration.provider == "gmail"))).scalars().first()
+    integration = (
+        (
+            await session.execute(
+                select(Integration).where(Integration.user_id == user_id, Integration.provider == "gmail")
+            )
+        )
+        .scalars()
+        .first()
+    )
     if not integration or integration.status != "connected":
         return {"error": "Gmail not connected."}
 
@@ -598,15 +700,15 @@ async def _handle_send_email(session: AsyncSession, user_id: UUID, draft_id: str
     mode = await resolve_mode(session, user_id, None, "gmail")
 
     if mode in ("draft_only", "approval_required"):
-        return {
-            "error": "confirmation_required",
-            "detail": f"Message mode is {mode}. Please confirm before sending."
-        }
+        return {"error": "confirmation_required", "detail": f"Message mode is {mode}. Please confirm before sending."}
 
     try:
         import asyncio
+
         service = _get_gmail_service(integration)
-        sent_message = await asyncio.to_thread(lambda: service.users().drafts().send(userId='me', body={'id': draft_id}).execute())
+        sent_message = await asyncio.to_thread(
+            lambda: service.users().drafts().send(userId="me", body={"id": draft_id}).execute()
+        )
 
         # Log success strictly as required
         log = ActionLog(
@@ -614,19 +716,19 @@ async def _handle_send_email(session: AsyncSession, user_id: UUID, draft_id: str
             action_type="send_email",
             payload={"draft_id": draft_id},
             result="success",
-            confirmed_by_user=False
+            confirmed_by_user=False,
         )
         session.add(log)
         await session.flush()
 
-        return {"status": "success", "message_id": sent_message['id']}
+        return {"status": "success", "message_id": sent_message["id"]}
     except Exception as e:
         log = ActionLog(
             user_id=user_id,
             action_type="send_email",
             payload={"draft_id": draft_id},
             result="failed",
-            confirmed_by_user=False
+            confirmed_by_user=False,
         )
         session.add(log)
         await session.flush()
@@ -636,6 +738,7 @@ async def _handle_send_email(session: AsyncSession, user_id: UUID, draft_id: str
 # ─────────────────────────────────────────────────────────────────────────────
 # Slack handlers
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 async def _get_slack_integration(session: AsyncSession, user_id: UUID) -> Integration | None:
     result = await session.execute(
@@ -686,9 +789,7 @@ async def _handle_read_slack_messages(
     }
 
 
-async def _handle_draft_slack_reply(
-    session: AsyncSession, user_id: UUID, channel_id: str, intent: str
-) -> dict:
+async def _handle_draft_slack_reply(session: AsyncSession, user_id: UUID, channel_id: str, intent: str) -> dict:
     """
     Generates a draft reply for the given Slack channel using the AI and returns
     the proposed text. Does NOT post to Slack — requires an explicit send_slack_message call.
@@ -701,9 +802,7 @@ async def _handle_draft_slack_reply(
         .limit(5)
     )
     context_messages = context_result.scalars().all()
-    context_text = "\n".join(
-        [f"{m.from_user}: {m.body_snippet}" for m in reversed(context_messages)]
-    )
+    context_text = "\n".join([f"{m.from_user}: {m.body_snippet}" for m in reversed(context_messages)])
 
     try:
         client = get_client()
@@ -716,15 +815,13 @@ async def _handle_draft_slack_reply(
                 f"Return ONLY the message text, no extra commentary."
             ],
         )
-        draft_text = (resp.text or '').strip()
+        draft_text = (resp.text or "").strip()
         return {"channel_id": channel_id, "draft": draft_text}
     except Exception as e:
         return {"error": str(e)}
 
 
-async def _handle_send_slack_message(
-    session: AsyncSession, user_id: UUID, channel_id: str, message: str
-) -> dict:
+async def _handle_send_slack_message(session: AsyncSession, user_id: UUID, channel_id: str, message: str) -> dict:
     """
     Posts a message to a Slack channel/DM via the Slack Web API chat.postMessage.
     Gated by the send_automatically permission on the Slack integration.
@@ -783,57 +880,67 @@ async def _handle_send_slack_message(
         await session.flush()
         return {"error": str(e)}
 
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Cross-channel handlers
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 async def _handle_search_all_unanswered(session: AsyncSession, user_id: UUID) -> dict:
     # Get unanswered emails
-    email_stmt = select(EmailMessage).where(
-        EmailMessage.user_id == user_id,
-        EmailMessage.needs_reply == True
-    ).order_by(EmailMessage.received_at.desc())
+    email_stmt = (
+        select(EmailMessage)
+        .where(EmailMessage.user_id == user_id, EmailMessage.needs_reply == True)
+        .order_by(EmailMessage.received_at.desc())
+    )
     email_res = await session.execute(email_stmt)
     emails = email_res.scalars().all()
 
     # Get unanswered Slack messages
-    slack_stmt = select(SlackMessage).where(
-        SlackMessage.user_id == user_id,
-        SlackMessage.needs_reply == True
-    ).order_by(SlackMessage.received_at.desc())
+    slack_stmt = (
+        select(SlackMessage)
+        .where(SlackMessage.user_id == user_id, SlackMessage.needs_reply == True)
+        .order_by(SlackMessage.received_at.desc())
+    )
     slack_res = await session.execute(slack_stmt)
     slacks = slack_res.scalars().all()
 
     results = []
     for e in emails:
-        results.append({
-            "channel": "gmail",
-            "id": str(e.id),
-            "from": e.from_address,
-            "snippet": e.snippet,
-            "received_at": e.received_at.isoformat()
-        })
+        results.append(
+            {
+                "channel": "gmail",
+                "id": str(e.id),
+                "from": e.from_address,
+                "snippet": e.snippet,
+                "received_at": e.received_at.isoformat(),
+            }
+        )
 
     for s in slacks:
-        results.append({
-            "channel": "slack",
-            "id": str(s.id),
-            "from": s.from_user,
-            "snippet": s.body_snippet,
-            "received_at": s.received_at.isoformat()
-        })
+        results.append(
+            {
+                "channel": "slack",
+                "id": str(s.id),
+                "from": s.from_user,
+                "snippet": s.body_snippet,
+                "received_at": s.received_at.isoformat(),
+            }
+        )
 
     # Sort by received_at desc
     results.sort(key=lambda x: x["received_at"], reverse=True)
 
     return {"unanswered_messages": results}
 
+
 async def _handle_get_pc_stats(session: AsyncSession, user_id: UUID) -> dict:
     import psutil  # type: ignore[reportMissingModuleSource]
+
     return {
         "cpu_percent": psutil.cpu_percent(interval=1),
         "ram_percent": psutil.virtual_memory().percent,
-        "disk_percent": psutil.disk_usage('/').percent
+        "disk_percent": psutil.disk_usage("/").percent,
     }
 
 
@@ -846,70 +953,70 @@ _log = logging.getLogger("senorita.tools")
 # Common app name aliases → launch commands (Windows-focused, with macOS fallbacks)
 _APP_ALIASES: dict[str, dict[str, list[str]]] = {
     # ── IDEs & editors ──
-    "vs code":            {"Windows": ["code"], "Darwin": ["open", "-a", "Visual Studio Code"]},
-    "vscode":             {"Windows": ["code"], "Darwin": ["open", "-a", "Visual Studio Code"]},
+    "vs code": {"Windows": ["code"], "Darwin": ["open", "-a", "Visual Studio Code"]},
+    "vscode": {"Windows": ["code"], "Darwin": ["open", "-a", "Visual Studio Code"]},
     "visual studio code": {"Windows": ["code"], "Darwin": ["open", "-a", "Visual Studio Code"]},
-    "cursor":             {"Windows": ["cursor"], "Darwin": ["open", "-a", "Cursor"]},
-    "sublime":            {"Windows": ["subl"], "Darwin": ["open", "-a", "Sublime Text"]},
-    "sublime text":       {"Windows": ["subl"], "Darwin": ["open", "-a", "Sublime Text"]},
-    "notepad":            {"Windows": ["notepad"], "Darwin": ["open", "-a", "TextEdit"]},
-    "notepad++":          {"Windows": ["cmd", "/c", "start", "notepad++"], "Darwin": ["open", "-a", "TextEdit"]},
+    "cursor": {"Windows": ["cursor"], "Darwin": ["open", "-a", "Cursor"]},
+    "sublime": {"Windows": ["subl"], "Darwin": ["open", "-a", "Sublime Text"]},
+    "sublime text": {"Windows": ["subl"], "Darwin": ["open", "-a", "Sublime Text"]},
+    "notepad": {"Windows": ["notepad"], "Darwin": ["open", "-a", "TextEdit"]},
+    "notepad++": {"Windows": ["cmd", "/c", "start", "notepad++"], "Darwin": ["open", "-a", "TextEdit"]},
     # ── Browsers ──
-    "chrome":             {"Windows": ["cmd", "/c", "start", "chrome"], "Darwin": ["open", "-a", "Google Chrome"]},
-    "google chrome":      {"Windows": ["cmd", "/c", "start", "chrome"], "Darwin": ["open", "-a", "Google Chrome"]},
-    "firefox":            {"Windows": ["cmd", "/c", "start", "firefox"], "Darwin": ["open", "-a", "Firefox"]},
-    "brave":              {"Windows": ["cmd", "/c", "start", "brave"], "Darwin": ["open", "-a", "Brave Browser"]},
-    "edge":               {"Windows": ["cmd", "/c", "start", "msedge"], "Darwin": ["open", "-a", "Microsoft Edge"]},
-    "microsoft edge":     {"Windows": ["cmd", "/c", "start", "msedge"], "Darwin": ["open", "-a", "Microsoft Edge"]},
+    "chrome": {"Windows": ["cmd", "/c", "start", "chrome"], "Darwin": ["open", "-a", "Google Chrome"]},
+    "google chrome": {"Windows": ["cmd", "/c", "start", "chrome"], "Darwin": ["open", "-a", "Google Chrome"]},
+    "firefox": {"Windows": ["cmd", "/c", "start", "firefox"], "Darwin": ["open", "-a", "Firefox"]},
+    "brave": {"Windows": ["cmd", "/c", "start", "brave"], "Darwin": ["open", "-a", "Brave Browser"]},
+    "edge": {"Windows": ["cmd", "/c", "start", "msedge"], "Darwin": ["open", "-a", "Microsoft Edge"]},
+    "microsoft edge": {"Windows": ["cmd", "/c", "start", "msedge"], "Darwin": ["open", "-a", "Microsoft Edge"]},
     # ── Terminals ──
-    "terminal":           {"Windows": ["wt"], "Darwin": ["open", "-a", "Terminal"]},
-    "windows terminal":   {"Windows": ["wt"], "Darwin": ["open", "-a", "Terminal"]},
-    "powershell":         {"Windows": ["powershell"], "Darwin": ["open", "-a", "Terminal"]},
-    "cmd":                {"Windows": ["cmd"], "Darwin": ["open", "-a", "Terminal"]},
-    "command prompt":     {"Windows": ["cmd"], "Darwin": ["open", "-a", "Terminal"]},
-    "git bash":           {"Windows": ["cmd", "/c", "start", "", "git-bash.exe"], "Darwin": ["open", "-a", "Terminal"]},
+    "terminal": {"Windows": ["wt"], "Darwin": ["open", "-a", "Terminal"]},
+    "windows terminal": {"Windows": ["wt"], "Darwin": ["open", "-a", "Terminal"]},
+    "powershell": {"Windows": ["powershell"], "Darwin": ["open", "-a", "Terminal"]},
+    "cmd": {"Windows": ["cmd"], "Darwin": ["open", "-a", "Terminal"]},
+    "command prompt": {"Windows": ["cmd"], "Darwin": ["open", "-a", "Terminal"]},
+    "git bash": {"Windows": ["cmd", "/c", "start", "", "git-bash.exe"], "Darwin": ["open", "-a", "Terminal"]},
     # ── Communication ──
-    "spotify":            {"Windows": ["cmd", "/c", "start", "spotify:"], "Darwin": ["open", "-a", "Spotify"]},
-    "discord":            {"Windows": ["cmd", "/c", "start", "discord:"], "Darwin": ["open", "-a", "Discord"]},
-    "slack":              {"Windows": ["cmd", "/c", "start", "slack:"], "Darwin": ["open", "-a", "Slack"]},
-    "telegram":           {"Windows": ["cmd", "/c", "start", "tg:"], "Darwin": ["open", "-a", "Telegram"]},
-    "whatsapp":           {"Windows": ["cmd", "/c", "start", "whatsapp:"], "Darwin": ["open", "-a", "WhatsApp"]},
-    "zoom":               {"Windows": ["cmd", "/c", "start", "zoommtg:"], "Darwin": ["open", "-a", "zoom.us"]},
-    "teams":              {"Windows": ["cmd", "/c", "start", "msteams:"], "Darwin": ["open", "-a", "Microsoft Teams"]},
-    "microsoft teams":    {"Windows": ["cmd", "/c", "start", "msteams:"], "Darwin": ["open", "-a", "Microsoft Teams"]},
+    "spotify": {"Windows": ["cmd", "/c", "start", "spotify:"], "Darwin": ["open", "-a", "Spotify"]},
+    "discord": {"Windows": ["cmd", "/c", "start", "discord:"], "Darwin": ["open", "-a", "Discord"]},
+    "slack": {"Windows": ["cmd", "/c", "start", "slack:"], "Darwin": ["open", "-a", "Slack"]},
+    "telegram": {"Windows": ["cmd", "/c", "start", "tg:"], "Darwin": ["open", "-a", "Telegram"]},
+    "whatsapp": {"Windows": ["cmd", "/c", "start", "whatsapp:"], "Darwin": ["open", "-a", "WhatsApp"]},
+    "zoom": {"Windows": ["cmd", "/c", "start", "zoommtg:"], "Darwin": ["open", "-a", "zoom.us"]},
+    "teams": {"Windows": ["cmd", "/c", "start", "msteams:"], "Darwin": ["open", "-a", "Microsoft Teams"]},
+    "microsoft teams": {"Windows": ["cmd", "/c", "start", "msteams:"], "Darwin": ["open", "-a", "Microsoft Teams"]},
     # ── Productivity ──
-    "word":               {"Windows": ["cmd", "/c", "start", "winword"], "Darwin": ["open", "-a", "Microsoft Word"]},
-    "excel":              {"Windows": ["cmd", "/c", "start", "excel"], "Darwin": ["open", "-a", "Microsoft Excel"]},
-    "powerpoint":         {"Windows": ["cmd", "/c", "start", "powerpnt"], "Darwin": ["open", "-a", "Microsoft PowerPoint"]},
-    "notion":             {"Windows": ["cmd", "/c", "start", "notion:"], "Darwin": ["open", "-a", "Notion"]},
-    "obsidian":           {"Windows": ["cmd", "/c", "start", "obsidian:"], "Darwin": ["open", "-a", "Obsidian"]},
+    "word": {"Windows": ["cmd", "/c", "start", "winword"], "Darwin": ["open", "-a", "Microsoft Word"]},
+    "excel": {"Windows": ["cmd", "/c", "start", "excel"], "Darwin": ["open", "-a", "Microsoft Excel"]},
+    "powerpoint": {"Windows": ["cmd", "/c", "start", "powerpnt"], "Darwin": ["open", "-a", "Microsoft PowerPoint"]},
+    "notion": {"Windows": ["cmd", "/c", "start", "notion:"], "Darwin": ["open", "-a", "Notion"]},
+    "obsidian": {"Windows": ["cmd", "/c", "start", "obsidian:"], "Darwin": ["open", "-a", "Obsidian"]},
     # ── Dev tools ──
-    "postman":            {"Windows": ["cmd", "/c", "start", "postman:"], "Darwin": ["open", "-a", "Postman"]},
-    "figma":              {"Windows": ["cmd", "/c", "start", "figma:"], "Darwin": ["open", "-a", "Figma"]},
-    "docker":             {"Windows": ["cmd", "/c", "start", "", "Docker Desktop"], "Darwin": ["open", "-a", "Docker"]},
-    "docker desktop":     {"Windows": ["cmd", "/c", "start", "", "Docker Desktop"], "Darwin": ["open", "-a", "Docker"]},
-    "github desktop":     {"Windows": ["cmd", "/c", "start", "github:"], "Darwin": ["open", "-a", "GitHub Desktop"]},
-    "insomnia":           {"Windows": ["cmd", "/c", "start", "", "Insomnia"], "Darwin": ["open", "-a", "Insomnia"]},
+    "postman": {"Windows": ["cmd", "/c", "start", "postman:"], "Darwin": ["open", "-a", "Postman"]},
+    "figma": {"Windows": ["cmd", "/c", "start", "figma:"], "Darwin": ["open", "-a", "Figma"]},
+    "docker": {"Windows": ["cmd", "/c", "start", "", "Docker Desktop"], "Darwin": ["open", "-a", "Docker"]},
+    "docker desktop": {"Windows": ["cmd", "/c", "start", "", "Docker Desktop"], "Darwin": ["open", "-a", "Docker"]},
+    "github desktop": {"Windows": ["cmd", "/c", "start", "github:"], "Darwin": ["open", "-a", "GitHub Desktop"]},
+    "insomnia": {"Windows": ["cmd", "/c", "start", "", "Insomnia"], "Darwin": ["open", "-a", "Insomnia"]},
     # ── System utilities ──
-    "calculator":         {"Windows": ["calc"], "Darwin": ["open", "-a", "Calculator"]},
-    "calc":               {"Windows": ["calc"], "Darwin": ["open", "-a", "Calculator"]},
-    "file explorer":      {"Windows": ["explorer"], "Darwin": ["open", "."]},
-    "explorer":           {"Windows": ["explorer"], "Darwin": ["open", "."]},
-    "finder":             {"Windows": ["explorer"], "Darwin": ["open", "."]},
-    "paint":              {"Windows": ["mspaint"], "Darwin": ["open", "-a", "Preview"]},
-    "task manager":       {"Windows": ["taskmgr"], "Darwin": ["open", "-a", "Activity Monitor"]},
-    "activity monitor":   {"Windows": ["taskmgr"], "Darwin": ["open", "-a", "Activity Monitor"]},
-    "settings":           {"Windows": ["cmd", "/c", "start", "ms-settings:"], "Darwin": ["open", "-a", "System Preferences"]},
-    "control panel":      {"Windows": ["control"], "Darwin": ["open", "-a", "System Preferences"]},
-    "snipping tool":      {"Windows": ["snippingtool"], "Darwin": ["open", "-a", "Screenshot"]},
-    "snip & sketch":      {"Windows": ["cmd", "/c", "start", "ms-screenclip:"], "Darwin": ["open", "-a", "Screenshot"]},
+    "calculator": {"Windows": ["calc"], "Darwin": ["open", "-a", "Calculator"]},
+    "calc": {"Windows": ["calc"], "Darwin": ["open", "-a", "Calculator"]},
+    "file explorer": {"Windows": ["explorer"], "Darwin": ["open", "."]},
+    "explorer": {"Windows": ["explorer"], "Darwin": ["open", "."]},
+    "finder": {"Windows": ["explorer"], "Darwin": ["open", "."]},
+    "paint": {"Windows": ["mspaint"], "Darwin": ["open", "-a", "Preview"]},
+    "task manager": {"Windows": ["taskmgr"], "Darwin": ["open", "-a", "Activity Monitor"]},
+    "activity monitor": {"Windows": ["taskmgr"], "Darwin": ["open", "-a", "Activity Monitor"]},
+    "settings": {"Windows": ["cmd", "/c", "start", "ms-settings:"], "Darwin": ["open", "-a", "System Preferences"]},
+    "control panel": {"Windows": ["control"], "Darwin": ["open", "-a", "System Preferences"]},
+    "snipping tool": {"Windows": ["snippingtool"], "Darwin": ["open", "-a", "Screenshot"]},
+    "snip & sketch": {"Windows": ["cmd", "/c", "start", "ms-screenclip:"], "Darwin": ["open", "-a", "Screenshot"]},
     # ── Media ──
-    "vlc":                {"Windows": ["cmd", "/c", "start", "", "vlc"], "Darwin": ["open", "-a", "VLC"]},
-    "obs":                {"Windows": ["cmd", "/c", "start", "", "obs64.exe"], "Darwin": ["open", "-a", "OBS"]},
-    "obs studio":         {"Windows": ["cmd", "/c", "start", "", "obs64.exe"], "Darwin": ["open", "-a", "OBS"]},
+    "vlc": {"Windows": ["cmd", "/c", "start", "", "vlc"], "Darwin": ["open", "-a", "VLC"]},
+    "obs": {"Windows": ["cmd", "/c", "start", "", "obs64.exe"], "Darwin": ["open", "-a", "OBS"]},
+    "obs studio": {"Windows": ["cmd", "/c", "start", "", "obs64.exe"], "Darwin": ["open", "-a", "OBS"]},
     # ── AI tools ──
-    "antigravity":        {"Windows": ["agy"], "Darwin": ["agy"]},
-    "agy":                {"Windows": ["agy"], "Darwin": ["agy"]},
+    "antigravity": {"Windows": ["agy"], "Darwin": ["agy"]},
+    "agy": {"Windows": ["agy"], "Darwin": ["agy"]},
 }
 
 
@@ -1012,30 +1119,85 @@ async def _handle_open_application(session: AsyncSession, user_id: UUID, app_nam
 # ─────────────────────────────────────────────────────────────────────────────
 
 _IGNORE_DIRS = {
-    ".git", ".hg", ".svn", "node_modules", ".venv", "venv", "__pycache__",
-    ".next", ".nuxt", "dist", "build", ".tox", ".mypy_cache", ".pytest_cache",
-    "target", ".gradle", ".idea", ".vs", ".vscode", "vendor", "Pods",
-    "coverage", ".turbo", ".cache", "out", "bin", "obj", ".dart_tool",
-    ".pub-cache", "_build", "deps", "elm-stuff",
+    ".git",
+    ".hg",
+    ".svn",
+    "node_modules",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".next",
+    ".nuxt",
+    "dist",
+    "build",
+    ".tox",
+    ".mypy_cache",
+    ".pytest_cache",
+    "target",
+    ".gradle",
+    ".idea",
+    ".vs",
+    ".vscode",
+    "vendor",
+    "Pods",
+    "coverage",
+    ".turbo",
+    ".cache",
+    "out",
+    "bin",
+    "obj",
+    ".dart_tool",
+    ".pub-cache",
+    "_build",
+    "deps",
+    "elm-stuff",
 }
 
 _KEY_CONFIG_FILES = {
     # Package managers & build systems
-    "package.json", "requirements.txt", "pyproject.toml", "setup.py", "setup.cfg",
-    "Cargo.toml", "go.mod", "go.sum", "pom.xml", "build.gradle", "build.gradle.kts",
-    "Gemfile", "composer.json", "mix.exs", "pubspec.yaml", "Package.swift",
+    "package.json",
+    "requirements.txt",
+    "pyproject.toml",
+    "setup.py",
+    "setup.cfg",
+    "Cargo.toml",
+    "go.mod",
+    "go.sum",
+    "pom.xml",
+    "build.gradle",
+    "build.gradle.kts",
+    "Gemfile",
+    "composer.json",
+    "mix.exs",
+    "pubspec.yaml",
+    "Package.swift",
     # Containerization & infra
-    "docker-compose.yml", "docker-compose.yaml", "Dockerfile",
-    ".env.example", "Makefile", "CMakeLists.txt", "Procfile",
+    "docker-compose.yml",
+    "docker-compose.yaml",
+    "Dockerfile",
+    ".env.example",
+    "Makefile",
+    "CMakeLists.txt",
+    "Procfile",
     # JS/TS config
-    "tsconfig.json", "next.config.js", "next.config.mjs", "next.config.ts",
-    "vite.config.ts", "vite.config.js", "webpack.config.js",
-    "tailwind.config.js", "tailwind.config.ts",
+    "tsconfig.json",
+    "next.config.js",
+    "next.config.mjs",
+    "next.config.ts",
+    "vite.config.ts",
+    "vite.config.js",
+    "webpack.config.js",
+    "tailwind.config.js",
+    "tailwind.config.ts",
     # Database & ORM
-    "alembic.ini", "prisma/schema.prisma",
+    "alembic.ini",
+    "prisma/schema.prisma",
     # CI/CD
-    ".github/workflows", ".gitlab-ci.yml", "Jenkinsfile",
-    "azure-pipelines.yml", ".circleci/config.yml",
+    ".github/workflows",
+    ".gitlab-ci.yml",
+    "Jenkinsfile",
+    "azure-pipelines.yml",
+    ".circleci/config.yml",
 }
 
 _CI_CD_PATHS = [
@@ -1061,12 +1223,52 @@ _MAX_TREE_ENTRIES = 500
 
 # Extensions that count as "code" for LOC counting
 _CODE_EXTENSIONS = {
-    ".py", ".js", ".ts", ".tsx", ".jsx", ".rs", ".go", ".java", ".kt",
-    ".c", ".cpp", ".h", ".hpp", ".cs", ".rb", ".php", ".swift", ".m",
-    ".scala", ".ex", ".exs", ".erl", ".hs", ".lua", ".r", ".dart",
-    ".vue", ".svelte", ".html", ".css", ".scss", ".less", ".sass",
-    ".sql", ".sh", ".bash", ".zsh", ".ps1", ".bat", ".cmd",
-    ".yml", ".yaml", ".toml", ".json", ".xml", ".graphql",
+    ".py",
+    ".js",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".rs",
+    ".go",
+    ".java",
+    ".kt",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".rb",
+    ".php",
+    ".swift",
+    ".m",
+    ".scala",
+    ".ex",
+    ".exs",
+    ".erl",
+    ".hs",
+    ".lua",
+    ".r",
+    ".dart",
+    ".vue",
+    ".svelte",
+    ".html",
+    ".css",
+    ".scss",
+    ".less",
+    ".sass",
+    ".sql",
+    ".sh",
+    ".bash",
+    ".zsh",
+    ".ps1",
+    ".bat",
+    ".cmd",
+    ".yml",
+    ".yaml",
+    ".toml",
+    ".json",
+    ".xml",
+    ".graphql",
 }
 
 
@@ -1102,10 +1304,7 @@ def _walk_repo(
             return
 
         # Filter out ignored/hidden dirs
-        visible = [
-            e for e in entries
-            if not (e.is_dir() and (e.name in _IGNORE_DIRS or e.name.startswith(".")))
-        ]
+        visible = [e for e in entries if not (e.is_dir() and (e.name in _IGNORE_DIRS or e.name.startswith(".")))]
 
         for idx, entry in enumerate(visible):
             entry_count += 1
@@ -1163,7 +1362,10 @@ def _get_git_info(repo_path: Path) -> dict[str, str] | None:
         # Current branch
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True, text=True, cwd=str(repo_path), timeout=5,
+            capture_output=True,
+            text=True,
+            cwd=str(repo_path),
+            timeout=5,
         )
         if result.returncode == 0:
             info["branch"] = result.stdout.strip()
@@ -1171,7 +1373,10 @@ def _get_git_info(repo_path: Path) -> dict[str, str] | None:
         # Last commit
         result = subprocess.run(
             ["git", "log", "-1", "--format=%h %s (%ar)"],
-            capture_output=True, text=True, cwd=str(repo_path), timeout=5,
+            capture_output=True,
+            text=True,
+            cwd=str(repo_path),
+            timeout=5,
         )
         if result.returncode == 0:
             info["last_commit"] = result.stdout.strip()
@@ -1179,7 +1384,10 @@ def _get_git_info(repo_path: Path) -> dict[str, str] | None:
         # Total commit count
         result = subprocess.run(
             ["git", "rev-list", "--count", "HEAD"],
-            capture_output=True, text=True, cwd=str(repo_path), timeout=5,
+            capture_output=True,
+            text=True,
+            cwd=str(repo_path),
+            timeout=5,
         )
         if result.returncode == 0:
             info["total_commits"] = result.stdout.strip()
@@ -1187,7 +1395,10 @@ def _get_git_info(repo_path: Path) -> dict[str, str] | None:
         # Remote URL
         result = subprocess.run(
             ["git", "remote", "get-url", "origin"],
-            capture_output=True, text=True, cwd=str(repo_path), timeout=5,
+            capture_output=True,
+            text=True,
+            cwd=str(repo_path),
+            timeout=5,
         )
         if result.returncode == 0:
             info["remote_url"] = result.stdout.strip()
@@ -1251,8 +1462,7 @@ async def _handle_analyze_repository(session: AsyncSession, user_id: UUID, path:
 
     total_files = sum(ext_counts.values())
     ext_summary = "\n".join(
-        f"  {ext}: {count} files"
-        for ext, count in sorted(ext_counts.items(), key=lambda x: -x[1])[:20]
+        f"  {ext}: {count} files" for ext, count in sorted(ext_counts.items(), key=lambda x: -x[1])[:20]
     )
 
     config_contents = ""
@@ -1311,7 +1521,7 @@ Be concise but thorough. Write as if briefing a developer who needs to contribut
             model=settings.GEMINI_MODEL,
             contents=[analysis_prompt],
         )
-        analysis = (resp.text or '').strip() if resp.text else "Analysis could not be generated."
+        analysis = (resp.text or "").strip() if resp.text else "Analysis could not be generated."
     except Exception as e:
         _log.error(f"REPO_ANALYZE | Gemini analysis failed: {e}")
         analysis = f"AI analysis failed: {str(e)}"
@@ -1350,7 +1560,7 @@ Be concise but thorough. Write as if briefing a developer who needs to contribut
 async def _handle_read_news(session: AsyncSession, user_id: UUID, topic: str | None = None) -> dict[str, Any]:
     import xml.etree.ElementTree as ET
     import httpx
-    
+
     topic_map = {
         "world": "WORLD",
         "nation": "NATION",
@@ -1359,23 +1569,23 @@ async def _handle_read_news(session: AsyncSession, user_id: UUID, topic: str | N
         "entertainment": "ENTERTAINMENT",
         "sports": "SPORTS",
         "science": "SCIENCE",
-        "health": "HEALTH"
+        "health": "HEALTH",
     }
-    
+
     base_url = "https://news.google.com/rss"
     if topic and topic.lower() in topic_map:
         base_url = f"https://news.google.com/rss/headlines/section/topic/{topic_map[topic.lower()]}"
-        
+
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(base_url, timeout=10.0)
             response.raise_for_status()
-            
+
             root = ET.fromstring(response.text)
             channel = root.find("channel")
             if channel is None:
                 return {"error": "Could not parse news feed"}
-                
+
             items = channel.findall("item")[:10]
             news_list = []
             for item in items:
@@ -1384,16 +1594,11 @@ async def _handle_read_news(session: AsyncSession, user_id: UUID, topic: str | N
                 pubDate = item.findtext("pubDate") or ""
                 source_elem = item.find("source")
                 source = source_elem.text if source_elem is not None else ""
-                
-                news_list.append({
-                    "title": title,
-                    "source": source,
-                    "published_at": pubDate,
-                    "link": link
-                })
-                
+
+                news_list.append({"title": title, "source": source, "published_at": pubDate, "link": link})
+
             return {"topic": topic or "general", "news": news_list}
-            
+
     except Exception as e:
         return {"error": f"Failed to fetch news: {str(e)}"}
 
@@ -1403,14 +1608,23 @@ async def _handle_read_news(session: AsyncSession, user_id: UUID, topic: str | N
 # ─────────────────────────────────────────────────────────────────────────────
 
 _PRIVACY_REFUSAL_KEYWORDS = [
-    "address of", "phone number of", "where does .* live",
-    "home address", "personal email", "stalk", "dox",
-    "social security", "private life of", "dating life",
+    "address of",
+    "phone number of",
+    "where does .* live",
+    "home address",
+    "personal email",
+    "stalk",
+    "dox",
+    "social security",
+    "private life of",
+    "dating life",
 ]
+
 
 def _is_privacy_violating_query(query: str) -> bool:
     """Check if a query is attempting to look up private info about a non-public individual."""
     import re
+
     q = query.lower()
     for pattern in _PRIVACY_REFUSAL_KEYWORDS:
         if re.search(pattern, q):
@@ -1418,14 +1632,16 @@ def _is_privacy_violating_query(query: str) -> bool:
     return False
 
 
-async def _handle_web_research(session: AsyncSession, user_id: UUID, query: str, depth: str = "quick") -> dict[str, Any]:
+async def _handle_web_research(
+    session: AsyncSession, user_id: UUID, query: str, depth: str = "quick"
+) -> dict[str, Any]:
     # Privacy gate
     if _is_privacy_violating_query(query):
         return {
             "refused": True,
             "reason": "This query appears to be seeking private or personal information about an individual. "
-                       "I cannot assist with lookups that could enable surveillance or stalking of private persons. "
-                       "I can research public figures, companies, products, or general topics."
+            "I cannot assist with lookups that could enable surveillance or stalking of private persons. "
+            "I can research public figures, companies, products, or general topics.",
         }
 
     client = get_client()
@@ -1462,10 +1678,12 @@ async def _handle_web_research(session: AsyncSession, user_id: UUID, query: str,
                 for chunk in chunks:
                     web = getattr(chunk, "web", None)
                     if web:
-                        sources.append({
-                            "title": getattr(web, "title", "") or "",
-                            "url": getattr(web, "uri", "") or "",
-                        })
+                        sources.append(
+                            {
+                                "title": getattr(web, "title", "") or "",
+                                "url": getattr(web, "uri", "") or "",
+                            }
+                        )
                 # Also check support chunks
                 supports = getattr(grounding, "grounding_supports", None) or []
                 seen_urls = {s["url"] for s in sources}
@@ -1476,10 +1694,12 @@ async def _handle_web_research(session: AsyncSession, user_id: UUID, query: str,
                             if web:
                                 url = getattr(web, "uri", "") or ""
                                 if url and url not in seen_urls:
-                                    sources.append({
-                                        "title": getattr(web, "title", "") or "",
-                                        "url": url,
-                                    })
+                                    sources.append(
+                                        {
+                                            "title": getattr(web, "title", "") or "",
+                                            "url": url,
+                                        }
+                                    )
                                     seen_urls.add(url)
 
         return {
@@ -1492,6 +1712,7 @@ async def _handle_web_research(session: AsyncSession, user_id: UUID, query: str,
     except Exception as e:
         return {"error": f"Web research failed: {str(e)}"}
 
+
 async def _handle_search_document(session: AsyncSession, user_id: UUID, query: str, document_id: str) -> dict[str, Any]:
     from app.db.models.document_chunk import DocumentChunk
     from app.db.models.document import Document
@@ -1500,13 +1721,11 @@ async def _handle_search_document(session: AsyncSession, user_id: UUID, query: s
     if not query_embedding:
         return {"error": "Failed to generate query embedding"}
 
-    stmt = (
-        select(DocumentChunk)
-        .where(DocumentChunk.user_id == user_id)
-    )
+    stmt = select(DocumentChunk).where(DocumentChunk.user_id == user_id)
     if document_id and document_id != "all":
         try:
             from uuid import UUID as UUIDType
+
             doc_uuid = UUIDType(document_id)
             stmt = stmt.where(DocumentChunk.document_id == doc_uuid)
         except ValueError:
@@ -1523,12 +1742,14 @@ async def _handle_search_document(session: AsyncSession, user_id: UUID, query: s
     for c in chunks:
         # Get document filename
         doc = await session.get(Document, c.document_id)
-        results.append({
-            "chunk_text": c.chunk_text[:500],
-            "chunk_index": c.chunk_index,
-            "document_id": str(c.document_id),
-            "document_filename": doc.filename if doc else "unknown",
-        })
+        results.append(
+            {
+                "chunk_text": c.chunk_text[:500],
+                "chunk_index": c.chunk_index,
+                "document_id": str(c.document_id),
+                "document_filename": doc.filename if doc else "unknown",
+            }
+        )
 
     return {"results": results, "query": query}
 
@@ -1539,6 +1760,7 @@ async def _handle_generate_document_questions(session: AsyncSession, user_id: UU
 
     try:
         from uuid import UUID as UUIDType
+
         doc_uuid = UUIDType(document_id)
     except ValueError:
         return {"error": "Invalid document ID"}
@@ -1561,12 +1783,12 @@ async def _handle_generate_document_questions(session: AsyncSession, user_id: UU
             f"Return ONLY a JSON array of strings.\n\n"
             f"Document: {doc.filename}\nContent:\n{doc.full_text[:12000]}"
         )
-        resp = await client.aio.models.generate_content(
-            model=settings.GEMINI_MODEL, contents=prompt
-        )
+        resp = await client.aio.models.generate_content(model=settings.GEMINI_MODEL, contents=prompt)
         text = (resp.text or "").strip()
-        if text.startswith("```json"): text = text[7:-3]
-        elif text.startswith("```"): text = text[3:-3]
+        if text.startswith("```json"):
+            text = text[7:-3]
+        elif text.startswith("```"):
+            text = text[3:-3]
         questions = _json.loads(text.strip())
         doc.cached_questions = _json.dumps(questions)
         await session.commit()

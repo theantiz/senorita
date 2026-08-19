@@ -1,16 +1,13 @@
 """FastAPI application entrypoint for Señorita backend."""
 
-import hashlib
-import secrets
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 # Ensure backend package is importable
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from contextlib import asynccontextmanager
-
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
@@ -20,6 +17,7 @@ import app.integrations.slack  # Register the Slack adapter
 from app.api.v1.api import api_router
 from app.core.config import settings
 from app.core.logger import logger
+from app.core.security import generate_token, hash_token
 from app.db.base import Base
 from app.db.models import *  # noqa: F401, F403 — ensure all models are registered
 from app.db.session import AsyncSession, engine
@@ -34,7 +32,6 @@ async def seed_admin():
 
     async_session = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with async_session() as session:
-        # Check specifically for "admin" user
         stmt = select(User).where(User.name == "admin")
         result = await session.execute(stmt)
         admin = result.scalars().first()
@@ -44,23 +41,15 @@ async def seed_admin():
                 name="admin",
                 timezone="UTC",
                 autonomy_level=5,
-                style_profile={}
+                style_profile={},
             )
             session.add(admin)
             await session.flush()
 
-        # Invalidate old admin tokens and generate a fresh one
-        await session.execute(
-            delete(AuthToken).where(AuthToken.user_id == admin.id)
-        )
+        await session.execute(delete(AuthToken).where(AuthToken.user_id == admin.id))
 
-        raw_token = secrets.token_hex(32)
-        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-
-        auth_token = AuthToken(
-            user_id=admin.id,
-            token_hash=token_hash
-        )
+        raw_token = generate_token()
+        auth_token = AuthToken(user_id=admin.id, token_hash=hash_token(raw_token))
         session.add(auth_token)
         await session.commit()
 
@@ -74,31 +63,24 @@ async def seed_admin():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan — startup/shutdown."""
-    # Startup: create tables (in production use Alembic migrations)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # Seed admin user if no users exist
     await seed_admin()
 
-    # Start background workers if not testing
-    import os
-    if not os.environ.get("TESTING"):
+    if not settings.TESTING:
         from app.integrations.gmail_sync import start_gmail_sync_engine
         from app.integrations.google_calendar_sync import start_google_calendar_sync_engine
         from app.workers.monitoring.proactive_engine import start_proactive_engine
         from app.workers.reminders.scheduler import start_scheduler_in_background
 
-        sch = start_scheduler_in_background()
-        start_proactive_engine(sch)
-        start_gmail_sync_engine(sch)
-        start_google_calendar_sync_engine(sch)
-
-
+        scheduler = start_scheduler_in_background()
+        start_proactive_engine(scheduler)
+        start_gmail_sync_engine(scheduler)
+        start_google_calendar_sync_engine(scheduler)
 
     yield
 
-    # Shutdown
     await engine.dispose()
 
 
@@ -118,27 +100,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=exc.headers)
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.exception(f"Unhandled exception on {request.url.path}")
+    logger.exception("Unhandled exception on %s", request.url.path)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "An unexpected error occurred. Please try again later."},
     )
 
+
 @app.exception_handler(IntegrityError)
 async def integrity_error_handler(request: Request, exc: IntegrityError):
-    logger.error(f"Database integrity error: {exc}")
+    logger.error("Database integrity error on %s: %s", request.url.path, exc)
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
         content={"detail": "Database constraint violation occurred."},
     )
 
-# Register router
+
 app.include_router(api_router, prefix="/api/v1")
-
-
-
 
 if __name__ == "__main__":
     import uvicorn

@@ -21,12 +21,12 @@ export default function Calendar() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="font-mono text-[9px] text-white/40 tracking-[0.3em] mb-1">// SCHEDULE MATRIX</p>
-          <h2 className="font-hud text-lg font-bold text-white/90 tracking-widest">TEMPORAL LOG</h2>
+          <p className="hud-kicker mb-1">// SCHEDULE MATRIX</p>
+          <h2 className="hud-title">TEMPORAL LOG</h2>
         </div>
-        <div className="font-mono text-[9px] text-white/30 border border-white/10 px-3 py-1.5 tracking-widest">
+        <div className="hud-counter w-fit">
           {events.length} EVENTS LOADED
         </div>
       </div>
@@ -39,9 +39,7 @@ export default function Calendar() {
       )}
 
       {!loading && events.length === 0 && (
-        <div className="text-center py-12 border border-white/10">
-          <p className="font-mono text-[10px] text-white/30 tracking-widest">[ NO UPCOMING EVENTS ]</p>
-        </div>
+        <div className="hud-empty">[ NO UPCOMING EVENTS ]</div>
       )}
 
       {!loading && events.length > 0 && (
@@ -49,11 +47,11 @@ export default function Calendar() {
           {events.map((e) => (
             <div
               key={e.id}
-              className="flex items-stretch gap-4 border border-white/20 bg-white/10[0.03] hover:bg-white/5 transition-colors"
+              className="hud-panel hud-cut-md flex flex-col gap-0 overflow-hidden transition-colors hover:bg-white/[0.04] sm:flex-row sm:items-stretch sm:gap-4"
               style={{ clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%)' }}
             >
               {/* Time column */}
-              <div className="w-32 shrink-0 border-r border-white/10 bg-white/5 p-4 flex flex-col justify-center text-center">
+              <div className="shrink-0 border-b border-white/10 bg-white/[0.05] p-4 text-left sm:w-32 sm:border-b-0 sm:border-r sm:text-center">
                 <span className="font-mono text-[11px] text-white">
                   {new Date(e.start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
@@ -70,7 +68,7 @@ export default function Calendar() {
                 )}
                 {e.location && (
                   <div className="mt-2 inline-flex items-center gap-1.5 border border-white/20 bg-white/10 px-2 py-0.5">
-                    <span className="font-mono text-[8px] text-white tracking-widest">⌖ LOC: {e.location.toUpperCase()}</span>
+                    <span className="font-mono text-[8px] text-white tracking-widest">LOC: {e.location.toUpperCase()}</span>
                   </div>
                 )}
               </div>

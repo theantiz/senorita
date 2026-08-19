@@ -49,10 +49,10 @@ const config = {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        display: ['Plus Jakarta Sans', 'sans-serif'],
-        mono: ['Geist Mono', 'monospace'],
-        hud: ['Plus Jakarta Sans', 'sans-serif'],
+        sans: ['var(--font-inter)', 'sans-serif'],
+        display: ['var(--font-plus-jakarta-sans)', 'sans-serif'],
+        mono: ['var(--font-geist-mono)', 'monospace'],
+        hud: ['var(--font-plus-jakarta-sans)', 'sans-serif'],
       },
       borderRadius: {
         lg: "0rem",

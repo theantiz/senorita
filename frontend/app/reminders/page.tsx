@@ -24,12 +24,12 @@ export default function Reminders() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="font-mono text-[9px] text-white/40 tracking-[0.3em] mb-1">// ALERT SUBSYSTEM</p>
-          <h2 className="font-hud text-lg font-bold text-white/90 tracking-widest">SCHEDULED ALERTS</h2>
+          <p className="hud-kicker mb-1">// ALERT SUBSYSTEM</p>
+          <h2 className="hud-title">SCHEDULED ALERTS</h2>
         </div>
-        <div className="font-mono text-[9px] text-white/30 border border-white/10 px-3 py-1.5 tracking-widest">
+        <div className="hud-counter w-fit">
           {activeReminders.length} ACTIVE
         </div>
       </div>
@@ -42,9 +42,7 @@ export default function Reminders() {
       )}
 
       {!loading && reminders.length === 0 && (
-        <div className="text-center py-12 border border-white/10">
-          <p className="font-mono text-[10px] text-white/30 tracking-widest">[ NO ALERTS SCHEDULED ]</p>
-        </div>
+        <div className="hud-empty">[ NO ALERTS SCHEDULED ]</div>
       )}
 
       {!loading && reminders.length > 0 && (
@@ -52,7 +50,7 @@ export default function Reminders() {
           {activeReminders.map((r) => (
             <div
               key={r.id}
-              className="border border-white/20 bg-white/10[0.03] p-4 relative"
+              className="hud-panel hud-cut-md relative p-4"
               style={{ clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%)' }}
             >
               <div className="absolute top-0 right-0 p-3">
@@ -71,7 +69,7 @@ export default function Reminders() {
           {pastReminders.map((r) => (
             <div
               key={r.id}
-              className="border border-white/10 bg-white/10[0.01] p-4 opacity-60"
+              className="hud-panel-quiet hud-cut-md p-4 opacity-60"
               style={{ clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%)' }}
             >
               <p className="font-mono text-[10px] text-white/60 mb-2">{r.message}</p>

@@ -88,17 +88,20 @@ export default function SettingsPage() {
   const currentModeValue = globalMode?.mode || "approval_required";
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
-      <div>
-        <h1 className="text-3xl font-display font-semibold text-white tracking-tight">Settings</h1>
-        <p className="text-white/50 mt-2 text-sm max-w-xl leading-relaxed">
-          Configure global system preferences and default AI behaviors.
-        </p>
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="hud-kicker mb-1">// SYSTEM POLICY</p>
+          <h1 className="hud-title">SETTINGS</h1>
+        </div>
+        <div className="hud-counter w-fit">
+          {saving ? "SAVING" : "READY"}
+        </div>
       </div>
 
-      <div className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-2xl p-6">
-        <h2 className="text-sm font-semibold tracking-wide text-white uppercase mb-4">Default Message Mode</h2>
-        <p className="text-white/50 text-sm mb-6">
+      <div className="hud-panel hud-cut-md p-5 md:p-6">
+        <h2 className="mb-4 font-mono text-[10px] uppercase tracking-[0.28em] text-white/60">Default Message Mode</h2>
+        <p className="mb-6 max-w-2xl text-sm leading-relaxed text-white/50">
           This controls how the assistant behaves when sending messages on your behalf, unless overridden for a specific contact or channel.
         </p>
         
@@ -118,18 +121,18 @@ export default function SettingsPage() {
                 key={m.id}
                 onClick={() => handleModeChange(m.id)}
                 disabled={saving}
-                className={`p-4 rounded-xl border text-left transition-all ${
+                className={`hud-cut-sm p-4 text-left transition-all ${
                   currentModeValue === m.id
-                    ? "border-[#4A90E2]/50 bg-[#4A90E2]/10"
-                    : "border-white/5 bg-white/5 hover:border-white/20"
+                    ? "border border-cyan-400/50 bg-cyan-400/10"
+                    : "border border-white/10 bg-white/[0.03] hover:border-white/25"
                 } ${saving ? "opacity-50 cursor-not-allowed" : ""}`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`font-semibold text-sm ${currentModeValue === m.id ? "text-[#4A90E2]" : "text-white"}`}>
+                  <span className={`font-semibold text-sm ${currentModeValue === m.id ? "text-cyan-300" : "text-white"}`}>
                     {m.title}
                   </span>
                   {currentModeValue === m.id && (
-                    <span className="w-2 h-2 rounded-full bg-[#4A90E2]" />
+                    <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_8px_rgba(103,232,249,0.45)]" />
                   )}
                 </div>
                 <p className="text-xs text-white/50 leading-relaxed">{m.desc}</p>

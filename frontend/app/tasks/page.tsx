@@ -25,12 +25,12 @@ export default function Tasks() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="font-mono text-[9px] text-white/40 tracking-[0.3em] mb-1">// ACTION ITEM MATRIX</p>
-          <h2 className="font-hud text-lg font-bold text-white/90 tracking-widest">TASK QUEUE</h2>
+          <p className="hud-kicker mb-1">// ACTION ITEM MATRIX</p>
+          <h2 className="hud-title">TASK QUEUE</h2>
         </div>
-        <div className="font-mono text-[9px] text-white/30 border border-white/10 px-3 py-1.5 tracking-widest">
+        <div className="hud-counter w-fit">
           {openTasks.length} OPEN / {tasks.length} TOTAL
         </div>
       </div>
@@ -43,9 +43,7 @@ export default function Tasks() {
       )}
 
       {!loading && tasks.length === 0 && (
-        <div className="text-center py-12 border border-white/10">
-          <p className="font-mono text-[10px] text-white/30 tracking-widest">[ TASK QUEUE EMPTY ]</p>
-        </div>
+        <div className="hud-empty">[ TASK QUEUE EMPTY ]</div>
       )}
 
       {!loading && tasks.length > 0 && (
@@ -54,13 +52,13 @@ export default function Tasks() {
           {openTasks.length > 0 && (
             <div className="space-y-3">
               <p className="font-mono text-[9px] text-white/60 tracking-widest flex items-center gap-2 mb-2">
-                <span className="w-1.5 h-1.5 bg-white/60 rounded-full animate-pulse-glow" />
+                <span className="w-1.5 h-1.5 bg-white/60 rounded-full animate-pulse" />
                 ACTIVE DIRECTIVES
               </p>
               {openTasks.map((t) => (
                 <div
                   key={t.id}
-                  className="flex items-start gap-4 border border-white/20 bg-white/10[0.03] p-4 group hover:border-white/40 transition-all"
+                  className="hud-panel hud-cut-md group flex flex-col gap-3 p-4 transition-all hover:border-white/40 sm:flex-row sm:items-start sm:gap-4"
                   style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
                 >
                   <div className="mt-0.5 shrink-0 w-3 h-3 border border-white/40 flex items-center justify-center">
@@ -73,7 +71,7 @@ export default function Tasks() {
                     )}
                   </div>
                   {t.priority === "high" && (
-                    <div className="shrink-0 border border-red-500/30 bg-red-500/10 px-2 py-0.5">
+                    <div className="w-fit shrink-0 border border-red-500/30 bg-red-500/10 px-2 py-0.5">
                       <span className="font-mono text-[8px] text-red-400 tracking-widest">PRIORITY: HIGH</span>
                     </div>
                   )}
@@ -92,7 +90,7 @@ export default function Tasks() {
               {doneTasks.map((t) => (
                 <div
                   key={t.id}
-                  className="flex items-center gap-4 border border-white/10 bg-white/10[0.01] p-3"
+                  className="hud-panel-quiet hud-cut-sm flex items-center gap-4 p-3"
                   style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}
                 >
                   <div className="shrink-0 w-3 h-3 bg-white/20 border border-white/40 flex items-center justify-center">

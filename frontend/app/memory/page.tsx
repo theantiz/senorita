@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../components/AuthContext";
 import { getMemories, deleteMemory, patchMemoryLock, MemoryFilters } from "@/lib/api";
 
@@ -84,32 +84,32 @@ export default function Memory() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="font-mono text-[9px] text-white/40 tracking-[0.3em] mb-1">// LONG-TERM MEMORY CORE</p>
-          <h2 className="font-hud text-lg font-bold text-white/90 tracking-widest">MEMORY BANK</h2>
+          <p className="hud-kicker mb-1">// LONG-TERM MEMORY CORE</p>
+          <h2 className="hud-title">MEMORY BANK</h2>
         </div>
-        <div className="font-mono text-[9px] text-white/30 border border-white/10 px-3 py-1.5 tracking-widest">
+        <div className="hud-counter w-fit">
           {memories.length} RECORDS
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 p-4 border border-white/10 bg-white/5">
+      <div className="hud-panel-quiet flex flex-col gap-4 p-4 md:flex-row">
         <div className="flex-1">
           <input 
             type="text" 
             placeholder="SEMANTIC SEARCH..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-black/40 border border-white/20 text-white font-mono text-[10px] p-2 tracking-widest focus:outline-none focus:border-white/50"
+            className="hud-input w-full"
           />
         </div>
-        <div className="flex flex-wrap gap-3 items-center">
+        <div className="flex flex-wrap items-center gap-3">
           <select 
             value={category || ""} 
             onChange={(e) => setCategory(e.target.value || undefined)}
-            className="bg-black/40 border border-white/20 text-white/70 font-mono text-[9px] p-2 tracking-widest focus:outline-none"
+            className="hud-select"
           >
             <option value="">ALL CATEGORIES</option>
             <option value="personal">PERSONAL</option>
@@ -122,7 +122,7 @@ export default function Memory() {
           <select 
             value={sourceRef || ""} 
             onChange={(e) => setSourceRef(e.target.value || undefined)}
-            className="bg-black/40 border border-white/20 text-white/70 font-mono text-[9px] p-2 tracking-widest focus:outline-none"
+            className="hud-select"
           >
             <option value="">ALL SOURCES</option>
             <option value="chat">CHAT</option>
@@ -137,7 +137,7 @@ export default function Memory() {
               const val = e.target.value;
               setLocked(val === "" ? undefined : val === "true");
             }}
-            className="bg-black/40 border border-white/20 text-white/70 font-mono text-[9px] p-2 tracking-widest focus:outline-none"
+            className="hud-select"
           >
             <option value="">LOCK STATE: ANY</option>
             <option value="true">LOCKED ONLY</option>
@@ -163,9 +163,7 @@ export default function Memory() {
       )}
 
       {!loading && memories.length === 0 && (
-        <div className="text-center py-12 border border-white/10">
-          <p className="font-mono text-[10px] text-white/30 tracking-widest">[ NO RESULTS FOUND ]</p>
-        </div>
+        <div className="hud-empty">[ NO RESULTS FOUND ]</div>
       )}
 
       <div className="space-y-6">
@@ -186,9 +184,9 @@ export default function Memory() {
                 const srcBadge = (m.source_ref ?? "chat").split(":")[0].toUpperCase();
                 
                 return (
-                  <div key={m.id} className="flex flex-col border border-white/10 bg-white/10[0.02] hover:border-white/25 transition-colors" style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}>
+                  <div key={m.id} className="hud-panel-quiet hud-cut-sm flex flex-col transition-colors hover:border-white/25" style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}>
                     <div 
-                      className={`flex items-center gap-4 px-4 py-3 group cursor-pointer ${m.locked ? 'bg-amber-900/10 border-l-2 border-l-amber-500/50' : ''}`}
+                      className={`group flex cursor-pointer flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:gap-4 ${m.locked ? 'bg-amber-900/10 border-l-2 border-l-amber-500/50' : ''}`}
                       onClick={() => toggleExpand(m.id)}
                     >
                       {/* Category */}
@@ -197,10 +195,11 @@ export default function Memory() {
                       </span>
 
                       {/* Content */}
-                      <p className={`font-mono text-[11px] flex-1 transition-colors ${m.locked ? 'text-amber-100/90' : 'text-white/80 group-hover:text-white/100'}`}>
+                      <p className={`min-w-0 flex-1 font-mono text-[11px] leading-relaxed transition-colors ${m.locked ? 'text-amber-100/90' : 'text-white/80 group-hover:text-white'}`}>
                         {m.content}
                       </p>
                       
+                      <div className="flex flex-wrap items-center gap-2 lg:contents">
                       {/* Source Badge */}
                       <span className="font-mono text-[8px] text-white/40 border border-white/20 px-1.5 py-0.5">
                         SRC: {srcBadge}
@@ -235,7 +234,7 @@ export default function Memory() {
                             : 'border-white/15 text-white/30 hover:border-white/50 hover:text-white/80'
                         }`}
                       >
-                        {m.locked ? '🔒 LOCKED' : '🔓 LOCK'}
+                        {m.locked ? 'LOCKED' : 'LOCK'}
                       </button>
 
                       {/* Delete */}
@@ -245,6 +244,7 @@ export default function Memory() {
                       >
                         PURGE
                       </button>
+                      </div>
                     </div>
 
                     {/* Expanded Detail */}
@@ -265,7 +265,7 @@ export default function Memory() {
                               className="inline-block border border-blue-500/30 text-blue-400 px-3 py-1 hover:bg-blue-500/10"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              [↗] VIEW ORIGINAL CONVERSATION
+                              VIEW ORIGINAL CONVERSATION
                             </a>
                           </div>
                         )}

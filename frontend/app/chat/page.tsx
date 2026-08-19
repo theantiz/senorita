@@ -109,7 +109,7 @@ export default function Chat() {
   return (
     <div className="flex flex-col h-[calc(100vh-7rem)]">
       {/* Header */}
-      <div className="shrink-0 mb-4 flex items-center justify-between">
+      <div className="mb-4 flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2 mb-0.5">
             <div className="w-1 h-1 bg-white rotate-45" />
@@ -117,7 +117,7 @@ export default function Chat() {
           </div>
           <h2 className="font-hud text-lg font-bold text-white/90 tracking-widest">AI INTERFACE</h2>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3 sm:justify-end">
           <button 
             onClick={() => setIsWakeWordEnabled(!isWakeWordEnabled)}
             className={`font-mono text-[9px] tracking-widest px-2 py-1 border transition-colors ${
@@ -142,7 +142,7 @@ export default function Chat() {
 
       {/* Message window */}
       <div
-        className="flex-1 overflow-y-auto border border-white/15 bg-white/10[0.01] p-5 mb-4 space-y-4 relative"
+        className="hud-panel relative mb-4 flex-1 space-y-4 overflow-y-auto p-5"
         style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))' }}
       >
         {/* Corner labels */}
@@ -179,7 +179,7 @@ export default function Chat() {
                   m.role === 'system' ? 'bg-red-400/60' : 'bg-white/60'
                 }`} />
                 <span className="font-mono text-[8px] text-white/30 tracking-widest">
-                  {m.role === 'user' ? 'USER' : m.role === 'system' ? '⚠ SYSTEM' : 'SEÑORITA'} // {m.ts}
+                  {m.role === 'user' ? 'USER' : m.role === 'system' ? 'SYSTEM' : 'SEÑORITA'} // {m.ts}
                 </span>
               </div>
               {/* Bubble */}
@@ -189,7 +189,7 @@ export default function Chat() {
                     ? 'border border-blue-500/30 bg-blue-500/10 text-blue-200'
                     : m.role === 'system'
                     ? 'border border-red-500/30 bg-red-500/5 text-red-400'
-                    : 'border border-white/20 bg-white/5 text-white/80/80'
+                    : 'border border-white/20 bg-white/5 text-white/80'
                 }`}
                 style={{
                   clipPath: m.role === 'user'
@@ -223,8 +223,8 @@ export default function Chat() {
       </div>
 
       {/* Input bar */}
-      <div className="shrink-0 flex gap-3">
-        <div className="flex-1 relative border border-white/20 bg-white/10[0.02] flex items-center"
+      <div className="grid shrink-0 grid-cols-2 gap-3 sm:flex">
+        <div className="col-span-2 flex flex-1 items-center border border-white/20 bg-white/[0.02] sm:col-span-1"
           style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}>
           <span className="font-mono text-[10px] text-white/40 px-4">&gt;_</span>
           <textarea
@@ -242,7 +242,7 @@ export default function Chat() {
         <button
           onClick={manualTrigger}
           disabled={loading}
-          className={`px-4 font-hud text-[9px] tracking-[0.2em] transition-colors shrink-0 ${
+          className={`px-4 py-3 font-hud text-[9px] tracking-[0.2em] transition-colors shrink-0 ${
             status === VoiceAssistantStatus.RECORDING_COMMAND ? 'bg-red-500/80 text-white animate-pulse' : 'bg-white/10 text-white/60 hover:bg-white/20'
           }`}
           style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}
@@ -253,7 +253,7 @@ export default function Chat() {
         <button
           onClick={handleSend}
           disabled={loading || (!input.trim() && status !== VoiceAssistantStatus.RECORDING_COMMAND)}
-          className="px-5 font-hud text-[9px] tracking-[0.2em] text-background bg-white hover:bg-cyan-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
+          className="px-5 py-3 font-hud text-[9px] tracking-[0.2em] text-background bg-white hover:bg-cyan-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
           style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}
         >
           SEND

@@ -3,8 +3,6 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import asyncio
-
 import asyncpg
 import pytest
 import pytest_asyncio
@@ -17,9 +15,9 @@ os.environ["SECRET_KEY"] = "test-secret-key"
 os.environ["GEMINI_API_KEY"] = "test-gemini-key"
 os.environ["TESTING"] = "1"
 
-from app.db.base import Base
-from app.db.session import get_db
-from app.main import app
+from app.db.base import Base  # noqa: E402
+from app.db.session import get_db  # noqa: E402
+from app.main import app  # noqa: E402
 
 # Assuming docker-compose is running with port 5433
 DB_HOST = os.environ.get("DB_HOST", "localhost")
@@ -34,6 +32,7 @@ DEFAULT_DB_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/postgres
 test_engine = create_async_engine(TEST_DATABASE_URL, echo=False, future=True, poolclass=NullPool)
 test_async_session_factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
 
+
 async def override_get_db():
     async with test_async_session_factory() as session:
         try:
@@ -43,10 +42,12 @@ async def override_get_db():
             await session.rollback()
             raise
 
+
 app.dependency_overrides[get_db] = override_get_db
 
-@pytest_asyncio.fixture(scope="session", autouse=True)
-async def setup_db():
+
+@pytest_asyncio.fixture(scope="session")
+async def _test_db():
     # 1. Connect to default DB and create test DB
     try:
         sys_conn = await asyncpg.connect(DEFAULT_DB_URL)
@@ -54,7 +55,7 @@ async def setup_db():
         await sys_conn.execute(f"CREATE DATABASE {DB_NAME}")
         await sys_conn.close()
     except Exception as e:
-        print(f"Failed to create DB: {e}")
+        pytest.skip(f"Postgres test database is unavailable: {e}")
 
     # 2. Connect to test DB and create vector extension
     try:
@@ -74,16 +75,27 @@ async def setup_db():
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
+
+@pytest.fixture(autouse=True)
+def setup_db(request: pytest.FixtureRequest):
+    if "no_db" in request.node.keywords:
+        return
+
+    request.getfixturevalue("_test_db")
+
+
 @pytest_asyncio.fixture
 async def client():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
 
+
 @pytest_asyncio.fixture
 async def db_session():
     async with test_async_session_factory() as session:
         yield session
+
 
 @pytest.fixture
 def mock_gemini(mocker):

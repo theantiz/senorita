@@ -11,11 +11,20 @@ export function useAudioAnalyser() {
 
   const startAnalyser = async (providedStream?: MediaStream) => {
     try {
+      stopAnalyser();
+
       let stream = providedStream;
       if (stream) {
         ownsStreamRef.current = false;
       } else {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            autoGainControl: true,
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true,
+          },
+        });
         ownsStreamRef.current = true;
       }
       streamRef.current = stream;
@@ -26,6 +35,9 @@ export function useAudioAnalyser() {
       
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
+      analyser.minDecibels = -90;
+      analyser.maxDecibels = -10;
+      analyser.smoothingTimeConstant = 0.72;
       analyserRef.current = analyser;
       
       const source = audioContext.createMediaStreamSource(stream);
@@ -40,6 +52,9 @@ export function useAudioAnalyser() {
   };
 
   const stopAnalyser = () => {
+    sourceRef.current?.disconnect();
+    sourceRef.current = null;
+
     if (streamRef.current) {
       if (ownsStreamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
@@ -50,6 +65,8 @@ export function useAudioAnalyser() {
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
+    analyserRef.current = null;
+    dataArrayRef.current = null;
     setIsListening(false);
   };
 

@@ -27,6 +27,29 @@ const WAKE_TRIGGERS = [
   'hey senorita',
 ];
 
+const PREFERRED_RECORDING_MIMES = [
+  'audio/webm;codecs=opus',
+  'audio/mp4;codecs=mp4a.40.2',
+  'audio/webm',
+  'audio/ogg;codecs=opus',
+];
+
+const MIME_EXTENSION: Record<string, string> = {
+  'audio/webm': 'webm',
+  'audio/ogg': 'ogg',
+  'audio/mp4': 'm4a',
+  'audio/wav': 'wav',
+  'audio/x-wav': 'wav',
+  'audio/mpeg': 'mp3',
+  'audio/mp3': 'mp3',
+};
+
+const MIN_RECORDING_MS = 850;
+const MAX_RECORDING_MS = 25_000;
+const START_SILENCE_MS = 8_000;
+const END_SILENCE_MS = 1_050;
+const MIN_VOICE_BLOB_BYTES = 900;
+
 // ─── Chrome TTS keepalive ─────────────────────────────────────────────────────────────
 let _keepalive: ReturnType<typeof setInterval> | null = null;
 function startKeepalive() {
@@ -93,6 +116,26 @@ function splitChunks(text: string): string[] {
   return out.filter(Boolean);
 }
 
+function baseMime(mime: string) {
+  return (mime || 'audio/webm').split(';')[0].trim().toLowerCase();
+}
+
+function pickRecordingMime(): string | undefined {
+  if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return undefined;
+  return PREFERRED_RECORDING_MIMES.find(mime => MediaRecorder.isTypeSupported(mime));
+}
+
+function filenameForMime(mime: string) {
+  return `voice.${MIME_EXTENSION[baseMime(mime)] ?? 'webm'}`;
+}
+
+function base64ToBlob(audioBase64: string, mime = 'audio/mpeg') {
+  const binary = atob(audioBase64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
 // ─── Hook ──────────────────────────────────────────────────────────────────────
 interface UseVoiceAssistantProps {
   token: string | null;
@@ -121,6 +164,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
   const onCommandRef       = useRef(onCommandProcessed);
   const getFreqRef         = useRef(getFrequencies);
   const audioRef           = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef        = useRef<string | null>(null);
 
   // Keep refs in sync with props/state every render
   useEffect(() => { statusRef.current = status; },            [status]);
@@ -138,13 +182,23 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
   }, []);
 
   // ── Core audio playback helper ────────────────────────────────────────────
-  const playAudioBase64 = useCallback((audioBase64: string): Promise<void> => {
+  const playAudioBase64 = useCallback((audioBase64: string, mime = 'audio/mpeg'): Promise<void> => {
     return new Promise((resolve, reject) => {
-      const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+      const url = URL.createObjectURL(base64ToBlob(audioBase64, mime));
+      audioUrlRef.current = url;
+      const cleanup = () => {
+        URL.revokeObjectURL(url);
+        if (audioUrlRef.current === url) audioUrlRef.current = null;
+      };
+      const audio = new Audio(url);
       audioRef.current = audio;
-      audio.onended = () => { audioRef.current = null; resolve(); };
-      audio.onerror = (e) => { audioRef.current = null; reject(e); };
-      audio.play().catch(reject);
+      audio.onended = () => { cleanup(); audioRef.current = null; resolve(); };
+      audio.onerror = (e) => { cleanup(); audioRef.current = null; reject(e); };
+      audio.play().catch(e => {
+        cleanup();
+        audioRef.current = null;
+        reject(e);
+      });
     });
   }, []);
 
@@ -167,11 +221,14 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
    * Falls back to browser SpeechSynthesis only if the backend call fails.
    */
   const speakWithBackend = useCallback(async (text: string): Promise<void> => {
+    const spokenText = text.trim();
+    if (!spokenText) return;
+
     const tok = tokenRef.current ?? (typeof window !== 'undefined' ? localStorage.getItem('senorita_token') : null);
 
     if (tok) {
       try {
-        const audioBase64 = await speakText(tok, text);
+        const audioBase64 = await speakText(tok, spokenText);
         if (audioBase64) {
           await playAudioBase64(audioBase64);
           return;
@@ -183,14 +240,17 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
 
     // Browser TTS fallback
     if (!window.speechSynthesis) return;
-    const chunks = splitChunks(text);
+    const chunks = splitChunks(spokenText);
     startKeepalive();
-    for (const chunk of chunks) {
-      if (!isSpeakingRef.current) break;
-      await speakChunkFallback(chunk);
-      await new Promise(r => setTimeout(r, 80));
+    try {
+      for (const chunk of chunks) {
+        if (!isSpeakingRef.current) break;
+        await speakChunkFallback(chunk);
+        await new Promise(r => setTimeout(r, 80));
+      }
+    } finally {
+      stopKeepalive();
     }
-    stopKeepalive();
   }, [playAudioBase64, speakChunkFallback]);
 
   // ── Cancel all active speech ──────────────────────────────────────────────
@@ -202,11 +262,18 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
       audioRef.current.currentTime = 0;
       audioRef.current = null;
     }
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
     try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
   }, []);
 
   // ── Speak full response (voice command reply) ─────────────────────────
   const speakResponse = useCallback(async (text: string, audioBase64?: string) => {
+    const spokenText = text.trim();
+    if (!spokenText && !audioBase64) return;
+
     // Acquire global lock — cancel any in-progress speech first
     if (_globalSpeakingLock) {
       cancelTTS();
@@ -224,32 +291,35 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
       audioRef.current.currentTime = 0;
       audioRef.current = null;
     }
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
     try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
 
     await new Promise(r => setTimeout(r, 80));
     isSpeakingRef.current = true;
 
-    // If the voice endpoint already returned audio, play it directly
-    if (audioBase64) {
-      try {
+    try {
+      // If the voice endpoint already returned audio, play it directly
+      if (audioBase64) {
         await playAudioBase64(audioBase64);
-        isSpeakingRef.current = false;
-        _globalSpeakingLock = false;
-        setVoiceResponse(null);
-        setStatus(VoiceAssistantStatus.IDLE_LISTENING);
         return;
-      } catch (e) {
-        console.error('[Senorita] Audio playback error, falling back to backend TTS:', e);
       }
+
+      // Otherwise request TTS from the backend (same Aria voice)
+      await speakWithBackend(spokenText);
+    } catch (e) {
+      console.error('[Senorita] Audio playback error, falling back to backend TTS:', e);
+      if (spokenText) {
+        await speakWithBackend(spokenText);
+      }
+    } finally {
+      isSpeakingRef.current = false;
+      _globalSpeakingLock = false;
+      setVoiceResponse(null);
+      setStatus(VoiceAssistantStatus.IDLE_LISTENING);
     }
-
-    // Otherwise request TTS from the backend (same Aria voice)
-    await speakWithBackend(text);
-
-    isSpeakingRef.current = false;
-    _globalSpeakingLock = false;
-    setVoiceResponse(null);
-    setStatus(VoiceAssistantStatus.IDLE_LISTENING);
   }, [cancelTTS, playAudioBase64, speakWithBackend]);
 
   // ── Stop recognition ──────────────────────────────────────────────────────
@@ -277,12 +347,12 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     releaseStream();
     if (vadFrameRef.current) { cancelAnimationFrame(vadFrameRef.current); vadFrameRef.current = null; }
 
-    const mime  = mediaRecorderRef.current?.mimeType ?? 'audio/webm';
+    const mime  = mediaRecorderRef.current?.mimeType || 'audio/webm';
     const blob  = new Blob(audioChunksRef.current, { type: mime });
     audioChunksRef.current = [];
 
     const tok = tokenRef.current ?? (typeof window !== 'undefined' ? localStorage.getItem('senorita_token') : null);
-    if (!tok || blob.size < 300) {
+    if (!tok || blob.size < MIN_VOICE_BLOB_BYTES) {
       console.warn('[Senorita] Blob too small or no token — skipping:', blob.size);
       setVoiceResponse(null);
       setStatus(VoiceAssistantStatus.IDLE_LISTENING);
@@ -290,7 +360,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     }
 
     const fd = new FormData();
-    fd.append('audio', blob, 'voice.webm');
+    fd.append('audio', blob, filenameForMime(mime));
 
     try {
       const res = await sendVoiceMessage(tok, fd);
@@ -298,10 +368,13 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
       console.log('[Senorita] Response:', res.response?.slice(0, 80));
       setVoiceResponse(res.response);
       onCommandRef.current(res.transcription, res.response);
-      await speakResponse(res.response, res.audio_base64);
+      await speakResponse(res.response, res.audio_base64 ?? undefined);
     } catch (err) {
       console.error('[Senorita] API error:', err);
-      const msg = 'I lost the uplink. Try again.';
+      const errMsg = err instanceof Error ? err.message : '';
+      const msg = errMsg.includes('too large')
+        ? 'That clip was too long. Try a shorter command.'
+        : 'I lost the uplink. Try again.';
       setVoiceResponse('UPLINK FAILURE');
       onCommandRef.current(undefined, msg);
       await speakResponse(msg);
@@ -310,18 +383,28 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
 
   // ── Start recording with adaptive VAD ────────────────────────────────────
   const startRecordingCommand = useCallback(async () => {
+    cancelTTS();
     setStatus(VoiceAssistantStatus.RECORDING_COMMAND);
     setVoiceResponse('LISTENING...');
     console.log('[Senorita] Recording started');
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true }
+        audio: {
+          autoGainControl: true,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+        }
       });
       activeStreamRef.current = stream;
       setActiveStream(stream);
 
-      const recorder = new MediaRecorder(stream);
+      const mimeType = pickRecordingMime();
+      const recorder = new MediaRecorder(
+        stream,
+        mimeType ? { mimeType, audioBitsPerSecond: 48_000 } : { audioBitsPerSecond: 48_000 }
+      );
       mediaRecorderRef.current = recorder;
       audioChunksRef.current   = [];
 
@@ -332,6 +415,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
 
       // ── Adaptive VAD with EMA smoothing ─────────────────────────────────
       let emaVol       = 0;
+      let noiseFloor   = 10;
       let hasSpoken    = false;
       let silenceStart = Date.now();
       const recStart   = Date.now();
@@ -344,17 +428,22 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
         let peak = 0;
         if (freqs) for (let i = 0; i < freqs.length; i++) if (freqs[i] > peak) peak = freqs[i];
 
-        emaVol = 0.15 * peak + 0.85 * emaVol;
+        emaVol = 0.18 * peak + 0.82 * emaVol;
 
-        if (emaVol > 22) { hasSpoken = true; silenceStart = Date.now(); }
+        const elapsed = Date.now() - recStart;
+        if (!hasSpoken && elapsed < 900) {
+          noiseFloor = 0.9 * noiseFloor + 0.1 * emaVol;
+        }
+
+        const speechThreshold = Math.max(18, noiseFloor * 2.2);
+        if (emaVol > speechThreshold) { hasSpoken = true; silenceStart = Date.now(); }
 
         const silencedFor = Date.now() - silenceStart;
-        const elapsed     = Date.now() - recStart;
 
         const shouldStop =
-          (hasSpoken  && silencedFor > 1200) ||
-          (!hasSpoken && silencedFor > 9000) ||
-          elapsed > 20_000;
+          (elapsed > MIN_RECORDING_MS && hasSpoken && silencedFor > END_SILENCE_MS) ||
+          (!hasSpoken && silencedFor > START_SILENCE_MS) ||
+          elapsed > MAX_RECORDING_MS;
 
         if (shouldStop) {
           console.log('[Senorita] VAD stop — hasSpoken:', hasSpoken, 'silenced:', silencedFor);
@@ -379,7 +468,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
         setTimeout(() => setStatus(VoiceAssistantStatus.IDLE_LISTENING), delay);
       }
     }
-  }, [processCommand, releaseStream]);
+  }, [cancelTTS, processCommand, releaseStream]);
 
   // ── Greeting (wake word response) ─────────────────────────────────────────
   const playGreeting = useCallback(async () => {
@@ -393,8 +482,11 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
       "What's up, Jay?",
     ];
     isSpeakingRef.current = true;
-    await speakWithBackend(GREETINGS[Math.floor(Math.random() * GREETINGS.length)]);
-    isSpeakingRef.current = false;
+    try {
+      await speakWithBackend(GREETINGS[Math.floor(Math.random() * GREETINGS.length)]);
+    } finally {
+      isSpeakingRef.current = false;
+    }
     await new Promise(r => setTimeout(r, 150));
   }, [cancelTTS, speakWithBackend]);
 
@@ -574,11 +666,13 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     setVoiceResponse(textToSpeak);
     isSpeakingRef.current = true;
 
-    await speakWithBackend(textToSpeak);
-
-    isSpeakingRef.current = false;
-    setVoiceResponse(null);
-    setStatus(VoiceAssistantStatus.IDLE_LISTENING);
+    try {
+      await speakWithBackend(textToSpeak);
+    } finally {
+      isSpeakingRef.current = false;
+      setVoiceResponse(null);
+      setStatus(VoiceAssistantStatus.IDLE_LISTENING);
+    }
   }, [speakWithBackend]);
 
   // Auto-greet on first mount (only once per browser session)
