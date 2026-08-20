@@ -121,8 +121,8 @@ export default function Documents() {
         onClick={() => !uploading && fileInputRef.current?.click()}
         className={`border-2 border-dashed p-8 text-center cursor-pointer transition-all duration-200 ${
           dragOver
-            ? "border-white/50 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/5"
-            : "border-white/15 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/[0.02] hover:border-white/30 hover:bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/[0.03]"
+            ? "border-white/50 bg-white/5"
+            : "border-white/15 bg-white/[0.02] hover:border-white/30 hover:bg-white/[0.03]"
         } ${uploading ? "pointer-events-none opacity-60" : ""}`}
         style={{ clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))' }}
       >
@@ -166,7 +166,7 @@ export default function Documents() {
       {!loading && documents.length > 0 && (
         <div className="space-y-3">
           <p className="font-mono text-[9px] text-white/60 tracking-widest flex items-center gap-2 mb-2">
-            <span className="w-1.5 h-1.5 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/60 rounded-full" />
+            <span className="w-1.5 h-1.5 bg-white/60 rounded-full" />
             INDEXED FILES
           </p>
           {documents.map((doc) => {
@@ -174,7 +174,7 @@ export default function Documents() {
             return (
               <div
                 key={doc.id}
-                className="flex flex-col border border-white/10 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/[0.02] hover:border-white/25 transition-colors"
+                className="flex flex-col border border-white/10 bg-white/[0.02] hover:border-white/25 transition-colors"
                 style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}
               >
                 <div
@@ -182,7 +182,7 @@ export default function Documents() {
                   onClick={() => toggleExpand(doc.id)}
                 >
                   {/* File icon */}
-                  <div className="shrink-0 w-8 h-8 border border-white/20 flex items-center justify-center bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/[0.03]">
+                  <div className="shrink-0 w-8 h-8 border border-white/20 flex items-center justify-center bg-white/[0.03]">
                     <span className="font-mono text-[8px] text-white/50">
                       {doc.filename.split(".").pop()?.toUpperCase()}
                     </span>
@@ -243,7 +243,7 @@ export default function Documents() {
                             <button
                               key={i}
                               onClick={() => askQuestion(q)}
-                              className="w-full text-left px-3 py-2 border border-white/10 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/[0.02] hover:border-white/30 hover:bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/[0.04] transition-all group"
+                              className="w-full text-left px-3 py-2 border border-white/10 bg-white/[0.02] hover:border-white/30 hover:bg-white/[0.04] transition-all group"
                             >
                               <span className="font-mono text-[9px] text-white/60 group-hover:text-white/90">
                                 ASK: {q}

@@ -123,16 +123,16 @@ export default function SettingsPage() {
                 disabled={saving}
                 className={`hud-cut-sm p-4 text-left transition-all ${
                   currentModeValue === m.id
-                    ? "border border-cyan-400/50 bg-cyan-400/10"
-                    : "border border-white/10 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/[0.03] hover:border-white/25"
+                    ? "border border-white/50 bg-white/10"
+                    : "border border-white/10 bg-white/[0.03] hover:border-white/25"
                 } ${saving ? "opacity-50 cursor-not-allowed" : ""}`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`font-semibold text-sm ${currentModeValue === m.id ? "text-cyan-300" : "text-white"}`}>
+                  <span className={`font-semibold text-sm ${currentModeValue === m.id ? "text-white" : "text-white"}`}>
                     {m.title}
                   </span>
                   {currentModeValue === m.id && (
-                    <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_8px_rgba(103,232,249,0.45)]" />
+                    <span className="h-2 w-2 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.45)]" />
                   )}
                 </div>
                 <p className="text-xs text-white/50 leading-relaxed">{m.desc}</p>

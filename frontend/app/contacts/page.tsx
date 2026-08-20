@@ -122,7 +122,7 @@ export default function ContactsPage() {
             <div key={contact.id} className="hud-panel hud-cut-md flex flex-col justify-between gap-5 p-5 md:flex-row md:items-center">
               <div>
                 <h3 className="font-display text-lg font-semibold text-white">{contact.name}</h3>
-                <span className="mt-2 inline-block border border-white/10 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/[0.04] px-2 py-0.5 text-xs uppercase tracking-wider text-white/50">
+                <span className="mt-2 inline-block border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs uppercase tracking-wider text-white/50">
                   {contact.relationship_type}
                 </span>
               </div>

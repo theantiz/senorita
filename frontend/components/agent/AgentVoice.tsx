@@ -79,7 +79,7 @@ export function AgentVoice({
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end space-y-4">
       {/* Status Overlay */}
       {status !== VoiceAssistantStatus.DISABLED && (
-        <div className="bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/90 backdrop-blur-md shadow-lg border border-gray-100 rounded-full py-2 px-4 flex items-center max-w-sm">
+        <div className="bg-white/90 backdrop-blur-md shadow-lg border border-gray-100 rounded-full py-2 px-4 flex items-center max-w-sm">
           {getStatusDisplay()}
         </div>
       )}

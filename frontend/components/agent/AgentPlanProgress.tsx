@@ -5,10 +5,10 @@ export function AgentPlanProgress({ steps, goal }: { steps: PlanStep[], goal: st
   if (!steps || steps.length === 0) return null;
 
   return (
-    <div className="border border-white/20 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/5 p-4 mb-4 text-white font-mono text-xs shadow-lg"
+    <div className="border border-white/20 bg-white/5 p-4 mb-4 text-white font-mono text-xs shadow-lg"
          style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}>
       {goal && (
-        <div className="mb-3 text-cyan-300 font-bold border-b border-white/10 pb-2">
+        <div className="mb-3 text-white font-bold border-b border-white/10 pb-2">
           GOAL: {goal}
         </div>
       )}
@@ -26,7 +26,7 @@ export function AgentPlanProgress({ steps, goal }: { steps: PlanStep[], goal: st
             color = 'text-red-400';
           } else if (step.status === 'RUNNING') {
             icon = '●';
-            color = 'text-cyan-400 animate-pulse';
+            color = 'text-white animate-pulse';
           } else if (step.status === 'PENDING') {
             icon = '●';
             color = 'text-yellow-400 animate-pulse';

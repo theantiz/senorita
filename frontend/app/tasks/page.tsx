@@ -52,7 +52,7 @@ export default function Tasks() {
           {openTasks.length > 0 && (
             <div className="space-y-3">
               <p className="font-mono text-[9px] text-white/60 tracking-widest flex items-center gap-2 mb-2">
-                <span className="w-1.5 h-1.5 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/60 rounded-full animate-pulse" />
+                <span className="w-1.5 h-1.5 bg-white/60 rounded-full animate-pulse" />
                 ACTIVE DIRECTIVES
               </p>
               {openTasks.map((t) => (
@@ -62,7 +62,7 @@ export default function Tasks() {
                   style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
                 >
                   <div className="mt-0.5 shrink-0 w-3 h-3 border border-white/40 flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/20 group-hover:bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/60 transition-colors" />
+                    <div className="w-1.5 h-1.5 bg-white/20 group-hover:bg-white/60 transition-colors" />
                   </div>
                   <div className="flex-1">
                     <p className="font-mono text-[11px] text-white/80">{t.title}</p>
@@ -84,7 +84,7 @@ export default function Tasks() {
           {doneTasks.length > 0 && (
             <div className="space-y-3 opacity-60">
               <p className="font-mono text-[9px] text-white/40 tracking-widest flex items-center gap-2 mb-2">
-                <span className="w-1.5 h-1.5 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/20 border border-white/40" />
+                <span className="w-1.5 h-1.5 bg-white/20 border border-white/40" />
                 RESOLVED DIRECTIVES
               </p>
               {doneTasks.map((t) => (
@@ -93,12 +93,12 @@ export default function Tasks() {
                   className="hud-panel-quiet hud-cut-sm flex items-center gap-4 p-3"
                   style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}
                 >
-                  <div className="shrink-0 w-3 h-3 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/20 border border-white/40 flex items-center justify-center">
+                  <div className="shrink-0 w-3 h-3 bg-white/20 border border-white/40 flex items-center justify-center">
                     <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <p className="font-mono text-[10px] text-white/40 line-through decoration-cyan-500/30 flex-1">{t.title}</p>
+                  <p className="font-mono text-[10px] text-white/40 line-through decoration-white/30 flex-1">{t.title}</p>
                   <span className="font-mono text-[7px] text-white/30 tracking-widest">
                     {new Date(t.completed_at).toLocaleDateString()}
                   </span>
