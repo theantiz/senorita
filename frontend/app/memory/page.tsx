@@ -171,11 +171,11 @@ export default function Memory() {
           <div key={date}>
             {/* Date header */}
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-1 h-1 bg-white/60 rotate-45" />
+              <div className="w-1 h-1 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/60 rotate-45" />
               <p className="font-mono text-[9px] text-white/40 tracking-widest">
                 {new Date(date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase()}
               </p>
-              <div className="flex-1 h-px bg-white/10" />
+              <div className="flex-1 h-px bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/10" />
             </div>
 
             <div className="space-y-2">
@@ -209,7 +209,7 @@ export default function Memory() {
                       {m.confidence != null && (
                         <div className="shrink-0 flex items-center gap-1.5" title="Confidence Score">
                           <span className="font-mono text-[8px] text-white/30">CONF</span>
-                          <div className="h-1 w-8 bg-white/10">
+                          <div className="h-1 w-8 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/10">
                             <div className="h-full bg-blue-400/50" style={{ width: `${m.confidence * 100}%` }} />
                           </div>
                         </div>
@@ -219,7 +219,7 @@ export default function Memory() {
                       {m.importance_score != null && (
                         <div className="shrink-0 flex items-center gap-1.5" title="Importance Score">
                           <span className="font-mono text-[8px] text-white/30">IMP</span>
-                          <div className="h-1 w-8 bg-white/10">
+                          <div className="h-1 w-8 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/10">
                             <div className="h-full bg-violet-400/50" style={{ width: `${m.importance_score * 100}%` }} />
                           </div>
                         </div>

@@ -99,7 +99,7 @@ export default function AgentVoice({ websocket }: { websocket: any }) {
       
       {/* Developer Controls (Hidden in production, but useful for testing) */}
       <div className="flex space-x-3 mt-8 z-10">
-        <button onClick={startVoice} className="bg-white/10 hover:bg-white/20 text-white/80 backdrop-blur-md border border-white/10 px-5 py-2 rounded-full text-sm font-medium transition-all">Wake Señorita</button>
+        <button onClick={startVoice} className="bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/10 hover:bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/20 text-white/80 backdrop-blur-md border border-white/10 px-5 py-2 rounded-full text-sm font-medium transition-all">Wake Señorita</button>
         <button onClick={simulateSpeech} className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 px-5 py-2 rounded-full text-sm font-medium transition-all">Push to Talk</button>
         {state === 'SPEAKING' && (
           <button onClick={interrupt} className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 px-5 py-2 rounded-full text-sm font-medium transition-all">Interrupt</button>

@@ -151,7 +151,7 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-white text-black font-display font-medium text-sm px-4 py-3 hover:bg-white/90 transition-colors tracking-wide disabled:opacity-50"
+                    className="w-full bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)] text-black font-display font-medium text-sm px-4 py-3 hover:bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/90 transition-colors tracking-wide disabled:opacity-50"
                   >
                     {loading ? "AUTHENTICATING..." : "LOGIN TO SYSTEM"}
                   </button>
@@ -174,7 +174,7 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-white text-black font-display font-medium text-sm px-4 py-3 hover:bg-white/90 transition-colors tracking-wide disabled:opacity-50"
+                    className="w-full bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)] text-black font-display font-medium text-sm px-4 py-3 hover:bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/90 transition-colors tracking-wide disabled:opacity-50"
                   >
                     {loading ? "VALIDATING..." : "AUTHENTICATE"}
                   </button>
@@ -194,7 +194,7 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-white text-black font-display font-medium text-sm px-4 py-3 hover:bg-white/90 transition-colors tracking-wide disabled:opacity-50"
+                    className="w-full bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)] text-black font-display font-medium text-sm px-4 py-3 hover:bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/90 transition-colors tracking-wide disabled:opacity-50"
                   >
                     {loading ? "INITIALIZING..." : "CREATE PROFILE"}
                   </button>

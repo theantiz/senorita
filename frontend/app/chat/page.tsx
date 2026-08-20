@@ -133,7 +133,7 @@ export default function Chat() {
       <div className="mb-4 flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2 mb-0.5">
-            <div className="w-1 h-1 bg-white rotate-45" />
+            <div className="w-1 h-1 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)] rotate-45" />
             <p className="font-mono text-[9px] text-white/40 tracking-[0.3em]">NEURAL INTERFACE // ACTIVE</p>
           </div>
           <h2 className="font-hud text-lg font-bold text-white/90 tracking-widest">AI INTERFACE</h2>
@@ -144,12 +144,12 @@ export default function Chat() {
             className={`font-mono text-[9px] tracking-widest px-2 py-1 border transition-colors ${
               isWakeWordEnabled 
                 ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10' 
-                : 'border-white/20 text-white/40 hover:bg-white/5'
+                : 'border-white/20 text-white/40 hover:bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/5'
             }`}
           >
             WAKE WORD: {isWakeWordEnabled ? 'ON' : 'OFF'}
           </button>
-          <div className="w-12 h-12 border border-white/20 bg-white/5 rounded-full overflow-hidden" style={{ clipPath: 'circle(50% at 50% 50%)' }}>
+          <div className="w-12 h-12 border border-white/20 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/5 rounded-full overflow-hidden" style={{ clipPath: 'circle(50% at 50% 50%)' }}>
             <VoiceOrb 
               getFrequencies={getFrequencies} 
               onClick={manualTrigger} 
@@ -215,7 +215,7 @@ export default function Chat() {
               <div className={`flex items-center gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
                 <div className={`w-1 h-1 rotate-45 ${
                   m.role === 'user' ? 'bg-blue-400/60' :
-                  m.role === 'system' ? 'bg-red-400/60' : 'bg-white/60'
+                  m.role === 'system' ? 'bg-red-400/60' : 'bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/60'
                 }`} />
                 <span className="font-mono text-[8px] text-white/30 tracking-widest">
                   {m.role === 'user' ? 'USER' : m.role === 'system' ? 'SYSTEM' : 'SEÑORITA'} // {m.ts}
@@ -228,7 +228,7 @@ export default function Chat() {
                     ? 'border border-blue-500/30 bg-blue-500/10 text-blue-200'
                     : m.role === 'system'
                     ? 'border border-red-500/30 bg-red-500/5 text-red-400'
-                    : 'border border-white/20 bg-white/5 text-white/80'
+                    : 'border border-white/20 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/5 text-white/80'
                 }`}
                 style={{
                   clipPath: m.role === 'user'
@@ -259,12 +259,12 @@ export default function Chat() {
 
         {loading && !agentState.needsConfirmation && (!agentState.steps || agentState.steps.length === 0 || agentState.status === 'RUNNING') && (
           <div className="flex justify-start">
-            <div className="border border-white/20 bg-white/5 px-4 py-3"
+            <div className="border border-white/20 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/5 px-4 py-3"
               style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}>
               <div className="flex items-center gap-3">
                 <div className="flex gap-1">
                   {[0, 1, 2].map((i) => (
-                    <span key={i} className="w-1.5 h-1.5 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
+                    <span key={i} className="w-1.5 h-1.5 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/60 rounded-full animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
                   ))}
                 </div>
                 <span className="font-mono text-[9px] text-white/40 tracking-widest">
@@ -279,7 +279,7 @@ export default function Chat() {
 
       {/* Input bar */}
       <div className="grid shrink-0 grid-cols-2 gap-3 sm:flex">
-        <div className="col-span-2 flex flex-1 items-center border border-white/20 bg-white/[0.02] sm:col-span-1"
+        <div className="col-span-2 flex flex-1 items-center border border-white/20 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/[0.02] sm:col-span-1"
           style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}>
           <span className="font-mono text-[10px] text-white/40 px-4">&gt;_</span>
           <textarea
@@ -298,7 +298,7 @@ export default function Chat() {
           onClick={manualTrigger}
           disabled={loading}
           className={`px-4 py-3 font-hud text-[9px] tracking-[0.2em] transition-colors shrink-0 ${
-            status === VoiceAssistantStatus.RECORDING_COMMAND ? 'bg-red-500/80 text-white animate-pulse' : 'bg-white/10 text-white/60 hover:bg-white/20'
+            status === VoiceAssistantStatus.RECORDING_COMMAND ? 'bg-red-500/80 text-white animate-pulse' : 'bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/10 text-white/60 hover:bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/20'
           }`}
           style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}
           title="Voice Command"
@@ -308,7 +308,7 @@ export default function Chat() {
         <button
           onClick={handleSend}
           disabled={loading || (!input.trim() && status !== VoiceAssistantStatus.RECORDING_COMMAND)}
-          className="px-5 py-3 font-hud text-[9px] tracking-[0.2em] text-background bg-white hover:bg-cyan-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
+          className="px-5 py-3 font-hud text-[9px] tracking-[0.2em] text-background bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)] hover:bg-cyan-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
           style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}
         >
           SEND

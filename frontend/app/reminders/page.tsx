@@ -54,11 +54,11 @@ export default function Reminders() {
               style={{ clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%)' }}
             >
               <div className="absolute top-0 right-0 p-3">
-                <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                <div className="w-1.5 h-1.5 rounded-full bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)] animate-pulse" />
               </div>
               <p className="font-mono text-[11px] text-white/80 mb-2 mr-6">{r.message}</p>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-[9px] text-white/60 bg-white/10 border border-white/20 px-2 py-1">
+                <span className="font-mono text-[9px] text-white/60 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/10 border border-white/20 px-2 py-1">
                   {new Date(r.trigger_time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                 </span>
                 <span className="font-mono text-[8px] text-white/40 tracking-widest">PENDING</span>

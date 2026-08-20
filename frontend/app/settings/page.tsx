@@ -124,7 +124,7 @@ export default function SettingsPage() {
                 className={`hud-cut-sm p-4 text-left transition-all ${
                   currentModeValue === m.id
                     ? "border border-cyan-400/50 bg-cyan-400/10"
-                    : "border border-white/10 bg-white/[0.03] hover:border-white/25"
+                    : "border border-white/10 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/[0.03] hover:border-white/25"
                 } ${saving ? "opacity-50 cursor-not-allowed" : ""}`}
               >
                 <div className="flex items-center justify-between mb-2">

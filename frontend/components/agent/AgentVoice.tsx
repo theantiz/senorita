@@ -24,7 +24,7 @@ export function AgentVoice({
     switch (status) {
       case VoiceAssistantStatus.IDLE_LISTENING:
         return (
-          <div className="flex items-center space-x-2 text-gray-500">
+          <div className="flex items-center space-x-2 text-accent">
             <MicOff className="w-5 h-5" />
             <span className="text-sm font-medium">Listening for "Señorita"...</span>
           </div>
@@ -65,7 +65,7 @@ export function AgentVoice({
         );
       case VoiceAssistantStatus.DISABLED:
         return (
-          <div className="flex items-center space-x-2 text-gray-400">
+          <div className="flex items-center space-x-2 text-accent">
             <MicOff className="w-5 h-5" />
             <span className="text-sm font-medium">Voice Disabled</span>
           </div>
@@ -79,7 +79,7 @@ export function AgentVoice({
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end space-y-4">
       {/* Status Overlay */}
       {status !== VoiceAssistantStatus.DISABLED && (
-        <div className="bg-white/90 backdrop-blur-md shadow-lg border border-gray-100 rounded-full py-2 px-4 flex items-center max-w-sm">
+        <div className="bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/90 backdrop-blur-md shadow-lg border border-gray-100 rounded-full py-2 px-4 flex items-center max-w-sm">
           {getStatusDisplay()}
         </div>
       )}
@@ -90,7 +90,7 @@ export function AgentVoice({
           onClick={() => setIsWakeWordEnabled(!isWakeWordEnabled)}
           className={`p-3 rounded-full shadow-md transition-colors ${
             isWakeWordEnabled 
-              ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' 
+              ? 'bg-surface-clay text-secondary hover:border-border' 
               : 'bg-red-50 text-red-500 hover:bg-red-100'
           }`}
           title={isWakeWordEnabled ? "Disable Wake Word" : "Enable Wake Word"}
@@ -106,7 +106,7 @@ export function AgentVoice({
               ? 'bg-red-500 text-white animate-pulse'
               : status === VoiceAssistantStatus.SPEAKING_RESPONSE
               ? 'bg-green-500 text-white'
-              : 'bg-black text-white hover:bg-gray-800'
+              : 'bg-black text-white hover:bg-surface-clay'
           }`}
         >
           {status === VoiceAssistantStatus.RECORDING_COMMAND ? (

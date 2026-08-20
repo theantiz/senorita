@@ -3,39 +3,26 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 219 39% 7%;   /* #0B1019 base */
-    --foreground: 0 0% 95%;     /* Crisp white */
-    --card: 219 39% 9%;         /* Slightly lighter than base */
-    --card-foreground: 0 0% 95%;
-    --popover: 219 39% 9%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 190 90% 50%;     /* Solid cyan */
-    --primary-foreground: 219 39% 7%;
-    --secondary: 219 39% 15%;
-    --secondary-foreground: 0 0% 95%;
-    --muted: 219 39% 12%;
-    --muted-foreground: 0 0% 60%;
-    --accent: 25 95% 55%;       /* Warning orange accent */
-    --accent-foreground: 219 39% 7%;
-    --destructive: 0 85% 55%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 219 39% 20%;
-    --input: 219 39% 9%;
-    --ring: 190 90% 50%;
-    --radius: 0rem;             /* Strict sharp corners */
-  }
+  
+:root {
+  --background: #070b14;
+  --surface: #0b0f19;
+  --foreground: #ffffff;
+  --primary: #ffffff;
+  --secondary: #d4d4d8;
+  --accent: #a1a1aa;
+  --surface-glass: rgba(255, 255, 255, 0.05);
+  --surface-clay: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.09);
+  --glow: rgba(255, 255, 255, 0.16);
+}
 
-  * {
-    @apply border-border;
-    box-sizing: border-box;
-  }
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
 
-  body {
-    @apply bg-background text-foreground;
-    font-family: var(--font-inter), sans-serif;
-    text-rendering: geometricPrecision;
-  }
 
   ::-webkit-scrollbar {
     width: 4px;

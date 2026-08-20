@@ -152,13 +152,13 @@ export default function Dashboard() {
             className={`font-mono text-[10px] tracking-widest px-3 py-1 border transition-colors ${
               isWakeWordEnabled 
                 ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10' 
-                : 'border-white/20 text-white/40 hover:bg-white/5'
+                : 'border-white/20 text-white/40 hover:bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/5'
             }`}
           >
             WAKE WORD: {isWakeWordEnabled ? 'ON' : 'OFF'}
           </button>
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${status === VoiceAssistantStatus.IDLE_LISTENING ? 'bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]' : status === VoiceAssistantStatus.RECORDING_COMMAND ? 'bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'bg-white/20'}`} />
+            <div className={`w-2 h-2 rounded-full ${status === VoiceAssistantStatus.IDLE_LISTENING ? 'bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]' : status === VoiceAssistantStatus.RECORDING_COMMAND ? 'bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/20'}`} />
             <span className="font-mono text-[10px] text-white/40 tracking-widest">SYNC ACTIVE</span>
           </div>
         </div>
@@ -176,7 +176,7 @@ export default function Dashboard() {
             <p className="font-hud text-5xl font-bold mb-1 text-white">{s.value}</p>
             <p className="font-mono text-[8px] text-white/30 tracking-widest">{s.sub}</p>
             {/* Corner deco */}
-            <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full animate-pulse bg-white/40" />
+            <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full animate-pulse bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/40" />
           </div>
         ))}
       </div>
@@ -225,7 +225,7 @@ export default function Dashboard() {
             <ul className="space-y-2">
               {openTasks.slice(0, 6).map((t) => (
                 <li key={t.id} className="flex items-center gap-2.5 group">
-                  <div className="w-1 h-1 bg-white/40 rotate-45 shrink-0 group-hover:bg-white transition-colors" />
+                  <div className="w-1 h-1 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/40 rotate-45 shrink-0 group-hover:bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)] transition-colors" />
                   <span className="font-mono text-[10px] text-white/70 group-hover:text-white/90 transition-colors flex-1 truncate">{t.title}</span>
                   {t.priority === 'high' && (
                     <span className="font-mono text-[7px] text-red-400 border border-red-500/30 px-1 py-px shrink-0">HIGH</span>
@@ -253,7 +253,7 @@ export default function Dashboard() {
               {todaysEvents.slice(0, 5).map((e) => (
                 <li key={e.id} className="flex gap-3">
                   <div className="shrink-0">
-                    <div className="font-mono text-[9px] text-white/60 bg-white/10 border border-white/20 px-2 py-1 text-center">
+                    <div className="font-mono text-[9px] text-white/60 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/10 border border-white/20 px-2 py-1 text-center">
                       {new Date(e.start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>

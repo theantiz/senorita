@@ -242,7 +242,7 @@ function ProviderCard({
               <button
                 id={`connect-${meta.key}`}
                 onClick={() => onConnect(meta.key)}
-                className="px-3 py-1.5 font-mono text-[11px] tracking-widest text-white/80 hover:text-white border border-white/10 hover:border-white/30 transition-all duration-200 hover:bg-white/5"
+                className="px-3 py-1.5 font-mono text-[11px] tracking-widest text-white/80 hover:text-white border border-white/10 hover:border-white/30 transition-all duration-200 hover:bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/5"
               >
                 CONNECT
               </button>

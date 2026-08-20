@@ -10,7 +10,7 @@ export function SidebarLogout() {
     <div className="px-4 mt-auto mb-6">
       <button
         onClick={logout}
-        className="group flex w-full items-center justify-between border border-white/[0.05] bg-white/[0.02] p-3 transition-all duration-200 hover:bg-white/[0.04]"
+        className="group flex w-full items-center justify-between border border-white/[0.05] bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/[0.02] p-3 transition-all duration-200 hover:bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/[0.04]"
       >
         <div className="flex items-center gap-3">
           <LogOut className="h-4 w-4 text-white/40 transition-colors group-hover:text-red-400" strokeWidth={1.7} />

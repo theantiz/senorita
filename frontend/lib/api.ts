@@ -1,4 +1,4 @@
-export let API_BASE = typeof window !== "undefined" ? `http://${window.location.hostname}:8000/api/v1` : "http://localhost:8000/api/v1";
+export let API_BASE = typeof window !== "undefined" ? `http://${window.location.hostname}:8000/api/v1` : "http://127.0.0.1:8000/api/v1";
 
 export function setApiBaseUrl(url: string) {
   API_BASE = url;

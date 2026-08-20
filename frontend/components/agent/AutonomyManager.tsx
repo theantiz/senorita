@@ -45,12 +45,12 @@ export function AutonomyManager() {
   ];
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-6">
-      <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center space-x-3">
-        <Shield className="w-5 h-5 text-gray-700" />
+    <div className="bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)] rounded-xl shadow-sm border border-border overflow-hidden mt-6">
+      <div className="px-6 py-4 border-b border-border bg-surface-glass flex items-center space-x-3">
+        <Shield className="w-5 h-5 text-secondary" />
         <div>
-          <h2 className="text-lg font-semibold text-gray-800">Action Autonomy Policy</h2>
-          <p className="text-sm text-gray-500">Granular permissions for proactive and autonomous actions</p>
+          <h2 className="text-lg font-semibold text-foreground">Action Autonomy Policy</h2>
+          <p className="text-sm text-accent">Granular permissions for proactive and autonomous actions</p>
         </div>
       </div>
       <div className="divide-y divide-gray-100">
@@ -62,8 +62,8 @@ export function AutonomyManager() {
           return (
             <div key={s.id} className="p-4 flex items-center justify-between">
               <div>
-                <p className="font-medium text-gray-800">{s.name}</p>
-                <p className="text-xs text-gray-500">{s.id}</p>
+                <p className="font-medium text-foreground">{s.name}</p>
+                <p className="text-xs text-accent">{s.id}</p>
               </div>
               <div className="flex space-x-2">
                 <div className={`flex items-center px-3 py-1 rounded-full text-xs font-semibold ${policyDef.color}`}>
@@ -71,7 +71,7 @@ export function AutonomyManager() {
                   {policyDef.label}
                 </div>
                 <select 
-                  className="text-sm border border-gray-300 rounded-lg focus:ring-blue-500"
+                  className="text-sm border border-border rounded-lg focus:ring-blue-500"
                   value={level}
                   onChange={e => updatePolicy(s.id, e.target.value)}
                 >

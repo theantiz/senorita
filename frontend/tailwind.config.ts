@@ -8,27 +8,24 @@ const config = {
     './app/**/*.{ts,tsx}',
   ],
   theme: {
-
     extend: {
       animation: {
         'spin-slow': 'spin 3s linear infinite',
       },
-
       colors: {
-        border: "rgba(255,255,255,0.09)",
-        input: "rgba(255,255,255,0.05)",
-        ring: "hsl(var(--ring))",
-        background: "#070b14",
-        foreground: "hsl(var(--foreground))",
-        glass: "rgba(255,255,255,0.05)",
-        primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
-        },
-        secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
-        },
+        background: 'var(--background)',
+        surface: 'var(--surface)',
+        foreground: 'var(--foreground)',
+        primary: 'var(--primary)',
+        secondary: 'var(--secondary)',
+        accent: 'var(--accent)',
+        'surface-glass': 'var(--surface-glass)',
+        'surface-clay': 'var(--surface-clay)',
+        glow: 'var(--glow)',
+        border: 'var(--border)',
+        input: 'var(--surface-glass)',
+        ring: 'var(--glow)',
+        glass: 'var(--surface-glass)',
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
@@ -37,13 +34,9 @@ const config = {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
         },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
-        },
         card: {
-          DEFAULT: "rgba(255,255,255,0.05)",
-          foreground: "hsl(var(--card-foreground))",
+          DEFAULT: "var(--surface-glass)",
+          foreground: "var(--foreground)",
         },
         // Tactical palette aliases
         cyan: {

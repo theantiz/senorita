@@ -61,8 +61,8 @@ export function NavigationChrome() {
                 aria-current={active ? "page" : undefined}
                 className={`group flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ${
                   active
-                    ? "border border-white/10 bg-white/[0.06] text-white"
-                    : "text-white/45 hover:bg-white/[0.035] hover:text-white"
+                    ? "border border-white/10 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/[0.06] text-white"
+                    : "text-white/45 hover:bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/[0.035] hover:text-white"
                 }`}
               >
                 <span className={`w-4 font-mono text-[10px] ${active ? "text-cyan-400" : "text-white/25 group-hover:text-white/45"}`}>
@@ -79,7 +79,7 @@ export function NavigationChrome() {
 
         <SidebarLogout />
 
-        <div className="mx-4 mb-6 border border-white/[0.05] bg-white/[0.02] p-4">
+        <div className="mx-4 mb-6 border border-white/[0.05] bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/[0.02] p-4">
           <p className="mb-3 font-mono text-[10px] uppercase tracking-widest text-white/50">
             Status
           </p>
@@ -93,8 +93,8 @@ export function NavigationChrome() {
                 <span className="font-sans text-xs text-white/60">{d.label}</span>
                 <span className="font-mono text-[10px] text-white/40">{d.pct}%</span>
               </div>
-              <div className="h-[2px] w-full bg-white/[0.05]">
-                <div className="h-full bg-white/40" style={{ width: `${d.pct}%` }} />
+              <div className="h-[2px] w-full bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/[0.05]">
+                <div className="h-full bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/40" style={{ width: `${d.pct}%` }} />
               </div>
             </div>
           ))}
@@ -114,7 +114,7 @@ export function NavigationChrome() {
                 aria-current={active ? "page" : undefined}
                 className={`flex min-w-16 flex-col items-center gap-1 border px-3 py-2 transition-colors ${
                   active
-                    ? "border-white/15 bg-white/[0.07] text-white"
+                    ? "border-white/15 bg-surface border border-border text-foreground shadow-[0_0_15px_var(--glow)]/[0.07] text-white"
                     : "border-transparent text-white/45"
                 }`}
               >

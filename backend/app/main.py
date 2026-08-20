@@ -41,7 +41,7 @@ async def seed_admin():
             admin = User(
                 name="admin",
                 timezone="UTC",
-                autonomy_level=5,
+                autonomy_level="FULL_AUTO",
                 style_profile={},
             )
             session.add(admin)
@@ -85,7 +85,7 @@ async def lifespan(app: FastAPI):
         # Stale run recovery runs as a lightweight background coroutine
         asyncio.create_task(stale_run_recovery_loop())
 
-        start_morning_briefing_cron(scheduler)
+        # start_morning_briefing_cron(scheduler)
     yield
 
     await engine.dispose()
@@ -116,7 +116,7 @@ async def add_security_headers(request: Request, call_next):
 # ─── CORS ─────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
+    allow_origins=settings.cors_origins_list + ["http://localhost:3001", "http://10.21.13.220:3000", "http://10.21.13.220:3001"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
