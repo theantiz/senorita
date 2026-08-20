@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, get_db
 from app.db.models import NotificationLog, User
 
-router = APIRouter(prefix="/api/v1/notifications", tags=["notifications"])
+router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
 @router.get("/recent", response_model=List[Dict[str, Any]])

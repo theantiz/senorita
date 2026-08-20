@@ -12,6 +12,7 @@ from app.api.v1.endpoints import (
     calendar,
     chat,
     contacts,
+    documents,
     health,
     integrations,
     memory,
@@ -38,6 +39,7 @@ api_router.include_router(calendar.router)
 api_router.include_router(memory.router)
 api_router.include_router(activity.router)
 api_router.include_router(chat.router)
+api_router.include_router(documents.router)
 api_router.include_router(system.router)
 api_router.include_router(integrations.router)
 api_router.include_router(slack.router)

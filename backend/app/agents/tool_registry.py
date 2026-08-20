@@ -2825,8 +2825,17 @@ async def _handle_web_research(  # noqa: C901
         }
 
     except Exception as e:
+        err_str = str(e)
         _log.warning("WEB_RESEARCH | failed for query %s: %s", query, e, exc_info=True)
-        return {"error": "Web research failed right now."}
+        # 429 RESOURCE_EXHAUSTED means Google Search grounding is not enabled on this API key/plan
+        if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+            return {
+                "unavailable": True,
+                "reason": "Web search is not available with the current API plan. "
+                          "Google Search grounding requires a billing-enabled Google AI project. "
+                          "Please answer from your own knowledge and inform the user you could not search the web.",
+            }
+        return {"error": "Web research failed right now. Please try again later."}
 
 
 async def _handle_search_document(session: AsyncSession, user_id: UUID, query: str, document_id: str) -> dict[str, Any]:

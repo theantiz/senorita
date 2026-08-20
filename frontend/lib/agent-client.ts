@@ -109,7 +109,9 @@ export class AgentStreamClient {
       };
 
       this.ws.onerror = (error) => {
-        console.error("AgentStreamClient: WebSocket error", error);
+        // In React Strict Mode, unmounting while connecting can trigger a harmless onerror.
+        // We log as debug/warn to avoid triggering Next.js error overlays.
+        console.debug("AgentStreamClient: WebSocket error (often harmless during unmount)", error);
       };
       
     } catch (error) {

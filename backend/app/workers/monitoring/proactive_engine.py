@@ -185,7 +185,7 @@ async def _check_memory_dates(session, user: User) -> list[tuple]:
         select(MemoryEntry).where(
             and_(
                 MemoryEntry.user_id == user.id,
-                MemoryEntry.category == "date",
+                MemoryEntry.memory_type == "date",
                 MemoryEntry.locked == False,  # noqa: E712
                 MemoryEntry.importance_score >= 0.3,
                 MemoryEntry.status == "active",

@@ -135,6 +135,15 @@ class StructuredLogger:
     def _emit(self, level: int, event: str, **ctx: Any) -> None:
         if not self._log.isEnabledFor(level):
             return
+        # Pop exc_info before building the record so it's handled by logging
+        # machinery correctly (must be a (type, value, tb) tuple or None).
+        exc_info = ctx.pop("exc_info", None)
+        if exc_info is True:
+            import sys
+            exc_info = sys.exc_info()
+        elif exc_info is False:
+            exc_info = None
+
         record = self._log.makeRecord(
             self._log.name,
             level,
@@ -142,7 +151,7 @@ class StructuredLogger:
             lno=0,
             msg=event,
             args=(),
-            exc_info=None,
+            exc_info=exc_info,
         )
         for k, v in _redact(ctx).items():
             setattr(record, k, v)

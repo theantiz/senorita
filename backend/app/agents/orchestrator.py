@@ -225,15 +225,23 @@ Assistant: {final_text}
         data = json.loads(_strip_json_fence(response.text or ""))
 
         has_fact = data.get("has_fact")
-        confidence = float(data.get("confidence", 0.0))
+        confidence_float = float(data.get("confidence", 0.0))
         fact = data.get("fact")
-        category = data.get("category", "context")
+        memory_type = data.get("category", "context")
 
         if not has_fact or not fact:
             return
 
-        if sensitivity == "conservative" and confidence < 0.8:
+        if sensitivity == "conservative" and confidence_float < 0.8:
             return
+
+        # Map float confidence to the model's expected string enum
+        if confidence_float >= 0.8:
+            confidence_str = "HIGH"
+        elif confidence_float >= 0.5:
+            confidence_str = "MEDIUM"
+        else:
+            confidence_str = "LOW"
 
         async with async_session_factory() as session:
             await _maybe_create_promise_task(session, user_id, data)
@@ -244,9 +252,9 @@ Assistant: {final_text}
             mem = MemoryEntry(
                 user_id=user_id,
                 content=fact,
-                category=category,
+                memory_type=memory_type,
                 source_ref="implicit_capture",
-                confidence=confidence,
+                confidence=confidence_str,
                 embedding=embedding,
             )
             session.add(mem)
@@ -378,122 +386,90 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
             logger.warning(f"Plan validation failed: {e}")
             final_text = f"I tried to make a plan for that, baby, but it wasn't safe to execute. {str(e)}"
     else:
-        # 4. Simple Request -> Direct Execution Fallback
-        # Persist Run without a plan
+        # 4. Simple Request → Direct inline execution
+        # Run the model call here so we can return the actual response text.
+        import asyncio
+
         db_run = AgentRun(
             user_id=user.id,
             conversation_id=new_interaction_id,
-            status="CREATED",
+            status="RUNNING",
         )
         session.add(db_run)
         await session.commit()
 
-        final_text = f"I've started a background run for you, baby. (Run ID: {db_run.id})"
+        from app.agents.events import record_and_publish_event
 
-        import asyncio
+        await record_and_publish_event(session, db_run.id, "agent.started", "running", "Agent run started")
 
-        from app.db.session import async_session_factory
+        try:
+            contents = _build_contents(conv_history, message_text)
+            discovered_tool_names = discover_tools_for_message(message_text)
+            available_tools = gemini_tools_for_names(discovered_tool_names)
+            config = types.GenerateContentConfig(
+                tools=available_tools,
+                system_instruction=sys_inst,
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+            )
 
-        async def _bg_direct_executor(run_id, msg_text, sys_instruction, contents_list, interaction_id):
-            try:
-                async with async_session_factory() as bg_session:
-                    from sqlalchemy import select
+            response = None
+            for round_index in range(MAX_TOOL_ROUNDS + 1):
+                response = await _call_model_with_retries(get_client(), contents, config)
 
-                    from app.agents.events import record_and_publish_event
-                    from app.db.models.run import AgentRun
+                function_calls = response.function_calls
+                if not function_calls:
+                    if response.candidates:
+                        contents.append(response.candidates[0].content)
+                    break
 
-                    stmt = select(AgentRun).where(AgentRun.id == run_id)
-                    res = await bg_session.execute(stmt)
-                    run = res.scalar_one()
+                if round_index >= MAX_TOOL_ROUNDS:
+                    break
 
-                    run.status = "RUNNING"
-                    await bg_session.commit()
-                    await record_and_publish_event(bg_session, run.id, "agent.started", "running", "Agent run started")
+                model_text = _response_text(response) or "I am using my tools to fulfill the request."
+                contents.append(types.Content(role="model", parts=[types.Part.from_text(text=model_text)]))
 
-                    client = get_client()
-                    discovered_tool_names = discover_tools_for_message(msg_text)
-                    available_tools = gemini_tools_for_names(discovered_tool_names)
-                    config = types.GenerateContentConfig(
-                        tools=available_tools,
-                        system_instruction=sys_instruction,
-                        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-                    )
-
-                    response = None
-                    for round_index in range(MAX_TOOL_ROUNDS + 1):
-                        response = await _call_model_with_retries(client, contents_list, config)
-
-                        function_calls = response.function_calls
-                        if not function_calls:
-                            if response.candidates:
-                                contents_list.append(response.candidates[0].content)
-                            break
-
-                        if round_index >= MAX_TOOL_ROUNDS:
-                            break
-
-                        model_text = _response_text(response) or "I am using my tools to fulfill the request."
-                        contents_list.append(types.Content(role="model", parts=[types.Part.from_text(text=model_text)]))
-
-                        await record_and_publish_event(
-                            bg_session, run.id, "agent.step_started", "running", f"Running {len(function_calls)} tools"
-                        )
-
-                        tool_response_text = await _execute_tool_calls_for_model(bg_session, user.id, function_calls)
-                        contents_list.append(
-                            types.Content(role="user", parts=[types.Part.from_text(text=tool_response_text)])
-                        )
-
-                    final_out = _response_text(response) if response else "I couldn't generate a response."
-
-                    run.status = "COMPLETED"
-                    await bg_session.commit()
-                    await record_and_publish_event(bg_session, run.id, "agent.completed", "completed", final_out)
-
-                    # Finalize Conversation for background run
-                    bg_session.add(
-                        Conversation(
-                            user_id=user.id, gemini_interaction_id=interaction_id, role="assistant", content=final_out
-                        )
-                    )
-                    await bg_session.commit()
-
-                    await _implicit_capture_routine(
-                        user_id=user.id,
-                        message_text=msg_text,
-                        final_text=final_out,
-                        sensitivity=user.memory_capture_sensitivity,
-                        timezone_str=user.timezone,
-                    )
-            except Exception as e:
-                logger.error(f"Direct execution background failed: {e}")
-
-        contents = _build_contents(conv_history, message_text)
-
-        async def _timeout_wrapper():
-            try:
-                await asyncio.wait_for(
-                    _bg_direct_executor(db_run.id, message_text, sys_inst, contents, new_interaction_id),
-                    timeout=AGENT_MAX_EXECUTION_TIME,
+                await record_and_publish_event(
+                    session, db_run.id, "agent.step_started", "running", f"Running {len(function_calls)} tools"
                 )
-            except asyncio.TimeoutError:
-                async with async_session_factory() as bg_session:
-                    from sqlalchemy import select
 
-                    from app.agents.events import record_and_publish_event
-                    from app.db.models.run import AgentRun
+                tool_response_text = await _execute_tool_calls_for_model(session, user.id, function_calls)
+                contents.append(
+                    types.Content(role="user", parts=[types.Part.from_text(text=tool_response_text)])
+                )
 
-                    stmt = select(AgentRun).where(AgentRun.id == db_run.id)
-                    res = await bg_session.execute(stmt)
-                    run = res.scalar_one_or_none()
-                    if run:
-                        run.status = "FAILED"
-                        await bg_session.commit()
-                        await record_and_publish_event(
-                            bg_session, run.id, "agent.failed", "failed", "Execution timed out."
-                        )
+            final_text = _response_text(response) if response else "I couldn't generate a response."
 
-        asyncio.create_task(_timeout_wrapper())
+            db_run.status = "COMPLETED"
+            await session.commit()
+            await record_and_publish_event(session, db_run.id, "agent.completed", "completed", final_text)
+
+        except Exception as e:
+            logger.error(f"Direct execution failed: {e}")
+            db_run.status = "FAILED"
+            await session.commit()
+            final_text = "Sorry, I ran into an error processing that."
+
+        # Persist assistant reply in conversation history
+        session.add(
+            Conversation(
+                user_id=user.id,
+                gemini_interaction_id=new_interaction_id,
+                role="assistant",
+                content=final_text,
+            )
+        )
+        await session.commit()
+
+        # Fire-and-forget: implicit memory capture in background
+        asyncio.create_task(
+            _implicit_capture_routine(
+                user_id=user.id,
+                message_text=message_text,
+                final_text=final_text,
+                sensitivity=user.memory_capture_sensitivity,
+                timezone_str=user.timezone,
+            )
+        )
 
     # Finalize Conversation for the initial user message
     session.add(

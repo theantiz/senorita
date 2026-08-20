@@ -6,9 +6,11 @@ export function getDefaultApiBase(): string {
   if (isTauri()) {
     return "http://localhost:14231/api/v1";
   }
-  return typeof window !== "undefined" 
-    ? `http://${window.location.hostname}:8000/api/v1` 
-    : "http://127.0.0.1:8000/api/v1";
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
+    return `http://${host}:8000/api/v1`;
+  }
+  return "http://127.0.0.1:8000/api/v1";
 }
 
 export let API_BASE = getDefaultApiBase();
