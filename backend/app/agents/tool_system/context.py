@@ -17,3 +17,4 @@ class ToolContext:
     integration_context: dict[str, Any] = field(default_factory=dict)
     cancellation_token: str | None = None
     idempotency_key: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)

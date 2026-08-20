@@ -29,14 +29,28 @@ class PermissionManager:
             # Check category wildcard (e.g. calendar.*)
             pol = context.permissions.get(f"{definition.category}.*")
         
-        if pol:
-            pol = pol.upper()
-            if pol == "FULL_AUTO": return ConfirmationPolicy.ALWAYS_ALLOW
-            if pol == "TRUSTED": return ConfirmationPolicy.ASK_ONCE
-            if pol == "CONFIRM": return ConfirmationPolicy.ASK_EACH_TIME
-            if pol == "SUGGEST": return ConfirmationPolicy.NEVER_ALLOW
-            if pol == "NEVER_ALLOW": return ConfirmationPolicy.NEVER_ALLOW
+        if not pol:
+            pol = "CONFIRM" # Default fail-safe
             
+        pol = pol.upper()
+        
+        # Confidence downgrades
+        confidence = context.metadata.get("confidence", 1.0)
+        if confidence < 0.60:
+            pol = "SUGGEST"
+        elif confidence < 0.80:
+            if pol in ["FULL_AUTO", "TRUSTED"]:
+                pol = "SUGGEST"
+        elif confidence < 0.93:
+            if pol == "FULL_AUTO":
+                pol = "CONFIRM"
+                
+        if pol == "FULL_AUTO": return ConfirmationPolicy.ALWAYS_ALLOW
+        if pol == "TRUSTED": return ConfirmationPolicy.ASK_ONCE
+        if pol == "CONFIRM": return ConfirmationPolicy.ASK_EACH_TIME
+        if pol == "SUGGEST": return ConfirmationPolicy.NEVER_ALLOW
+        if pol == "NEVER_ALLOW": return ConfirmationPolicy.NEVER_ALLOW
+        
         return definition.confirmation_policy
 
 
