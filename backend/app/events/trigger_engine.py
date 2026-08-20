@@ -39,5 +39,11 @@ async def process_event(session: AsyncSession, user: User, event_type: str, even
         from app.agents.workflows.engine import execute_workflow
         await execute_workflow(session, user, decision.get("workflow"), event_data)
         
+
     elif decision.get("decision") == "NOTIFY":
-        logger.info(f"TriggerEngine deciding to NOTIFY on {event_type}")
+        from app.agents.productivity.attention_manager import AttentionManager
+        if await AttentionManager.should_notify(session, str(user.id), decision.get("urgency", "low").upper()):
+            logger.info(f"TriggerEngine deciding to NOTIFY on {event_type}")
+        else:
+            logger.info(f"AttentionManager suppressed notification for {event_type}")
+

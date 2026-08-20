@@ -4,6 +4,7 @@ from app.api.v1.endpoints import (
     goals,
     autonomy,
     feedback,
+    productivity,
     activity,
     agent,
     auth,
@@ -50,3 +51,4 @@ api_router.include_router(preferences.router, prefix="/preferences", tags=["pref
 api_router.include_router(goals.router, prefix="/goals", tags=["goals"])
 api_router.include_router(autonomy.router, prefix="/autonomy", tags=["autonomy"])
 api_router.include_router(feedback.router, prefix="/feedback", tags=["feedback"])
+api_router.include_router(productivity.router, prefix="/productivity", tags=["productivity"])
