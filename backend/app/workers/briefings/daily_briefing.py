@@ -18,6 +18,7 @@ from app.db.models import Briefing, CalendarEvent, MemoryEntry, Task, User
 
 logger = logging.getLogger(__name__)
 
+
 async def _extract_dates_from_memories(memories, user_tz_name):
     if not memories:
         return []
@@ -46,16 +47,20 @@ async def _extract_dates_from_memories(memories, user_tz_name):
             model=settings.GEMINI_MODEL,
             contents=prompt,
         )
-        text = (response.text or '').strip()
-        if text.startswith("```json"): text = text[7:]
-        if text.startswith("```"): text = text[3:]
-        if text.endswith("```"): text = text[:-3]
+        text = (response.text or "").strip()
+        if text.startswith("```json"):
+            text = text[7:]
+        if text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
 
         parsed = json.loads(text.strip())
         return parsed
     except Exception as e:
         logger.error(f"Failed to extract dates from memories: {e}")
         return []
+
 
 async def generate_daily_briefing(session: AsyncSession, user: User) -> Briefing:
     try:
@@ -68,21 +73,24 @@ async def generate_daily_briefing(session: AsyncSession, user: User) -> Briefing
     end_of_today = start_of_today + timedelta(days=1)
 
     # load today's calendar events
-    events_stmt = select(CalendarEvent).where(
-        CalendarEvent.user_id == user.id,
-        CalendarEvent.start_at >= start_of_today,
-        CalendarEvent.start_at < end_of_today
-    ).order_by(CalendarEvent.start_at)
+    events_stmt = (
+        select(CalendarEvent)
+        .where(
+            CalendarEvent.user_id == user.id,
+            CalendarEvent.start_at >= start_of_today,
+            CalendarEvent.start_at < end_of_today,
+        )
+        .order_by(CalendarEvent.start_at)
+    )
     events_res = await session.execute(events_stmt)
     events = events_res.scalars().all()
 
     # fetch tasks that are overdue or due today
-    tasks_stmt = select(Task).where(
-        Task.user_id == user.id,
-        Task.status != 'done',
-        Task.due_at != None,
-        Task.due_at < end_of_today
-    ).order_by(Task.due_at)
+    tasks_stmt = (
+        select(Task)
+        .where(Task.user_id == user.id, Task.status != "done", Task.due_at != None, Task.due_at < end_of_today)
+        .order_by(Task.due_at)
+    )
     tasks_res = await session.execute(tasks_stmt)
     tasks = tasks_res.scalars().all()
 
@@ -97,9 +105,9 @@ async def generate_daily_briefing(session: AsyncSession, user: User) -> Briefing
     # get implicit tasks created yesterday
     implicit_tasks_stmt = select(Task).where(
         Task.user_id == user.id,
-        Task.description.ilike('%[Auto-captured%'),
+        Task.description.ilike("%[Auto-captured%"),
         Task.created_at >= start_of_today - timedelta(days=1),
-        Task.created_at < start_of_today
+        Task.created_at < start_of_today,
     )
     implicit_tasks_res = await session.execute(implicit_tasks_stmt)
     implicit_tasks = implicit_tasks_res.scalars().all()
@@ -109,10 +117,7 @@ async def generate_daily_briefing(session: AsyncSession, user: User) -> Briefing
     messages = messages_dict.get("unanswered_messages", [])
 
     # extract upcoming dates from the user's memories
-    memories_stmt = select(MemoryEntry).where(
-        MemoryEntry.user_id == user.id,
-        MemoryEntry.category == 'date'
-    )
+    memories_stmt = select(MemoryEntry).where(MemoryEntry.user_id == user.id, MemoryEntry.category == "date")
     memories_res = await session.execute(memories_stmt)
     memories = memories_res.scalars().all()
 
@@ -131,7 +136,7 @@ async def generate_daily_briefing(session: AsyncSession, user: User) -> Briefing
     task_batches = batch_res.get("batches", [])
 
     has_data = bool(events or due_today or overdue or messages or upcoming_dates or task_batches)
-    detail_level = getattr(user, 'briefing_detail_level', 'standard')
+    detail_level = getattr(user, "briefing_detail_level", "standard")
 
     data_payload = {
         "events_today": [{"title": e.title, "start": e.start_at.isoformat()} for e in events],
@@ -173,20 +178,17 @@ async def generate_daily_briefing(session: AsyncSession, user: User) -> Briefing
             model=settings.GEMINI_MODEL,
             contents=prompt,
         )
-        briefing_text = (response.text or '').strip()
+        briefing_text = (response.text or "").strip()
     except Exception as e:
         logger.error(f"Failed to generate briefing text: {e}")
         briefing_text = "I encountered a system fault while assembling your briefing, sir. Apologies."
 
-    briefing = Briefing(
-        user_id=user.id,
-        type="daily",
-        content=briefing_text
-    )
+    briefing = Briefing(user_id=user.id, type="daily", content=briefing_text)
     session.add(briefing)
     await session.commit()
 
     return briefing
+
 
 async def run_daily_briefings(session_factory):
     async with session_factory() as session:

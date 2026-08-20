@@ -17,7 +17,7 @@ def test_valid_plan_passes_validation():
                 arguments={"name": "Rahul"},
                 depends_on=[],
                 execution_mode="sequential",
-                risk_level="LOW"
+                risk_level="LOW",
             ),
             PlanStepSchema(
                 step_id="step_2",
@@ -25,9 +25,9 @@ def test_valid_plan_passes_validation():
                 arguments={"to": "rahul@example.com", "subject": "hi"},
                 depends_on=["step_1"],
                 execution_mode="sequential",
-                risk_level="HIGH"
-            )
-        ]
+                risk_level="HIGH",
+            ),
+        ],
     )
     # Should not raise any validation error
     validate_plan(plan)
@@ -43,9 +43,9 @@ def test_plan_with_invalid_tool_fails():
                 arguments={},
                 depends_on=[],
                 execution_mode="sequential",
-                risk_level="LOW"
+                risk_level="LOW",
             )
-        ]
+        ],
     )
     with pytest.raises(PlanValidationError) as excinfo:
         validate_plan(plan)
@@ -63,7 +63,7 @@ def test_plan_with_circular_dependency_fails():
                 arguments={"name": "Rahul"},
                 depends_on=["step_2"],
                 execution_mode="sequential",
-                risk_level="LOW"
+                risk_level="LOW",
             ),
             PlanStepSchema(
                 step_id="step_2",
@@ -71,9 +71,9 @@ def test_plan_with_circular_dependency_fails():
                 arguments={},
                 depends_on=["step_1"],
                 execution_mode="sequential",
-                risk_level="HIGH"
-            )
-        ]
+                risk_level="HIGH",
+            ),
+        ],
     )
     with pytest.raises(PlanValidationError) as excinfo:
         validate_plan(plan)
@@ -90,9 +90,9 @@ def test_plan_with_self_dependency_fails():
                 arguments={"name": "Rahul"},
                 depends_on=["step_1"],
                 execution_mode="sequential",
-                risk_level="LOW"
+                risk_level="LOW",
             )
-        ]
+        ],
     )
     with pytest.raises(PlanValidationError) as excinfo:
         validate_plan(plan)
@@ -109,9 +109,9 @@ def test_plan_with_invalid_execution_mode_fails():
                 arguments={"name": "Rahul"},
                 depends_on=[],
                 execution_mode="invalid_mode",
-                risk_level="LOW"
+                risk_level="LOW",
             )
-        ]
+        ],
     )
     with pytest.raises(PlanValidationError) as excinfo:
         validate_plan(plan)

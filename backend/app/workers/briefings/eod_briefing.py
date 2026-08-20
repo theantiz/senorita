@@ -18,6 +18,7 @@ from app.db.models import ActionLog, Briefing, CalendarEvent, Task, User
 
 logger = logging.getLogger(__name__)
 
+
 async def generate_eod_briefing(session: AsyncSession, user: User) -> Briefing:
     try:
         user_tz = ZoneInfo(user.timezone)
@@ -30,47 +31,53 @@ async def generate_eod_briefing(session: AsyncSession, user: User) -> Briefing:
     end_of_tomorrow = end_of_today + timedelta(days=1)
 
     # get all actions the user completed today
-    actions_stmt = select(ActionLog).where(
-        ActionLog.user_id == user.id,
-        ActionLog.created_at >= start_of_today,
-        ActionLog.created_at < end_of_today
-    ).order_by(ActionLog.created_at)
+    actions_stmt = (
+        select(ActionLog)
+        .where(
+            ActionLog.user_id == user.id, ActionLog.created_at >= start_of_today, ActionLog.created_at < end_of_today
+        )
+        .order_by(ActionLog.created_at)
+    )
     actions_res = await session.execute(actions_stmt)
     actions = actions_res.scalars().all()
 
     # grab tasks that are still pending and due soon
-    unfinished_tasks_stmt = select(Task).where(
-        Task.user_id == user.id,
-        Task.status != 'done',
-        Task.due_at != None,
-        Task.due_at < end_of_today
-    ).order_by(Task.due_at)
+    unfinished_tasks_stmt = (
+        select(Task)
+        .where(Task.user_id == user.id, Task.status != "done", Task.due_at != None, Task.due_at < end_of_today)
+        .order_by(Task.due_at)
+    )
     unfinished_tasks_res = await session.execute(unfinished_tasks_stmt)
     unfinished_tasks = unfinished_tasks_res.scalars().all()
 
     # pull tomorrow's schedule and tasks for the preview
-    tomorrow_events_stmt = select(CalendarEvent).where(
-        CalendarEvent.user_id == user.id,
-        CalendarEvent.start_at >= end_of_today,
-        CalendarEvent.start_at < end_of_tomorrow
-    ).order_by(CalendarEvent.start_at)
+    tomorrow_events_stmt = (
+        select(CalendarEvent)
+        .where(
+            CalendarEvent.user_id == user.id,
+            CalendarEvent.start_at >= end_of_today,
+            CalendarEvent.start_at < end_of_tomorrow,
+        )
+        .order_by(CalendarEvent.start_at)
+    )
     tomorrow_events_res = await session.execute(tomorrow_events_stmt)
     tomorrow_events = tomorrow_events_res.scalars().all()
 
-    tomorrow_tasks_stmt = select(Task).where(
-        Task.user_id == user.id,
-        Task.status != 'done',
-        Task.due_at >= end_of_today,
-        Task.due_at < end_of_tomorrow
-    ).order_by(Task.due_at)
+    tomorrow_tasks_stmt = (
+        select(Task)
+        .where(
+            Task.user_id == user.id, Task.status != "done", Task.due_at >= end_of_today, Task.due_at < end_of_tomorrow
+        )
+        .order_by(Task.due_at)
+    )
     tomorrow_tasks_res = await session.execute(tomorrow_tasks_stmt)
     tomorrow_tasks = tomorrow_tasks_res.scalars().all()
 
     implicit_tasks_stmt = select(Task).where(
         Task.user_id == user.id,
-        Task.description.ilike('%[Auto-captured%'),
+        Task.description.ilike("%[Auto-captured%"),
         Task.created_at >= start_of_today,
-        Task.created_at < end_of_today
+        Task.created_at < end_of_today,
     )
     implicit_tasks_res = await session.execute(implicit_tasks_stmt)
     implicit_tasks = implicit_tasks_res.scalars().all()
@@ -80,7 +87,7 @@ async def generate_eod_briefing(session: AsyncSession, user: User) -> Briefing:
     messages = messages_dict.get("unanswered_messages", [])
 
     has_data = bool(actions or unfinished_tasks or tomorrow_events or tomorrow_tasks or messages)
-    detail_level = getattr(user, 'eod_briefing_detail_level', 'standard')
+    detail_level = getattr(user, "eod_briefing_detail_level", "standard")
 
     data_payload = {
         "handled_today": [{"action": a.action_type, "result": a.result} for a in actions],
@@ -119,20 +126,17 @@ async def generate_eod_briefing(session: AsyncSession, user: User) -> Briefing:
             model=settings.GEMINI_MODEL,
             contents=prompt,
         )
-        briefing_text = (response.text or '').strip()
+        briefing_text = (response.text or "").strip()
     except Exception as e:
         logger.error(f"Failed to generate EOD briefing text: {e}")
         briefing_text = "I encountered a system fault while assembling your evening briefing, sir. Apologies."
 
-    briefing = Briefing(
-        user_id=user.id,
-        type="end_of_day",
-        content=briefing_text
-    )
+    briefing = Briefing(user_id=user.id, type="end_of_day", content=briefing_text)
     session.add(briefing)
     await session.commit()
 
     return briefing
+
 
 async def run_eod_briefings(session_factory):
     async with session_factory() as session:

@@ -167,9 +167,7 @@ async def _fetch_schema_state(database: str) -> dict[str, object]:
         "extensions": {row["extname"] for row in extensions},
         "tables": {row["table_name"] for row in rows},
         "version": version,
-        "vector_columns": {
-            (row["table_name"], row["column_name"], row["data_type"]) for row in vector_columns
-        },
+        "vector_columns": {(row["table_name"], row["column_name"], row["data_type"]) for row in vector_columns},
     }
 
 

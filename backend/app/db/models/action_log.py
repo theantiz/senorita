@@ -20,8 +20,6 @@ class ActionLog(Base):
     confirmed_by_user: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    __table_args__ = (
-        CheckConstraint(result.in_(['success','failed','pending']), name='action_result_check'),
-    )
+    __table_args__ = (CheckConstraint(result.in_(["success", "failed", "pending"]), name="action_result_check"),)
 
     user = relationship("User", back_populates="action_logs")

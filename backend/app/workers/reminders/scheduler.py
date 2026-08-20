@@ -21,12 +21,13 @@ from app.workers.notifications.dispatch import dispatch_notification
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
 
+
 async def check_reminders():
     if get_pause_state():
         return
 
     async with async_session_factory() as session:
-        stmt = select(Reminder).options(joinedload(Reminder.user)).where(Reminder.status == 'active')
+        stmt = select(Reminder).options(joinedload(Reminder.user)).where(Reminder.status == "active")
         result = await session.execute(stmt)
         reminders = result.scalars().all()
 
@@ -42,8 +43,8 @@ async def check_reminders():
 
                 # Check trigger condition
                 payload = reminder.trigger_payload or {}
-                if reminder.type in ('time', 'date'):
-                    trigger_dt_str = payload.get('datetime')
+                if reminder.type in ("time", "date"):
+                    trigger_dt_str = payload.get("datetime")
                     if not trigger_dt_str:
                         continue
 
@@ -53,21 +54,20 @@ async def check_reminders():
                         trigger_dt = trigger_dt.replace(tzinfo=user_tz)
 
                     if now >= trigger_dt:
-                        reminder.status = 'fired'
+                        reminder.status = "fired"
                         await dispatch_notification(
-                            title="Reminder",
-                            message=payload.get("note", "You have a reminder."),
-                            payload=payload
+                            title="Reminder", message=payload.get("note", "You have a reminder."), payload=payload
                         )
             except Exception as e:
                 logger.error(f"Error processing reminder {reminder.id}: {e}")
 
         await session.commit()
 
+
 def start_scheduler_in_background():
-    scheduler.add_job(check_reminders, 'interval', seconds=60)
-    scheduler.add_job(refresh_expired_tokens, 'interval', minutes=30)
-    scheduler.add_job(run_daily_briefings, 'interval', seconds=60, args=[async_session_factory])
-    scheduler.add_job(run_eod_briefings, 'interval', seconds=60, args=[async_session_factory])
+    scheduler.add_job(check_reminders, "interval", seconds=60)
+    scheduler.add_job(refresh_expired_tokens, "interval", minutes=30)
+    scheduler.add_job(run_daily_briefings, "interval", seconds=60, args=[async_session_factory])
+    scheduler.add_job(run_eod_briefings, "interval", seconds=60, args=[async_session_factory])
     scheduler.start()
     return scheduler  # expose so main.py can register additional jobs

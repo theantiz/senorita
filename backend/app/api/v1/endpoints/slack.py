@@ -27,9 +27,9 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_db
 from app.core.config import settings
 from app.db.models import Integration, SlackMessage
-from app.api.deps import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,7 @@ router = APIRouter(prefix="/slack", tags=["slack-webhook"])
 # ─────────────────────────────────────────────────────────────────────────────
 # Signature verification
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _verify_slack_signature(raw_body: bytes, timestamp: str, signature: str) -> bool:
     """
@@ -60,11 +61,14 @@ def _verify_slack_signature(raw_body: bytes, timestamp: str, signature: str) -> 
         return False
 
     sig_base = f"v0:{timestamp}:{raw_body.decode('utf-8')}"
-    expected = "v0=" + hmac.new(
-        settings.SLACK_SIGNING_SECRET.encode(),
-        sig_base.encode(),
-        hashlib.sha256,
-    ).hexdigest()
+    expected = (
+        "v0="
+        + hmac.new(
+            settings.SLACK_SIGNING_SECRET.encode(),
+            sig_base.encode(),
+            hashlib.sha256,
+        ).hexdigest()
+    )
 
     return hmac.compare_digest(expected, signature)
 
@@ -72,6 +76,7 @@ def _verify_slack_signature(raw_body: bytes, timestamp: str, signature: str) -> 
 # ─────────────────────────────────────────────────────────────────────────────
 # Webhook endpoint
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @router.post("/webhook")
 async def slack_webhook(
@@ -138,7 +143,7 @@ async def slack_webhook(
     bot_user_id = matching_integration.permissions.get("bot_user_id", "")
 
     # ── Determine needs_reply ─────────────────────────────────────────────────
-    channel_type = event.get("channel_type", "")   # "im", "channel", "group"
+    channel_type = event.get("channel_type", "")  # "im", "channel", "group"
     text = event.get("text", "")
 
     is_dm = channel_type == "im"
@@ -150,12 +155,10 @@ async def slack_webhook(
         user_id=user_id,
         slack_channel_id=event.get("channel", ""),
         slack_message_ts=event.get("ts", ""),
-        channel_name=event.get("channel_type", ""),   # enriched by sync job later
+        channel_name=event.get("channel_type", ""),  # enriched by sync job later
         from_user=event.get("user", "unknown"),
-        body_snippet=text[:512],                       # store first 512 chars
-        received_at=datetime.fromtimestamp(
-            float(event.get("ts", time.time())), tz=timezone.utc
-        ),
+        body_snippet=text[:512],  # store first 512 chars
+        received_at=datetime.fromtimestamp(float(event.get("ts", time.time())), tz=timezone.utc),
         needs_reply=needs_reply,
     )
 

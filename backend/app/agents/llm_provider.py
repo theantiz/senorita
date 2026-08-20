@@ -44,8 +44,9 @@ class GeminiProvider(LLMProvider):
 
     async def generate_structured(self, prompt: str, schema: Type[T], system_instruction: str = "") -> T:
         client = get_client()
-        
+
         json_schema = schema.model_json_schema()
+
         def _sanitize_schema(d):
             if isinstance(d, dict):
                 d.pop("additionalProperties", None)
@@ -54,9 +55,9 @@ class GeminiProvider(LLMProvider):
             elif isinstance(d, list):
                 for item in d:
                     _sanitize_schema(item)
-                    
+
         _sanitize_schema(json_schema)
-        
+
         config = types.GenerateContentConfig(
             response_mime_type="application/json",
             response_schema=json_schema,
@@ -79,8 +80,10 @@ class GeminiProvider(LLMProvider):
             contents=prompt,
             config=config,
         )
+
         async def _generator():
             async for chunk in response_stream:
                 if chunk.text:
                     yield chunk.text
+
         return _generator()

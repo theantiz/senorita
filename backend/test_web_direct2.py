@@ -1,11 +1,14 @@
 import asyncio
-from app.agents.gemini_client import get_client
+
 from google.genai import types
+
+from app.agents.gemini_client import get_client
+
 
 async def main():
     client = get_client()
     search_tool = types.Tool(google_search=types.GoogleSearch())
-    
+
     # Try with gemini-2.0-flash which may have separate quota
     for model in ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-3.1-flash-lite"]:
         try:
@@ -30,6 +33,7 @@ async def main():
             break
         except Exception as e:
             print(f"FAILED {model}: {type(e).__name__}: {str(e)[:100]}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

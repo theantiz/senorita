@@ -7,10 +7,9 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_current_user, get_db
 from app.core.crypto import decrypt, encrypt
-from app.api.deps import get_current_user
 from app.db.models import Integration, User
-from app.api.deps import get_db
 from app.integrations.base import get_adapter
 from app.integrations.gmail import has_calendar_scopes
 from app.schemas.integration import IntegrationRead, IntegrationUpdatePermissions
@@ -18,19 +17,9 @@ from app.schemas.integration import IntegrationRead, IntegrationUpdatePermission
 logger = logging.getLogger(__name__)
 
 
-
-
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
-SUPPORTED_PROVIDERS = [
-    "gmail",
-    "slack",
-    "google_calendar",
-    "outlook",
-    "apple_calendar",
-    "google_drive",
-    "linkedin"
-]
+SUPPORTED_PROVIDERS = ["gmail", "slack", "google_calendar", "outlook", "apple_calendar", "google_drive", "linkedin"]
 
 GOOGLE_PROVIDER = "gmail"
 GOOGLE_CALENDAR_PROVIDER = "google_calendar"
@@ -71,11 +60,9 @@ def _google_calendar_projection(
         created_at=gmail_integration.created_at,
     )
 
+
 @router.get("", response_model=list[IntegrationRead])
-async def list_integrations(
-    session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
+async def list_integrations(session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Lists connection status and permissions per provider for the current user.
     If a provider is not connected, returns a placeholder with status 'disconnected'.
@@ -109,16 +96,15 @@ async def list_integrations(
                     access_token_encrypted=None,
                     refresh_token_encrypted=None,
                     token_expires_at=None,
-                    last_synced_at=None
+                    last_synced_at=None,
                 )
             )
     return integrations_list
 
+
 @router.get("/{provider}/connect")
 async def get_connect_url(
-    provider: str,
-    state: str = Query("default_state"),
-    current_user: User = Depends(get_current_user)
+    provider: str, state: str = Query("default_state"), current_user: User = Depends(get_current_user)
 ):
     """
     Returns the OAuth URL to redirect the user to.
@@ -136,6 +122,7 @@ async def get_connect_url(
     except Exception as e:
         logger.error(f"Error getting connect URL for {provider}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
 
 @router.get("/{provider}/callback")
 async def oauth_callback(
@@ -160,18 +147,12 @@ async def oauth_callback(
     # Expected format: "{provider}:{user_id}:{timestamp}"
     parts = state.split(":")
     if len(parts) < 2:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid OAuth state parameter — missing user_id segment."
-        )
+        raise HTTPException(status_code=400, detail="Invalid OAuth state parameter — missing user_id segment.")
     raw_user_id = parts[1]
     try:
         user_uuid = UUID(raw_user_id)
     except ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid user_id in OAuth state: {raw_user_id}"
-        )
+        raise HTTPException(status_code=400, detail=f"Invalid user_id in OAuth state: {raw_user_id}")
 
     stmt_user = select(User).where(User.id == user_uuid)
     result_user = await session.execute(stmt_user)
@@ -188,10 +169,7 @@ async def oauth_callback(
         refresh_token_enc = encrypt(token_data.get("refresh_token"))
 
         # Find existing integration or create a new one
-        stmt = select(Integration).where(
-            Integration.user_id == current_user.id,
-            Integration.provider == provider
-        )
+        stmt = select(Integration).where(Integration.user_id == current_user.id, Integration.provider == provider)
         result = await session.execute(stmt)
         integration = result.scalars().first()
 
@@ -231,7 +209,7 @@ async def oauth_callback(
                 permissions=default_permissions,
                 access_token_encrypted=access_token_enc,
                 refresh_token_encrypted=refresh_token_enc,
-                token_expires_at=token_data.get("expires_at")
+                token_expires_at=token_data.get("expires_at"),
             )
             session.add(integration)
 
@@ -247,14 +225,12 @@ async def oauth_callback(
         raise HTTPException(status_code=500, detail="OAuth authentication failed")
 
 
-
-
 @router.patch("/{provider}/permissions", response_model=IntegrationRead)
 async def update_permissions(
     provider: str,
     permissions_in: IntegrationUpdatePermissions,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Updates the capability toggles for the provider integration.
@@ -264,8 +240,7 @@ async def update_permissions(
 
     if provider == GOOGLE_CALENDAR_PROVIDER:
         stmt = select(Integration).where(
-            Integration.user_id == current_user.id,
-            Integration.provider == GOOGLE_PROVIDER
+            Integration.user_id == current_user.id, Integration.provider == GOOGLE_PROVIDER
         )
         result = await session.execute(stmt)
         integration = result.scalars().first()
@@ -280,10 +255,7 @@ async def update_permissions(
         await session.refresh(integration)
         return _google_calendar_projection(integration, current_user.id)
 
-    stmt = select(Integration).where(
-        Integration.user_id == current_user.id,
-        Integration.provider == provider
-    )
+    stmt = select(Integration).where(Integration.user_id == current_user.id, Integration.provider == provider)
     result = await session.execute(stmt)
     integration = result.scalars().first()
 
@@ -296,11 +268,10 @@ async def update_permissions(
     await session.refresh(integration)
     return integration
 
+
 @router.delete("/{provider}")
 async def disconnect_integration(
-    provider: str,
-    session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    provider: str, session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """
     Revokes local tokens (deletes stored credentials, resets status to 'disconnected').
@@ -311,8 +282,7 @@ async def disconnect_integration(
 
     if provider == GOOGLE_CALENDAR_PROVIDER:
         stmt = select(Integration).where(
-            Integration.user_id == current_user.id,
-            Integration.provider == GOOGLE_PROVIDER
+            Integration.user_id == current_user.id, Integration.provider == GOOGLE_PROVIDER
         )
         result = await session.execute(stmt)
         integration = result.scalars().first()
@@ -328,10 +298,7 @@ async def disconnect_integration(
         await session.commit()
         return {"ok": True, "message": "Google Calendar sync disabled; Gmail remains connected."}
 
-    stmt = select(Integration).where(
-        Integration.user_id == current_user.id,
-        Integration.provider == provider
-    )
+    stmt = select(Integration).where(Integration.user_id == current_user.id, Integration.provider == provider)
     result = await session.execute(stmt)
     integration = result.scalars().first()
 

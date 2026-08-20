@@ -22,7 +22,7 @@ class EmailMessage(Base):
     to_address: Mapped[str | None] = mapped_column(Text, nullable=True)
     subject: Mapped[str] = mapped_column(Text, nullable=False)
     snippet: Mapped[str] = mapped_column(Text, nullable=False)
-    direction: Mapped[str] = mapped_column(Text, server_default='inbound', nullable=False)
+    direction: Mapped[str] = mapped_column(Text, server_default="inbound", nullable=False)
 
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -32,8 +32,6 @@ class EmailMessage(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    __table_args__ = (
-        CheckConstraint(direction.in_(['inbound', 'outbound']), name='chk_email_direction'),
-    )
+    __table_args__ = (CheckConstraint(direction.in_(["inbound", "outbound"]), name="chk_email_direction"),)
 
     user = relationship("User")

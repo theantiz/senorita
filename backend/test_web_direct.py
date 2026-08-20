@@ -1,14 +1,17 @@
 import asyncio
 import json
-from app.agents.gemini_client import get_client
+
 from google.genai import types
+
+from app.agents.gemini_client import get_client
 from app.core.config import settings
+
 
 async def main():
     client = get_client()
     search_tool = types.Tool(google_search=types.GoogleSearch())
     prompt = "What is the latest on the India vs England cricket series in August 2026?"
-    
+
     try:
         response = await client.aio.models.generate_content(
             model=settings.GEMINI_MODEL,
@@ -33,6 +36,7 @@ async def main():
                 print("No grounding_metadata")
     except Exception as e:
         print(f"ERROR: {type(e).__name__}: {e}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

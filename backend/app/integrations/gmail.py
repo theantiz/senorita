@@ -22,8 +22,10 @@ CALENDAR_SCOPES = {
     "https://www.googleapis.com/auth/calendar.events",
 }
 
+
 def has_calendar_scopes(scopes: list[str] | None) -> bool:
     return CALENDAR_SCOPES.issubset(set(scopes or []))
+
 
 class GmailIntegrationAdapter(IntegrationAdapter):
     def __init__(self):
@@ -38,7 +40,7 @@ class GmailIntegrationAdapter(IntegrationAdapter):
                 "client_secret": self.client_secret,
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [self.redirect_uri]
+                "redirect_uris": [self.redirect_uri],
             }
         }
 
@@ -46,28 +48,18 @@ class GmailIntegrationAdapter(IntegrationAdapter):
         if not self.client_id or not self.client_secret:
             raise ValueError("GMAIL_CLIENT_ID or GMAIL_CLIENT_SECRET not set in environment.")
 
-        flow = Flow.from_client_config(
-            self._get_client_config(),
-            scopes=SCOPES,
-            state=state
-        )
+        flow = Flow.from_client_config(self._get_client_config(), scopes=SCOPES, state=state)
         flow.redirect_uri = self.redirect_uri
 
-        auth_url, _ = flow.authorization_url(
-            access_type="offline",
-            include_granted_scopes="true",
-            prompt="consent"
-        )
+        auth_url, _ = flow.authorization_url(access_type="offline", include_granted_scopes="true", prompt="consent")
         return auth_url
 
     async def exchange_code_for_tokens(self, code: str) -> dict:
-        flow = Flow.from_client_config(
-            self._get_client_config(),
-            scopes=SCOPES
-        )
+        flow = Flow.from_client_config(self._get_client_config(), scopes=SCOPES)
         flow.redirect_uri = self.redirect_uri
 
         import logging
+
         logger = logging.getLogger(__name__)
         logger.info(f"Attempting token exchange with GMAIL_CLIENT_ID: {self.client_id}")
 
@@ -79,8 +71,8 @@ class GmailIntegrationAdapter(IntegrationAdapter):
                     "client_secret": self.client_secret,
                     "code": code,
                     "grant_type": "authorization_code",
-                    "redirect_uri": self.redirect_uri
-                }
+                    "redirect_uri": self.redirect_uri,
+                },
             )
             try:
                 resp.raise_for_status()
@@ -97,7 +89,7 @@ class GmailIntegrationAdapter(IntegrationAdapter):
                 "access_token": data["access_token"],
                 "refresh_token": data.get("refresh_token"),
                 "expires_at": expires_at,
-                "scopes": data.get("scope", "").split()
+                "scopes": data.get("scope", "").split(),
             }
 
     async def refresh_access_token(self, integration) -> dict:
@@ -107,6 +99,7 @@ class GmailIntegrationAdapter(IntegrationAdapter):
         import logging
 
         from core.crypto import decrypt
+
         logger = logging.getLogger(__name__)
 
         refresh_token = decrypt(integration.refresh_token_encrypted)
@@ -120,8 +113,8 @@ class GmailIntegrationAdapter(IntegrationAdapter):
                     "client_id": self.client_id,
                     "client_secret": self.client_secret,
                     "refresh_token": refresh_token,
-                    "grant_type": "refresh_token"
-                }
+                    "grant_type": "refresh_token",
+                },
             )
             try:
                 resp.raise_for_status()
@@ -146,5 +139,5 @@ class GmailIntegrationAdapter(IntegrationAdapter):
         # Add 1 minute buffer
         return datetime.now(timezone.utc) + timedelta(minutes=1) < integration.token_expires_at
 
-register_adapter("gmail", GmailIntegrationAdapter())
 
+register_adapter("gmail", GmailIntegrationAdapter())

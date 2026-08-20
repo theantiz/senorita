@@ -11,6 +11,7 @@ from app.workers.notifications.dispatch import dispatch_notification
 
 logger = logging.getLogger(__name__)
 
+
 async def refresh_expired_tokens() -> None:
     """
     Background worker job that runs periodically (every 30 mins).
@@ -24,8 +25,7 @@ async def refresh_expired_tokens() -> None:
     async with async_session_factory() as session:
         # Fetch integrations expiring in the next hour that are currently connected
         stmt = select(Integration).where(
-            Integration.status == "connected",
-            Integration.token_expires_at <= one_hour_later
+            Integration.status == "connected", Integration.token_expires_at <= one_hour_later
         )
         result = await session.execute(stmt)
         integrations_to_refresh = result.scalars().all()
@@ -68,9 +68,7 @@ async def refresh_expired_tokens() -> None:
                 # Log notification in the database & dispatch to desktop
                 message = f"Your {provider.upper()} integration credentials have expired. Please reconnect."
                 notification = NotificationLog(
-                    user_id=integration.user_id,
-                    trigger_type="integration_token_expired",
-                    message=message
+                    user_id=integration.user_id, trigger_type="integration_token_expired", message=message
                 )
                 session.add(notification)
 
@@ -79,10 +77,7 @@ async def refresh_expired_tokens() -> None:
                     await dispatch_notification(
                         title="Integration Expired",
                         message=message,
-                        payload={
-                            "provider": provider,
-                            "trigger_type": "integration_token_expired"
-                        }
+                        payload={"provider": provider, "trigger_type": "integration_token_expired"},
                     )
                 except Exception as dispatch_err:
                     logger.error(f"Failed to dispatch expiration notification: {dispatch_err}")

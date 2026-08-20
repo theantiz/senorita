@@ -13,7 +13,7 @@ class IntegrationBase(BaseModel):
 
 
 class IntegrationRead(IntegrationBase):
-    id: Optional[UUID] = None          # None for transient "disconnected" placeholders
+    id: Optional[UUID] = None  # None for transient "disconnected" placeholders
     user_id: Optional[UUID] = None
     token_expires_at: Optional[datetime] = None
     last_synced_at: Optional[datetime] = None

@@ -17,7 +17,7 @@ async def get_memories(
     source_ref: str | None = None,
     locked: bool | None = None,
     date_from: datetime | None = None,
-    date_to: datetime | None = None
+    date_to: datetime | None = None,
 ) -> list[MemoryEntry]:
     stmt = select(MemoryEntry).where(MemoryEntry.user_id == user_id)
 
@@ -45,10 +45,12 @@ async def get_memories(
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
+
 async def get_memory(session: AsyncSession, user_id: UUID, memory_id: UUID) -> MemoryEntry | None:
     stmt = select(MemoryEntry).where(MemoryEntry.user_id == user_id, MemoryEntry.id == memory_id)
     result = await session.execute(stmt)
     return result.scalars().first()
+
 
 async def create_memory(session: AsyncSession, user_id: UUID, memory_in: MemoryEntryCreate) -> MemoryEntry:
     memory = MemoryEntry(user_id=user_id, **memory_in.model_dump())
@@ -57,7 +59,10 @@ async def create_memory(session: AsyncSession, user_id: UUID, memory_in: MemoryE
     await session.refresh(memory)
     return memory
 
-async def update_memory(session: AsyncSession, user_id: UUID, memory_id: UUID, memory_in: MemoryEntryUpdate) -> MemoryEntry | None:
+
+async def update_memory(
+    session: AsyncSession, user_id: UUID, memory_id: UUID, memory_in: MemoryEntryUpdate
+) -> MemoryEntry | None:
     memory = await get_memory(session, user_id, memory_id)
     if not memory:
         return None
@@ -67,6 +72,7 @@ async def update_memory(session: AsyncSession, user_id: UUID, memory_id: UUID, m
     await session.refresh(memory)
     return memory
 
+
 async def delete_memory(session: AsyncSession, user_id: UUID, memory_id: UUID) -> bool:
     memory = await get_memory(session, user_id, memory_id)
     if not memory:
@@ -74,6 +80,7 @@ async def delete_memory(session: AsyncSession, user_id: UUID, memory_id: UUID) -
     await session.delete(memory)
     await session.commit()
     return True
+
 
 async def delete_all_memories(session: AsyncSession, user_id: UUID) -> int:
     stmt = select(MemoryEntry).where(MemoryEntry.user_id == user_id)

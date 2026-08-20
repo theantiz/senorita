@@ -24,22 +24,41 @@ try:
         Histogram,
         generate_latest,
     )
+
     _PROMETHEUS_AVAILABLE = True
 except ImportError:  # pragma: no cover
     _PROMETHEUS_AVAILABLE = False
 
     class _Noop:
         """No-op metric that accepts any call."""
-        def labels(self, **_): return self
-        def inc(self, *_, **__): pass
-        def dec(self, *_, **__): pass
-        def observe(self, *_, **__): pass
-        def set(self, *_, **__): pass
 
-    def Counter(*_, **__): return _Noop()  # type: ignore[misc]
-    def Gauge(*_, **__): return _Noop()    # type: ignore[misc]
-    def Histogram(*_, **__): return _Noop()  # type: ignore[misc]
-    def generate_latest(): return b""   # type: ignore[misc]
+        def labels(self, **_):
+            return self
+
+        def inc(self, *_, **__):
+            pass
+
+        def dec(self, *_, **__):
+            pass
+
+        def observe(self, *_, **__):
+            pass
+
+        def set(self, *_, **__):
+            pass
+
+    def Counter(*_, **__):
+        return _Noop()  # type: ignore[misc]
+
+    def Gauge(*_, **__):
+        return _Noop()  # type: ignore[misc]
+
+    def Histogram(*_, **__):
+        return _Noop()  # type: ignore[misc]
+
+    def generate_latest():
+        return b""  # type: ignore[misc]
+
     CONTENT_TYPE_LATEST = "text/plain"  # type: ignore[assignment]
 
 
@@ -47,7 +66,7 @@ except ImportError:  # pragma: no cover
 agent_runs_total = Counter(
     "agent_runs_total",
     "Total agent runs created",
-    ["routing"],            # direct | plan
+    ["routing"],  # direct | plan
 )
 agent_runs_success_total = Counter(
     "agent_runs_success_total",
@@ -56,7 +75,7 @@ agent_runs_success_total = Counter(
 agent_runs_failed_total = Counter(
     "agent_runs_failed_total",
     "Agent runs that failed",
-    ["reason"],             # timeout | exception | validation
+    ["reason"],  # timeout | exception | validation
 )
 agent_runs_cancelled_total = Counter(
     "agent_runs_cancelled_total",
@@ -164,16 +183,50 @@ async def timed_llm_request(provider: str, model: str) -> AsyncIterator[None]:
     t0 = time.perf_counter()
     try:
         yield
-        llm_request_duration_seconds.labels(provider=provider, model=model).observe(
-            time.perf_counter() - t0
-        )
+        llm_request_duration_seconds.labels(provider=provider, model=model).observe(time.perf_counter() - t0)
     except Exception as exc:
-        llm_requests_failed_total.labels(
-            provider=provider, model=model, error_type=type(exc).__name__
-        ).inc()
+        llm_requests_failed_total.labels(provider=provider, model=model, error_type=type(exc).__name__).inc()
         raise
 
 
 def get_metrics_response() -> tuple[bytes, str]:
     """Return raw Prometheus scrape payload."""
     return generate_latest(), CONTENT_TYPE_LATEST
+
+
+# --- Phase 5 Metrics ---
+voice_requests_total = Counter("senorita_voice_requests_total", "Voice STT requests")
+voice_failures_total = Counter("senorita_voice_failures_total", "Voice processing failures")
+voice_latency = Histogram("senorita_voice_latency_seconds", "Voice E2E latency")
+memory_retrieval_total = Counter("senorita_memory_retrieval_total", "Memory searches")
+memory_updates_total = Counter("senorita_memory_updates_total", "Memory updates")
+memory_supersessions_total = Counter("senorita_memory_supersessions_total", "Memory supersessions")
+proactive_notifications_total = Counter("senorita_proactive_notifications_total", "Proactive notifications sent")
+proactive_duplicates_total = Counter("senorita_proactive_duplicates_total", "Proactive notifications deduplicated")
+workflow_execution_total = Counter("senorita_workflow_execution_total", "Workflows executed")
+
+context_build_total = Counter("senorita_context_build_total", "Context Builder runs")
+context_build_failures_total = Counter("senorita_context_build_failures_total", "Context Builder failures")
+context_build_latency = Histogram("senorita_context_build_latency_seconds", "Context Builder latency")
+context_items_selected_total = Counter("senorita_context_items_selected_total", "Context items selected")
+context_items_dropped_total = Counter("senorita_context_items_dropped_total", "Context items dropped")
+context_token_estimate = Histogram("senorita_context_token_estimate", "Context Token estimate")
+preference_retrieval_total = Counter("senorita_preference_retrieval_total", "Preferences retrieved")
+preference_updates_total = Counter("senorita_preference_updates_total", "Preferences updated")
+preference_supersessions_total = Counter("senorita_preference_supersessions_total", "Preferences superseded")
+memory_expiration_total = Counter("senorita_memory_expiration_total", "Memories expired dynamically")
+
+context_vector_search_total = Counter("senorita_context_vector_search_total", "Vector searches for context")
+context_vector_search_failures_total = Counter(
+    "senorita_context_vector_search_failures_total", "Vector search failures"
+)
+context_memories_selected_total = Counter("senorita_context_memories_selected_total", "Memories selected")
+context_preferences_selected_total = Counter("senorita_context_preferences_selected_total", "Preferences selected")
+context_similarity_histogram = Histogram("senorita_context_similarity", "Vector similarity score distribution")
+preference_created_total = Counter("senorita_preference_created_total", "Preferences created")
+preference_updated_total = Counter("senorita_preference_updated_total", "Preferences updated")
+preference_superseded_total = Counter("senorita_preference_superseded_total", "Preferences superseded via conflict")
+preference_conflicts_total = Counter("senorita_preference_conflicts_total", "Preferences in conflict")
+context_relevance_failures_total = Counter(
+    "senorita_context_relevance_failures_total", "Context relevance checks failed"
+)

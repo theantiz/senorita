@@ -32,10 +32,7 @@ async def test_extract_intent_success():
         request_id="req-789",
         message="Schedule a meeting with John tomorrow at 9 AM",
         timezone="UTC",
-        recent_messages=[
-            {"role": "user", "content": "Hi"},
-            {"role": "assistant", "content": "Hello, baby."}
-        ]
+        recent_messages=[{"role": "user", "content": "Hi"}, {"role": "assistant", "content": "Hello, baby."}],
     )
 
     mock_intent = IntentSchema(
@@ -45,7 +42,7 @@ async def test_extract_intent_success():
         constraints=[],
         required_capabilities=["calendar", "contacts"],
         ambiguities=[],
-        routing_decision="MULTI_STEP_PLAN"
+        routing_decision="MULTI_STEP_PLAN",
     )
 
     mock_provider = MagicMock(spec=LLMProvider)

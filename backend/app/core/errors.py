@@ -16,11 +16,12 @@ from __future__ import annotations
 
 from typing import Any
 
-
 # ─── Base ─────────────────────────────────────────────────────────────────────
+
 
 class SeñoritaError(Exception):
     """Base class for all application-level errors."""
+
     public_message: str = "An unexpected error occurred. Please try again."
     http_status: int = 500
     error_code: str = "internal_error"
@@ -34,14 +35,17 @@ class SeñoritaError(Exception):
 
 # ─── Provider errors (transient) ──────────────────────────────────────────────
 
+
 class ProviderError(SeñoritaError):
     """Base for all provider-side errors."""
+
     public_message = "An external service is temporarily unavailable."
     error_code = "provider_error"
 
 
 class ProviderRateLimitError(ProviderError):
     """Provider returned 429 / rate limit exceeded."""
+
     public_message = "We're being rate-limited by an external service. Please try again shortly."
     http_status = 429
     error_code = "provider_rate_limited"
@@ -50,6 +54,7 @@ class ProviderRateLimitError(ProviderError):
 
 class ProviderTimeoutError(ProviderError):
     """Provider request timed out."""
+
     public_message = "An external service took too long to respond."
     http_status = 504
     error_code = "provider_timeout"
@@ -58,6 +63,7 @@ class ProviderTimeoutError(ProviderError):
 
 class ProviderUnavailableError(ProviderError):
     """Provider returned 5xx or is unreachable."""
+
     public_message = "An external service is currently unavailable. Please try again later."
     http_status = 503
     error_code = "provider_unavailable"
@@ -66,8 +72,10 @@ class ProviderUnavailableError(ProviderError):
 
 # ─── Provider errors (permanent) ──────────────────────────────────────────────
 
+
 class ProviderAuthenticationError(ProviderError):
     """OAuth token expired or invalid."""
+
     public_message = "Your connection to an external service needs to be renewed."
     http_status = 401
     error_code = "provider_auth_error"
@@ -76,6 +84,7 @@ class ProviderAuthenticationError(ProviderError):
 
 class ProviderPermissionError(ProviderError):
     """Provider denied access (403)."""
+
     public_message = "You don't have permission to perform that action on the external service."
     http_status = 403
     error_code = "provider_permission_denied"
@@ -84,6 +93,7 @@ class ProviderPermissionError(ProviderError):
 
 class ProviderValidationError(ProviderError):
     """Provider rejected the request due to bad input."""
+
     public_message = "The request to an external service was invalid."
     http_status = 400
     error_code = "provider_validation_error"
@@ -92,14 +102,17 @@ class ProviderValidationError(ProviderError):
 
 # ─── Agent errors ─────────────────────────────────────────────────────────────
 
+
 class AgentError(SeñoritaError):
     """Base for agent/orchestration errors."""
+
     public_message = "The AI agent encountered an error."
     error_code = "agent_error"
 
 
 class AgentTimeoutError(AgentError):
     """Agent run exceeded AGENT_MAX_EXECUTION_TIME."""
+
     public_message = "That task took too long, so I stopped it safely."
     http_status = 504
     error_code = "agent_timeout"
@@ -108,6 +121,7 @@ class AgentTimeoutError(AgentError):
 
 class AgentUsageLimitError(AgentError):
     """Per-user daily limit reached."""
+
     public_message = "Your daily AI usage limit has been reached."
     http_status = 429
     error_code = "usage_limit_exceeded"
@@ -116,6 +130,7 @@ class AgentUsageLimitError(AgentError):
 
 class AgentConfirmationExpiredError(AgentError):
     """Confirmation window has expired."""
+
     public_message = "That confirmation has expired. Please try again."
     http_status = 410
     error_code = "confirmation_expired"

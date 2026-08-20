@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 _fernet_instance = None
 
+
 def get_fernet() -> Fernet:
     global _fernet_instance
     if _fernet_instance is not None:
@@ -31,6 +32,7 @@ def get_fernet() -> Fernet:
     _fernet_instance = Fernet(fallback_key)
     return _fernet_instance
 
+
 def encrypt(text: str | None) -> str | None:
     """
     Symmetrically encrypts cleartext string.
@@ -44,6 +46,7 @@ def encrypt(text: str | None) -> str | None:
     except Exception as e:
         logger.error("Failed to encrypt token")
         raise e
+
 
 def decrypt(token: str | None) -> str | None:
     """

@@ -12,10 +12,12 @@ async def get_reminders(session: AsyncSession, user_id: UUID) -> list[Reminder]:
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
+
 async def get_reminder(session: AsyncSession, user_id: UUID, reminder_id: UUID) -> Reminder | None:
     stmt = select(Reminder).where(Reminder.user_id == user_id, Reminder.id == reminder_id)
     result = await session.execute(stmt)
     return result.scalars().first()
+
 
 async def create_reminder(session: AsyncSession, user_id: UUID, reminder_in: ReminderCreate) -> Reminder:
     reminder = Reminder(user_id=user_id, **reminder_in.model_dump())
@@ -24,7 +26,10 @@ async def create_reminder(session: AsyncSession, user_id: UUID, reminder_in: Rem
     await session.refresh(reminder)
     return reminder
 
-async def update_reminder(session: AsyncSession, user_id: UUID, reminder_id: UUID, reminder_in: ReminderUpdate) -> Reminder | None:
+
+async def update_reminder(
+    session: AsyncSession, user_id: UUID, reminder_id: UUID, reminder_in: ReminderUpdate
+) -> Reminder | None:
     reminder = await get_reminder(session, user_id, reminder_id)
     if not reminder:
         return None
@@ -33,6 +38,7 @@ async def update_reminder(session: AsyncSession, user_id: UUID, reminder_id: UUI
     await session.commit()
     await session.refresh(reminder)
     return reminder
+
 
 async def delete_reminder(session: AsyncSession, user_id: UUID, reminder_id: UUID) -> bool:
     reminder = await get_reminder(session, user_id, reminder_id)

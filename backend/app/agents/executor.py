@@ -15,6 +15,7 @@ from app.db.models.plan import AgentPlan, AgentPlanStep
 
 logger = logging.getLogger(__name__)
 
+
 class PlanExecutionError(Exception):
     pass
 
@@ -38,7 +39,11 @@ class PlanExecutor:
         from app.agents.events import record_and_publish_event
         from app.db.models.run import AgentRun
 
-        stmt = select(AgentRun).options(selectinload(AgentRun.plan).selectinload(AgentPlan.steps)).where(AgentRun.id == self.run_id)
+        stmt = (
+            select(AgentRun)
+            .options(selectinload(AgentRun.plan).selectinload(AgentPlan.steps))
+            .where(AgentRun.id == self.run_id)
+        )
         result = await self.session.execute(stmt)
         run = result.scalar_one_or_none()
 
@@ -57,7 +62,9 @@ class PlanExecutor:
             run.status = "RUNNING"
             plan.status = "RUNNING"
             await self.session.commit()
-            await record_and_publish_event(self.session, self.run_id, "agent.started", "running", "Agent run started", plan.id)
+            await record_and_publish_event(
+                self.session, self.run_id, "agent.started", "running", "Agent run started", plan.id
+            )
 
         while True:
             # Refresh to get latest states
@@ -67,7 +74,9 @@ class PlanExecutor:
             if run.status == "CANCELLED":
                 plan.status = "CANCELLED"
                 await self.session.commit()
-                await record_and_publish_event(self.session, self.run_id, "agent.cancelled", "cancelled", "Agent run cancelled", plan.id)
+                await record_and_publish_event(
+                    self.session, self.run_id, "agent.cancelled", "cancelled", "Agent run cancelled", plan.id
+                )
                 return run.status
 
             ready_steps = self._get_ready_steps(plan)
@@ -78,14 +87,23 @@ class PlanExecutor:
                     plan.status = "COMPLETED"
                     run.status = "COMPLETED"
                     await self.session.commit()
-                    await record_and_publish_event(self.session, self.run_id, "agent.completed", "completed", "All steps completed successfully.", plan.id)
+                    await record_and_publish_event(
+                        self.session,
+                        self.run_id,
+                        "agent.completed",
+                        "completed",
+                        "All steps completed successfully.",
+                        plan.id,
+                    )
                     return run.status
 
                 if self._is_plan_failed(plan):
                     plan.status = "FAILED"
                     run.status = "FAILED"
                     await self.session.commit()
-                    await record_and_publish_event(self.session, self.run_id, "agent.failed", "failed", "One or more plan steps failed.", plan.id)
+                    await record_and_publish_event(
+                        self.session, self.run_id, "agent.failed", "failed", "One or more plan steps failed.", plan.id
+                    )
                     return run.status
 
                 break
@@ -94,7 +112,15 @@ class PlanExecutor:
             for step in ready_steps:
                 step.status = "RUNNING"
                 self.session.add(step)
-                await record_and_publish_event(self.session, self.run_id, "agent.step_started", "running", f"Running {step.tool_name}", plan.id, step.step_id)
+                await record_and_publish_event(
+                    self.session,
+                    self.run_id,
+                    "agent.step_started",
+                    "running",
+                    f"Running {step.tool_name}",
+                    plan.id,
+                    step.step_id,
+                )
                 tasks.append(self._execute_step(run.user_id, plan, step))
 
             await self.session.commit()
@@ -106,20 +132,53 @@ class PlanExecutor:
                 if isinstance(result, Exception):
                     logger.error(f"Step {step.step_id} failed: {result}")
                     step.status = "FAILED"
-                    await record_and_publish_event(self.session, self.run_id, "agent.step_failed", "failed", f"Failed: {result}", plan.id, step.step_id)
+                    await record_and_publish_event(
+                        self.session,
+                        self.run_id,
+                        "agent.step_failed",
+                        "failed",
+                        f"Failed: {result}",
+                        plan.id,
+                        step.step_id,
+                    )
                 else:
                     error_data = result.get("error")
 
                     if error_data and error_data.get("code") == "confirmation_required":
                         step.status = "PENDING"
                         needs_pause = True
-                        await record_and_publish_event(self.session, self.run_id, "agent.waiting_confirmation", "waiting_confirmation", f"Confirmation required for {step.tool_name}", plan.id, step.step_id, metadata_payload=result)
+                        await record_and_publish_event(
+                            self.session,
+                            self.run_id,
+                            "agent.waiting_confirmation",
+                            "waiting_confirmation",
+                            f"Confirmation required for {step.tool_name}",
+                            plan.id,
+                            step.step_id,
+                            metadata_payload=result,
+                        )
                     elif error_data:
                         step.status = "FAILED"
-                        await record_and_publish_event(self.session, self.run_id, "agent.step_failed", "failed", f"Failed: {error_data.get('message')}", plan.id, step.step_id)
+                        await record_and_publish_event(
+                            self.session,
+                            self.run_id,
+                            "agent.step_failed",
+                            "failed",
+                            f"Failed: {error_data.get('message')}",
+                            plan.id,
+                            step.step_id,
+                        )
                     else:
                         step.status = "SUCCESS"
-                        await record_and_publish_event(self.session, self.run_id, "agent.step_completed", "success", f"Completed {step.tool_name}", plan.id, step.step_id)
+                        await record_and_publish_event(
+                            self.session,
+                            self.run_id,
+                            "agent.step_completed",
+                            "success",
+                            f"Completed {step.tool_name}",
+                            plan.id,
+                            step.step_id,
+                        )
 
                 self.session.add(step)
 
@@ -188,13 +247,19 @@ class PlanExecutor:
 
             try:
                 from google.genai import types
+
                 jit_response = await self.provider.generate(
                     system_instruction=sys_inst,
                     contents=[
-                        types.Content(role="user", parts=[
-                            types.Part.from_text(f"Prior Context: {json.dumps(context_data)}\n\nResolve: {args_str}")
-                        ])
-                    ]
+                        types.Content(
+                            role="user",
+                            parts=[
+                                types.Part.from_text(
+                                    f"Prior Context: {json.dumps(context_data)}\n\nResolve: {args_str}"
+                                )
+                            ],
+                        )
+                    ],
                 )
                 if jit_response:
                     resolved_args = json.loads(jit_response)

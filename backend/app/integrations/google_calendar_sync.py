@@ -148,6 +148,7 @@ async def _sync_user_google_calendar(session: AsyncSession, integration: Integra
 
         try:
             import asyncio
+
             response = await asyncio.to_thread(lambda: service.events().list(**params).execute())
         except HttpError as exc:
             if getattr(exc.resp, "status", None) == 410:
@@ -209,10 +210,8 @@ def start_google_calendar_sync_engine(scheduler):
     scheduler.add_job(
         google_calendar_sync_check,
         "interval",
-        seconds=300, # 5 minutes for calendar
+        seconds=300,  # 5 minutes for calendar
         id="google_calendar_sync_engine",
         replace_existing=True,
     )
-    logger.info(
-        f"Google Calendar sync engine registered: interval={settings.PROACTIVE_CHECK_INTERVAL_SECONDS}s."
-    )
+    logger.info(f"Google Calendar sync engine registered: interval={settings.PROACTIVE_CHECK_INTERVAL_SECONDS}s.")

@@ -7,15 +7,18 @@ from pydantic import BaseModel, ConfigDict
 class ReminderBase(BaseModel):
     type: str
     trigger_payload: dict
-    status: str = 'active'
+    status: str = "active"
+
 
 class ReminderCreate(ReminderBase):
     pass
+
 
 class ReminderUpdate(BaseModel):
     type: str | None = None
     trigger_payload: dict | None = None
     status: str | None = None
+
 
 class ReminderRead(ReminderBase):
     id: UUID

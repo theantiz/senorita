@@ -246,3 +246,28 @@ export async function deleteDocument(token: string, id: string) {
 export async function getDocumentQuestions(token: string, id: string) {
   return apiFetch(`/documents/${id}/questions`, {}, token);
 }
+
+export const api = {
+  get: async (endpoint: string) => {
+    const token = localStorage.getItem("senorita_token");
+    const data = await apiFetch(endpoint, { method: "GET" }, token);
+    return { data };
+  },
+  post: async (endpoint: string, body: any) => {
+    const token = localStorage.getItem("senorita_token");
+    const data = await apiFetch(endpoint, { method: "POST", body: JSON.stringify(body) }, token);
+    return { data };
+  },
+  patch: async (endpoint: string, body?: any) => {
+    const token = localStorage.getItem("senorita_token");
+    const options: RequestInit = { method: "PATCH" };
+    if (body) options.body = JSON.stringify(body);
+    const data = await apiFetch(endpoint, options, token);
+    return { data };
+  },
+  delete: async (endpoint: string) => {
+    const token = localStorage.getItem("senorita_token");
+    const data = await apiFetch(endpoint, { method: "DELETE" }, token);
+    return { data };
+  }
+};

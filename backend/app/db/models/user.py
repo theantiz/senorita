@@ -15,7 +15,7 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     name: Mapped[str] = mapped_column(Text, nullable=False)
     timezone: Mapped[str] = mapped_column(Text, nullable=False)
-    autonomy_level: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
+    autonomy_level: Mapped[str] = mapped_column(String, server_default="CONFIRM", nullable=False)
     style_profile: Mapped[dict] = mapped_column(JSONB, server_default="{}", nullable=False)
     memory_capture_sensitivity: Mapped[str] = mapped_column(
         Text, server_default="conservative", nullable=False
@@ -44,6 +44,7 @@ class User(Base):
     # Relationships
     contacts = relationship("Contact", back_populates="user", cascade="all, delete-orphan")
     memory_entries = relationship("MemoryEntry", back_populates="user", cascade="all, delete-orphan")
+    preferences = relationship("Preference", back_populates="user", cascade="all, delete-orphan")
     tasks = relationship("Task", back_populates="user", cascade="all, delete-orphan")
     reminders = relationship("Reminder", back_populates="user", cascade="all, delete-orphan")
     calendar_events = relationship("CalendarEvent", back_populates="user", cascade="all, delete-orphan")

@@ -6,16 +6,19 @@ from pydantic import BaseModel, ConfigDict
 
 
 class MessageModeBase(BaseModel):
-    scope: Literal['global', 'contact']
+    scope: Literal["global", "contact"]
     contact_id: Optional[UUID] = None
-    channel: Optional[Literal['gmail', 'slack']] = None
-    mode: Literal['draft_only', 'approval_required', 'trusted', 'autonomous']
+    channel: Optional[Literal["gmail", "slack"]] = None
+    mode: Literal["draft_only", "approval_required", "trusted", "autonomous"]
+
 
 class MessageModeCreate(MessageModeBase):
     pass
 
+
 class MessageModeUpdate(BaseModel):
-    mode: Optional[Literal['draft_only', 'approval_required', 'trusted', 'autonomous']] = None
+    mode: Optional[Literal["draft_only", "approval_required", "trusted", "autonomous"]] = None
+
 
 class MessageModeRead(MessageModeBase):
     id: UUID

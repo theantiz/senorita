@@ -7,13 +7,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.agents.gemini_client import get_client
 from app.api.deps import get_current_user, get_db
+from app.core.config import settings
 from app.db.models import User
 from app.db.models.document import Document
 from app.db.models.document_chunk import DocumentChunk
 from app.memory.embeddings import embed_text
-from app.agents.gemini_client import get_client
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str
     chunks = []
     i = 0
     while i < len(words):
-        chunk = " ".join(words[i:i + chunk_size])
+        chunk = " ".join(words[i : i + chunk_size])
         if chunk.strip():
             chunks.append(chunk)
         i += chunk_size - overlap
@@ -36,7 +36,9 @@ def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str
 def _extract_text_from_pdf(content: bytes) -> str:
     """Extract text from PDF bytes using pypdf."""
     import io
+
     from pypdf import PdfReader
+
     reader = PdfReader(io.BytesIO(content))
     pages = []
     for page in reader.pages:
@@ -134,11 +136,7 @@ async def list_documents(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    stmt = (
-        select(Document)
-        .where(Document.user_id == current_user.id)
-        .order_by(Document.created_at.desc())
-    )
+    stmt = select(Document).where(Document.user_id == current_user.id).order_by(Document.created_at.desc())
     result = await session.execute(stmt)
     docs = result.scalars().all()
 
@@ -149,13 +147,15 @@ async def list_documents(
         count_res = await session.execute(count_stmt)
         chunk_count = count_res.scalar() or 0
 
-        out.append({
-            "id": str(d.id),
-            "filename": d.filename,
-            "summary": d.summary,
-            "chunk_count": chunk_count,
-            "created_at": d.created_at.isoformat(),
-        })
+        out.append(
+            {
+                "id": str(d.id),
+                "filename": d.filename,
+                "summary": d.summary,
+                "chunk_count": chunk_count,
+                "created_at": d.created_at.isoformat(),
+            }
+        )
     return out
 
 

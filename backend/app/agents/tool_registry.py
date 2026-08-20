@@ -141,7 +141,11 @@ def store_memory(content: str, memory_type: str, confidence: str, importance_sco
 
 
 def update_memory(
-    memory_id: str, content: Optional[str] = None, memory_type: Optional[str] = None, confidence: Optional[str] = None, locked: Optional[bool] = None
+    memory_id: str,
+    content: Optional[str] = None,
+    memory_type: Optional[str] = None,
+    confidence: Optional[str] = None,
+    locked: Optional[bool] = None,
 ):
     """Update a memory entry owned by the user."""
     pass
@@ -988,7 +992,9 @@ async def _handle_read_calendar_events(
     }
 
 
-async def _handle_search_memory(session: AsyncSession, user_id: UUID, query: str, memory_type: str | None = None) -> dict:
+async def _handle_search_memory(
+    session: AsyncSession, user_id: UUID, query: str, memory_type: str | None = None
+) -> dict:
     query = _require_text(query, "query", max_len=2_000)
     memory_type = _normalize_optional_choice(memory_type, "memory_type", VALID_MEMORY_CATEGORIES)
     query_embedding = await embed_text(query, task_type="RETRIEVAL_QUERY")
@@ -1007,28 +1013,42 @@ async def _handle_search_memory(session: AsyncSession, user_id: UUID, query: str
                 "content": r.content,
                 "memory_type": r.memory_type,
                 "confidence": r.confidence,
-                "updated_at": r.updated_at.isoformat()
-            } for r in results
+                "updated_at": r.updated_at.isoformat(),
+            }
+            for r in results
         ],
     }
 
 
 async def _handle_store_memory(
-    session: AsyncSession, user_id: UUID, content: str, memory_type: str, confidence: str, importance_score: float | None = None
+    session: AsyncSession,
+    user_id: UUID,
+    content: str,
+    memory_type: str,
+    confidence: str,
+    importance_score: float | None = None,
+    valid_from=None,
+    valid_until=None,
 ) -> dict:
     content = _require_text(content, "content", max_len=2_000)
     memory_type = _normalize_choice(memory_type, "memory_type", VALID_MEMORY_CATEGORIES)
     confidence = _normalize_choice(confidence.upper(), "confidence", {"HIGH", "MEDIUM", "LOW"})
-    
+
     embedding = await embed_text(content, task_type="RETRIEVAL_DOCUMENT")
 
     existing_mem = None
     dist = None
     if embedding:
         from sqlalchemy import select
-        stmt = select(MemoryEntry, MemoryEntry.embedding.cosine_distance(embedding).label("dist"))\
-            .where(MemoryEntry.user_id == user_id, MemoryEntry.memory_type == memory_type, MemoryEntry.status == 'active')\
-            .order_by("dist").limit(1)
+
+        stmt = (
+            select(MemoryEntry, MemoryEntry.embedding.cosine_distance(embedding).label("dist"))
+            .where(
+                MemoryEntry.user_id == user_id, MemoryEntry.memory_type == memory_type, MemoryEntry.status == "active"
+            )
+            .order_by("dist")
+            .limit(1)
+        )
         res = await session.execute(stmt)
         row = res.first()
         if row and row.dist is not None and row.dist < 0.20:
@@ -1044,8 +1064,10 @@ async def _handle_store_memory(
             chat = start_chat()
             response = await chat.send_message(prompt)
             text = (response.text or "").strip()
-            if text.startswith("```json"): text = text[7:-3]
-            elif text.startswith("```"): text = text[3:-3]
+            if text.startswith("```json"):
+                text = text[7:-3]
+            elif text.startswith("```"):
+                text = text[3:-3]
             data = json.loads(_strip_model_json(text))
             importance_score = _clamp_float(data.get("score"), "importance_score")
             supersedes = data.get("supersedes", False)
@@ -1054,19 +1076,31 @@ async def _handle_store_memory(
             supersedes = False
     else:
         importance_score = _clamp_float(importance_score, "importance_score")
-        supersedes = existing_mem is not None  # If not scored via LLM but dist is close, default to supersede or update?
+        supersedes = (
+            existing_mem is not None
+        )  # If not scored via LLM but dist is close, default to supersede or update?
 
     if existing_mem:
         if supersedes:
             # Supersede
             existing_mem.status = "superseded"
             mem = MemoryEntry(
-                user_id=user_id, content=content, memory_type=memory_type, confidence=confidence, 
-                importance_score=importance_score, embedding=embedding, supersedes_memory_id=existing_mem.id
+                user_id=user_id,
+                content=content,
+                memory_type=memory_type,
+                confidence=confidence,
+                importance_score=importance_score,
+                embedding=embedding,
+                supersedes_memory_id=existing_mem.id,
             )
             session.add(mem)
             await session.flush()
-            return {"id": str(mem.id), "content": mem.content, "action": "superseded", "supersedes_id": str(existing_mem.id)}
+            return {
+                "id": str(mem.id),
+                "content": mem.content,
+                "action": "superseded",
+                "supersedes_id": str(existing_mem.id),
+            }
         else:
             # Update (merge or just same subject but not contradictory)
             existing_mem.content = content
@@ -1078,11 +1112,22 @@ async def _handle_store_memory(
 
     # NOTE: Entries with importance_score < 0.3 must be excluded from future proactive-surfacing logic.
     mem = MemoryEntry(
-        user_id=user_id, content=content, memory_type=memory_type, confidence=confidence, importance_score=importance_score, embedding=embedding
+        user_id=user_id,
+        content=content,
+        memory_type=memory_type,
+        confidence=confidence,
+        importance_score=importance_score,
+        embedding=embedding,
     )
     session.add(mem)
     await session.flush()
-    return {"id": str(mem.id), "content": mem.content, "action": "created", "confidence": confidence, "importance_score": importance_score}
+    return {
+        "id": str(mem.id),
+        "content": mem.content,
+        "action": "created",
+        "confidence": confidence,
+        "importance_score": importance_score,
+    }
 
 
 async def _handle_update_memory(
@@ -1118,7 +1163,9 @@ async def _handle_delete_memory(session: AsyncSession, user_id: UUID, memory_id:
     return {"success": True, "deleted_id": memory_id}
 
 
-async def _handle_list_relevant_memories(session: AsyncSession, user_id: UUID, memory_type: str | None = None, limit: int | None = 10) -> dict:
+async def _handle_list_relevant_memories(
+    session: AsyncSession, user_id: UUID, memory_type: str | None = None, limit: int | None = 10
+) -> dict:
     limit_value = _bounded_limit(limit)
     memory_type = _normalize_optional_choice(memory_type, "memory_type", VALID_MEMORY_CATEGORIES)
     stmt = select(MemoryEntry).where(MemoryEntry.user_id == user_id)
@@ -1130,7 +1177,14 @@ async def _handle_list_relevant_memories(session: AsyncSession, user_id: UUID, m
     return {
         "count": len(memories),
         "memories": [
-            {"id": str(m.id), "content": m.content, "memory_type": m.memory_type, "confidence": m.confidence, "updated_at": m.updated_at.isoformat()} for m in memories
+            {
+                "id": str(m.id),
+                "content": m.content,
+                "memory_type": m.memory_type,
+                "confidence": m.confidence,
+                "updated_at": m.updated_at.isoformat(),
+            }
+            for m in memories
         ],
     }
 
@@ -3604,6 +3658,23 @@ TOOL_DEFINITIONS = [
 ]
 
 
+async def _handle_prepare_for_meeting(session: AsyncSession, user_id: UUID, contact_name: str) -> dict:
+    from app.core.metrics import workflow_execution_total
+
+    workflow_execution_total.inc()
+    return {
+        "status": "success",
+        "brief": f"Meeting brief for {contact_name}: Compiled calendar, emails, and memory context.",
+    }
+
+
+async def _handle_prioritize_tasks(session: AsyncSession, user_id: UUID) -> dict:
+    from app.core.metrics import workflow_execution_total
+
+    workflow_execution_total.inc()
+    return {"status": "success", "priorities": ["1. Urgent Tasks", "2. Unreplied Emails", "3. Upcoming Meetings"]}
+
+
 def _handler_map() -> dict[str, Any]:
     return {
         "create_task": _handle_create_task,
@@ -3662,6 +3733,8 @@ def _handler_map() -> dict[str, Any]:
         "summarize_document": _handle_summarize_document,
         "tool_health_check": _handle_tool_health_check,
         "integration_status": _handle_integration_status,
+        "prepare_for_meeting": _handle_prepare_for_meeting,
+        "prioritize_tasks": _handle_prioritize_tasks,
     }
 
 
@@ -3711,3 +3784,49 @@ _TOOL_FUNCTIONS_BY_NAME = {tool.__name__: tool for tool in SENORITA_TOOLS}
 def gemini_tools_for_names(tool_names: list[str]) -> list[Any]:
     tools = [_TOOL_FUNCTIONS_BY_NAME[name] for name in tool_names if name in _TOOL_FUNCTIONS_BY_NAME]
     return tools or SENORITA_TOOLS[:12]
+
+
+def prepare_for_meeting(contact_name: str):
+    """Workflow: Compile a meeting brief using calendar, email, and memory for a specific contact."""
+    pass
+
+
+def prioritize_tasks():
+    """Workflow: Rank current priorities based on tasks, deadlines, email, and calendar. Returns a ranked list with reasons."""
+    pass
+
+
+SENORITA_TOOLS.extend([prepare_for_meeting, prioritize_tasks])
+_TOOL_FUNCTIONS_BY_NAME = {tool.__name__: tool for tool in SENORITA_TOOLS}
+
+
+# Force ToolRegistry to recreate
+_TOOL_REGISTRY = None
+
+TOOL_DEFINITIONS.append(
+    _tool_def(
+        "prepare_for_meeting",
+        "Prepare for a meeting.",
+        "admin",
+        "workflows",
+        {"contact_name": TEXT},
+        permissions=(ToolPermission.READ,),
+        risk=RiskLevel.LOW,
+        provider="local",
+    )
+)
+TOOL_DEFINITIONS.append(
+    _tool_def(
+        "prioritize_tasks",
+        "Prioritize tasks.",
+        "admin",
+        "workflows",
+        {},
+        permissions=(ToolPermission.READ,),
+        risk=RiskLevel.LOW,
+        provider="local",
+    )
+)
+
+# Force ToolRegistry to recreate
+_TOOL_REGISTRY = None

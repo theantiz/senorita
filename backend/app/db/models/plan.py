@@ -33,14 +33,18 @@ class AgentPlan(Base):
     )
 
     user = relationship("User")
-    steps = relationship("AgentPlanStep", back_populates="plan", cascade="all, delete-orphan", order_by="AgentPlanStep.created_at")
+    steps = relationship(
+        "AgentPlanStep", back_populates="plan", cascade="all, delete-orphan", order_by="AgentPlanStep.created_at"
+    )
 
 
 class AgentPlanStep(Base):
     __tablename__ = "agent_plan_steps"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
-    plan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agent_plans.id", ondelete="CASCADE"), nullable=False, index=True)
+    plan_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agent_plans.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     step_id: Mapped[str] = mapped_column(Text, nullable=False)
     tool_name: Mapped[str] = mapped_column(Text, nullable=False)
     arguments: Mapped[dict] = mapped_column(JSONB, server_default="{}", nullable=False)
@@ -50,7 +54,9 @@ class AgentPlanStep(Base):
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default="CREATED")
 
     # Link to the actual invocation that occurred, if any.
-    invocation_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("tool_invocations.id", ondelete="SET NULL"), nullable=True)
+    invocation_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tool_invocations.id", ondelete="SET NULL"), nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

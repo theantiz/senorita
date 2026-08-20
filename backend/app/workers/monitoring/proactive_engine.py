@@ -53,6 +53,7 @@ WINDOW_DAYS = settings.PROACTIVE_WINDOW_DAYS
 # Internal helpers
 # ─────────────────────────────────────────────────────────
 
+
 def _today_utc_range():
     now = datetime.now(timezone.utc)
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -75,6 +76,8 @@ async def _daily_count(session, user_id) -> int:
 
 async def _log_and_dispatch(session, user_id, trigger_type: str, message: str, importance_score: float = 0.0):
     """Insert a NotificationLog row and dispatch to the desktop tray."""
+    from app.core.metrics import proactive_notifications_total
+
     log_entry = NotificationLog(
         user_id=user_id,
         trigger_type=trigger_type,
@@ -84,11 +87,13 @@ async def _log_and_dispatch(session, user_id, trigger_type: str, message: str, i
     )
     session.add(log_entry)
     await dispatch_notification(title="Señorita", message=message, payload={"trigger_type": trigger_type})
+    proactive_notifications_total.inc()
 
 
 # ─────────────────────────────────────────────────────────
 # Gemini helpers with graceful fallback when key is a placeholder
 # ─────────────────────────────────────────────────────────
+
 
 def _gemini_available() -> bool:
     try:
@@ -105,7 +110,7 @@ def _extract_date_from_content(content: str) -> datetime | None:
     Falls back to a simple ISO-pattern regex when Gemini is unavailable.
     """
     if not _gemini_available():
-        m = re.search(r'\d{4}-\d{2}-\d{2}', content)
+        m = re.search(r"\d{4}-\d{2}-\d{2}", content)
         if m:
             try:
                 return datetime.strptime(m.group(), "%Y-%m-%d").replace(tzinfo=timezone.utc)
@@ -122,7 +127,7 @@ def _extract_date_from_content(content: str) -> datetime | None:
             f"Text: {content}"
         )
         resp = client.models.generate_content(model=settings.GEMINI_MODEL, contents=[prompt])
-        raw = (resp.text or '').strip()
+        raw = (resp.text or "").strip()
         if raw.upper() == "NONE" or not raw:
             return None
         return datetime.strptime(raw[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
@@ -159,7 +164,7 @@ def _compose_notification(trigger_type: str, context_text: str, extra: str = "")
             "Reply with ONLY the notification text."
         )
         resp = client.models.generate_content(model=settings.GEMINI_MODEL, contents=[prompt])
-        return (resp.text or '').strip()
+        return (resp.text or "").strip()
     except Exception as e:
         logger.warning(f"Notification composition failed: {e}")
         return context_text
@@ -168,6 +173,7 @@ def _compose_notification(trigger_type: str, context_text: str, extra: str = "")
 # ─────────────────────────────────────────────────────────
 # Check A — memory date entries
 # ─────────────────────────────────────────────────────────
+
 
 async def _check_memory_dates(session, user: User) -> list[tuple]:
     """Returns list of (importance_score, trigger_type, message, post_fn)."""
@@ -208,6 +214,7 @@ async def _check_memory_dates(session, user: User) -> list[tuple]:
 # Check B — stalled pending tasks
 # ─────────────────────────────────────────────────────────
 
+
 async def _check_stalled_tasks(session, user: User) -> list[tuple]:
     candidates = []
     now = datetime.now(timezone.utc)
@@ -237,7 +244,8 @@ async def _check_stalled_tasks(session, user: User) -> list[tuple]:
                     # Use payload text search as a heuristic for task linkage
                     func.cast(ActionLog.payload, JSONB).op("->>")(  # text of payload
                         "task_id"
-                    ) == str(task.id),
+                    )
+                    == str(task.id),
                 )
             )
         )
@@ -248,8 +256,7 @@ async def _check_stalled_tasks(session, user: User) -> list[tuple]:
         message = _compose_notification(
             trigger_type="stalled_task",
             context_text=(
-                f"Task '{task.title}' is due in {hours_left} hours "
-                f"and hasn't had any recorded progress."
+                f"Task '{task.title}' is due in {hours_left} hours " f"and hasn't had any recorded progress."
             ),
             extra=task.description or "",
         )
@@ -264,23 +271,24 @@ async def _check_stalled_tasks(session, user: User) -> list[tuple]:
 # Check B2 — ask for updates on any lingering tasks
 # ─────────────────────────────────────────────────────────
 
+
 async def _ask_for_task_updates(session, user: User) -> list[tuple]:
     """Find pending tasks that haven't had any activity in 2 days and ask for an update."""
     candidates = []
     now = datetime.now(timezone.utc)
     activity_cutoff = now - timedelta(days=2)
-    
+
     result = await session.execute(
         select(Task).where(
             and_(
                 Task.user_id == user.id,
-                Task.status == 'pending',
+                Task.status == "pending",
                 Task.created_at < activity_cutoff,
             )
         )
     )
     tasks = result.scalars().all()
-    
+
     for task in tasks:
         # Check recent action logs for this task
         recent = await session.execute(
@@ -294,7 +302,7 @@ async def _ask_for_task_updates(session, user: User) -> list[tuple]:
         )
         if (recent.scalar() or 0) > 0:
             continue
-            
+
         # Also check if we already asked for an update on this task recently (deduplication)
         recent_notif = await session.execute(
             select(func.count(NotificationLog.id)).where(
@@ -302,7 +310,7 @@ async def _ask_for_task_updates(session, user: User) -> list[tuple]:
                     NotificationLog.user_id == user.id,
                     NotificationLog.trigger_type == "task_update_request",
                     NotificationLog.created_at >= now - timedelta(days=3),
-                    NotificationLog.message.like(f"%{task.title[:15]}%") 
+                    NotificationLog.message.like(f"%{task.title[:15]}%"),
                 )
             )
         )
@@ -312,22 +320,22 @@ async def _ask_for_task_updates(session, user: User) -> list[tuple]:
         message = _compose_notification(
             trigger_type="task_update_request",
             context_text=(
-                f"Your task '{task.title}' has been pending for a while. "
-                f"Do you have any updates on its status?"
+                f"Your task '{task.title}' has been pending for a while. " f"Do you have any updates on its status?"
             ),
             extra=task.description or "",
         )
-        
+
         priority_map = {"high": 0.7, "medium": 0.5, "low": 0.4}
         importance = priority_map.get(task.priority or "medium", 0.5)
         candidates.append((importance, "task_update_request", message, None))
-        
+
     return candidates
 
 
 # ─────────────────────────────────────────────────────────
 # Check C — unsurfaced calendar conflicts
 # ─────────────────────────────────────────────────────────
+
 
 async def _check_calendar_conflicts(session, user: User) -> list[tuple]:
     candidates = []
@@ -356,6 +364,7 @@ async def _check_calendar_conflicts(session, user: User) -> list[tuple]:
 
         # Capture event reference for the closure
         _event = event
+
         async def mark_surfaced(session=session, ev=_event):
             ev.surfaced = True
 
@@ -367,6 +376,7 @@ async def _check_calendar_conflicts(session, user: User) -> list[tuple]:
 # ─────────────────────────────────────────────────────────
 # Check D — Unanswered messages (> 4 hours)
 # ─────────────────────────────────────────────────────────
+
 
 async def _check_unanswered_messages(session, user: User) -> list[tuple]:
     candidates = []
@@ -398,7 +408,7 @@ async def _check_unanswered_messages(session, user: User) -> list[tuple]:
                         NotificationLog.user_id == user.id,
                         NotificationLog.trigger_type == "unanswered_message",
                         NotificationLog.created_at >= now - timedelta(hours=12),
-                        NotificationLog.message.like(f"%{msg['from']}%") # simple heuristic
+                        NotificationLog.message.like(f"%{msg['from']}%"),  # simple heuristic
                     )
                 )
             )
@@ -412,7 +422,7 @@ async def _check_unanswered_messages(session, user: User) -> list[tuple]:
                     f"Message from {msg['from']} via {msg['channel']} "
                     f"has been unanswered for {hours_waiting} hours.\n"
                     f"Snippet: {msg['snippet']}"
-                )
+                ),
             )
 
             candidates.append((0.6, "unanswered_message", message_text, None))
@@ -424,6 +434,7 @@ async def _check_unanswered_messages(session, user: User) -> list[tuple]:
 # Check E — Meeting Prep
 # ─────────────────────────────────────────────────────────
 
+
 async def _check_meeting_prep(session, user: User) -> list[tuple]:
     candidates = []
     now = datetime.now(timezone.utc)
@@ -434,7 +445,7 @@ async def _check_meeting_prep(session, user: User) -> list[tuple]:
             CalendarEvent.user_id == user.id,
             CalendarEvent.start_at >= now,
             CalendarEvent.start_at <= prep_window,
-            CalendarEvent.prep_generated == False
+            CalendarEvent.prep_generated == False,
         )
     )
     events_res = await session.execute(events_stmt)
@@ -448,13 +459,8 @@ async def _check_meeting_prep(session, user: User) -> list[tuple]:
     for event in events:
         attendees_context = []
 
-        for attendee in (event.attendees or []):
-            contact_stmt = select(Contact).where(
-                and_(
-                    Contact.user_id == user.id,
-                    Contact.name.ilike(f"%{attendee}%")
-                )
-            )
+        for attendee in event.attendees or []:
+            contact_stmt = select(Contact).where(and_(Contact.user_id == user.id, Contact.name.ilike(f"%{attendee}%")))
             contact_res = await session.execute(contact_stmt)
             contacts = contact_res.scalars().all()
 
@@ -465,36 +471,40 @@ async def _check_meeting_prep(session, user: User) -> list[tuple]:
                 if contact.last_discussed_topic:
                     context_parts.append(f"- Last discussed topic: {contact.last_discussed_topic}")
 
-                email_stmt = select(EmailMessage).where(
-                    and_(
-                        EmailMessage.user_id == user.id,
-                        or_(
-                            EmailMessage.from_address.ilike(f"%{contact.name}%"),
-                            EmailMessage.to_address.ilike(f"%{contact.name}%")
+                email_stmt = (
+                    select(EmailMessage)
+                    .where(
+                        and_(
+                            EmailMessage.user_id == user.id,
+                            or_(
+                                EmailMessage.from_address.ilike(f"%{contact.name}%"),
+                                EmailMessage.to_address.ilike(f"%{contact.name}%"),
+                            ),
                         )
                     )
-                ).order_by(EmailMessage.received_at.desc()).limit(3)
+                    .order_by(EmailMessage.received_at.desc())
+                    .limit(3)
+                )
                 emails_res = await session.execute(email_stmt)
                 for em in emails_res.scalars().all():
                     context_parts.append(f"- Recent Email ({em.direction}): {em.subject} - {em.snippet}")
 
-                slack_stmt = select(SlackMessage).where(
-                    and_(
-                        SlackMessage.user_id == user.id,
-                        SlackMessage.from_user.ilike(f"%{contact.name}%")
-                    )
-                ).order_by(SlackMessage.received_at.desc()).limit(3)
+                slack_stmt = (
+                    select(SlackMessage)
+                    .where(and_(SlackMessage.user_id == user.id, SlackMessage.from_user.ilike(f"%{contact.name}%")))
+                    .order_by(SlackMessage.received_at.desc())
+                    .limit(3)
+                )
                 slack_res = await session.execute(slack_stmt)
                 for sm in slack_res.scalars().all():
                     context_parts.append(f"- Recent Slack Message: {sm.body_snippet}")
 
-                task_stmt = select(Task).where(
-                    and_(
-                        Task.user_id == user.id,
-                        Task.contact_id == contact.id,
-                        Task.status != 'done'
-                    )
-                ).order_by(Task.created_at.desc()).limit(3)
+                task_stmt = (
+                    select(Task)
+                    .where(and_(Task.user_id == user.id, Task.contact_id == contact.id, Task.status != "done"))
+                    .order_by(Task.created_at.desc())
+                    .limit(3)
+                )
                 task_res = await session.execute(task_stmt)
                 for t in task_res.scalars().all():
                     context_parts.append(f"- Pending Task: {t.title}")
@@ -528,12 +538,13 @@ Reply with ONLY the spoken notification text.
 """
         try:
             resp = client.models.generate_content(model=settings.GEMINI_MODEL, contents=[prompt])
-            message = (resp.text or '').strip()
+            message = (resp.text or "").strip()
         except Exception as e:
             logger.error(f"Failed to generate meeting prep brief: {e}")
             message = f"Sir, I encountered a fault preparing your briefing for '{event.title}'."
 
         _event = event
+
         async def mark_prep_generated(session=session, ev=_event):
             ev.prep_generated = True
 
@@ -546,7 +557,15 @@ Reply with ONLY the spoken notification text.
 # Per-user dispatch with cap enforcement
 # ─────────────────────────────────────────────────────────
 
+
 async def _process_user(session, user: User):
+    # Quiet hours check: 23:00 to 08:00 local time (for simplicity, using UTC or assuming user is UTC right now)
+    # Ideally, we would use the user's timezone.
+    now = datetime.now(timezone.utc)
+    # For now, let's assume local time or UTC based quiet hours. We'll use UTC for this check if user TZ is missing.
+    # To implement URGENT bypass, we will filter candidates.
+    in_quiet_hours = now.hour >= 23 or now.hour < 8
+
     daily_count = await _daily_count(session, user.id)
     remaining_cap = DAILY_CAP - daily_count
 
@@ -572,6 +591,11 @@ async def _process_user(session, user: User):
     dispatched = 0
     skipped = 0
     for importance, trigger_type, message, post_fn in all_candidates:
+        # Enforce quiet hours (only URGENT >= 0.9 overrides)
+        if in_quiet_hours and importance < 0.9:
+            skipped += 1
+            continue
+
         if dispatched >= remaining_cap:
             skipped += 1
             continue  # held for tomorrow — NOT marked processed
@@ -583,14 +607,13 @@ async def _process_user(session, user: User):
         logger.info(f"User {user.id} [{trigger_type}] importance={importance:.2f}: {message}")
 
     if skipped:
-        logger.info(
-            f"User {user.id}: cap hit — {skipped} candidate(s) held for next cycle."
-        )
+        logger.info(f"User {user.id}: cap/quiet hours hit — {skipped} candidate(s) held for next cycle.")
 
 
 # ─────────────────────────────────────────────────────────
 # Main entry point
 # ─────────────────────────────────────────────────────────
+
 
 async def proactive_check():
     """

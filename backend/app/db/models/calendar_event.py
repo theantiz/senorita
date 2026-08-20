@@ -17,13 +17,13 @@ class CalendarEvent(Base):
     title: Mapped[str] = mapped_column(Text, nullable=False)
     start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    attendees: Mapped[list] = mapped_column(JSONB, server_default='[]', nullable=False)
-    source: Mapped[str] = mapped_column(Text, default='manual', server_default='manual', nullable=False)
-    source_calendar: Mapped[str] = mapped_column(Text, default='local', nullable=False)
+    attendees: Mapped[list] = mapped_column(JSONB, server_default="[]", nullable=False)
+    source: Mapped[str] = mapped_column(Text, default="manual", server_default="manual", nullable=False)
+    source_calendar: Mapped[str] = mapped_column(Text, default="local", nullable=False)
     google_event_id: Mapped[str | None] = mapped_column(Text, nullable=True)
-    conflict_flags: Mapped[list] = mapped_column(JSONB, server_default='[]', nullable=False)
-    surfaced: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False) # From Module 9
-    prep_generated: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false', nullable=False)
+    conflict_flags: Mapped[list] = mapped_column(JSONB, server_default="[]", nullable=False)
+    surfaced: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # From Module 9
+    prep_generated: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     user = relationship("User", back_populates="calendar_events")

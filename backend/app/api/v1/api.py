@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     activity,
+    agent,
     auth,
     briefings,
     calendar,
@@ -13,6 +14,7 @@ from app.api.v1.endpoints import (
     message_modes,
     notifications,
     plans,
+    preferences,
     reminders,
     slack,
     system,
@@ -39,3 +41,5 @@ api_router.include_router(message_modes.router)
 api_router.include_router(briefings.router)
 api_router.include_router(notifications.router)
 api_router.include_router(plans.router)
+api_router.include_router(agent.router, prefix="/agent", tags=["agent"])
+api_router.include_router(preferences.router, prefix="/preferences", tags=["preferences"])

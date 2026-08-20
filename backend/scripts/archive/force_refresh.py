@@ -9,6 +9,7 @@ from app.integrations.base import get_adapter
 
 logging.basicConfig(level=logging.INFO)
 
+
 async def main():
     try:
         # get_db is a generator, so we need to iterate it
@@ -27,5 +28,6 @@ async def main():
             break
     except Exception as ex:
         print(f"Outer exception: {ex}")
+
 
 asyncio.run(main())

@@ -12,6 +12,7 @@ async def get_calendar_events(session: AsyncSession, user_id: UUID) -> list[Cale
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
+
 async def find_calendar_conflicts(
     session: AsyncSession,
     user_id: UUID,
@@ -29,10 +30,12 @@ async def find_calendar_conflicts(
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
+
 async def get_calendar_event(session: AsyncSession, user_id: UUID, event_id: UUID) -> CalendarEvent | None:
     stmt = select(CalendarEvent).where(CalendarEvent.user_id == user_id, CalendarEvent.id == event_id)
     result = await session.execute(stmt)
     return result.scalars().first()
+
 
 async def create_calendar_event(session: AsyncSession, user_id: UUID, event_in: CalendarEventCreate) -> CalendarEvent:
     payload = event_in.model_dump()
@@ -58,7 +61,10 @@ async def create_calendar_event(session: AsyncSession, user_id: UUID, event_in: 
     await session.refresh(event)
     return event
 
-async def update_calendar_event(session: AsyncSession, user_id: UUID, event_id: UUID, event_in: CalendarEventUpdate) -> CalendarEvent | None:
+
+async def update_calendar_event(
+    session: AsyncSession, user_id: UUID, event_id: UUID, event_in: CalendarEventUpdate
+) -> CalendarEvent | None:
     event = await get_calendar_event(session, user_id, event_id)
     if not event:
         return None
@@ -67,6 +73,7 @@ async def update_calendar_event(session: AsyncSession, user_id: UUID, event_id: 
     await session.commit()
     await session.refresh(event)
     return event
+
 
 async def delete_calendar_event(session: AsyncSession, user_id: UUID, event_id: UUID) -> bool:
     event = await get_calendar_event(session, user_id, event_id)

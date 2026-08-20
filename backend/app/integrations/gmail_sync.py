@@ -17,6 +17,7 @@ from app.integrations.base import get_adapter
 
 logger = logging.getLogger(__name__)
 
+
 async def _classify_email(snippet: str) -> dict:
     """Uses Gemini to classify an email's snippet for reply needs and deadlines."""
     try:
@@ -28,7 +29,7 @@ async def _classify_email(snippet: str) -> dict:
             f"Snippet: {snippet}"
         )
         resp = await client.aio.models.generate_content(model=settings.GEMINI_MODEL, contents=[prompt])
-        raw_json = (resp.text or '').strip()
+        raw_json = (resp.text or "").strip()
         # Remove markdown codeblocks if Gemini adds them
         if raw_json.startswith("```json"):
             raw_json = raw_json[7:-3]
@@ -44,13 +45,11 @@ async def _classify_email(snippet: str) -> dict:
             except ValueError:
                 pass
 
-        return {
-            "needs_reply": bool(parsed.get("needs_reply", False)),
-            "deadline": deadline
-        }
+        return {"needs_reply": bool(parsed.get("needs_reply", False)), "deadline": deadline}
     except Exception as e:
         logger.warning(f"Failed to classify email snippet: {e}")
         return {"needs_reply": False, "deadline": None}
+
 
 async def _sync_user_gmail(session: AsyncSession, integration: Integration):
     adapter = get_adapter("gmail")
@@ -72,24 +71,30 @@ async def _sync_user_gmail(session: AsyncSession, integration: Integration):
     # 2. Build Gmail API client
     access_token = decrypt(integration.access_token_encrypted)
     creds = Credentials(token=access_token)
-    service = build('gmail', 'v1', credentials=creds, cache_discovery=False)
+    service = build("gmail", "v1", credentials=creds, cache_discovery=False)
 
     # 3. Fetch messages
     try:
         import asyncio
-        results = await asyncio.to_thread(lambda: service.users().messages().list(userId='me', q="is:unread", maxResults=20).execute())
-        messages = results.get('messages', [])
+
+        results = await asyncio.to_thread(
+            lambda: service.users().messages().list(userId="me", q="is:unread", maxResults=20).execute()
+        )
+        messages = results.get("messages", [])
 
         for msg_ref in messages:
-            msg_id = msg_ref['id']
+            msg_id = msg_ref["id"]
 
-            existing = await session.execute(
-                select(EmailMessage).where(EmailMessage.gmail_message_id == msg_id)
-            )
+            existing = await session.execute(select(EmailMessage).where(EmailMessage.gmail_message_id == msg_id))
             if existing.scalar_one_or_none():
                 continue
 
-            msg_data = await asyncio.to_thread(lambda id=msg_id: service.users().messages().get(userId='me', id=id, format='metadata', metadataHeaders=['From', 'Subject']).execute())
+            msg_data = await asyncio.to_thread(
+                lambda id=msg_id: service.users()
+                .messages()
+                .get(userId="me", id=id, format="metadata", metadataHeaders=["From", "Subject"])
+                .execute()
+            )
 
             headers = msg_data.get("payload", {}).get("headers", [])
             from_address = next((h["value"] for h in headers if h["name"].lower() == "from"), "Unknown")
@@ -107,11 +112,11 @@ async def _sync_user_gmail(session: AsyncSession, integration: Integration):
                 from_address=from_address,
                 subject=subject,
                 snippet=snippet,
-                direction='inbound',
+                direction="inbound",
                 received_at=received_at,
                 is_read=False,
                 needs_reply=classification["needs_reply"],
-                deadline_detected=classification["deadline"]
+                deadline_detected=classification["deadline"],
             )
             session.add(new_msg)
 
@@ -130,23 +135,26 @@ async def _sync_user_gmail_sent(session: AsyncSession, integration: Integration,
     """Polls the Sent folder for outbound emails. Skips classification entirely."""
     try:
         import asyncio
-        results = await asyncio.to_thread(lambda: service.users().messages().list(userId='me', q="in:sent", maxResults=20).execute())
-        messages = results.get('messages', [])
+
+        results = await asyncio.to_thread(
+            lambda: service.users().messages().list(userId="me", q="in:sent", maxResults=20).execute()
+        )
+        messages = results.get("messages", [])
 
         for msg_ref in messages:
-            msg_id = msg_ref['id']
+            msg_id = msg_ref["id"]
 
             # dedup — same pattern as inbound
-            existing = await session.execute(
-                select(EmailMessage).where(EmailMessage.gmail_message_id == msg_id)
-            )
+            existing = await session.execute(select(EmailMessage).where(EmailMessage.gmail_message_id == msg_id))
             if existing.scalar_one_or_none():
                 continue
 
-            msg_data = await asyncio.to_thread(lambda id=msg_id: service.users().messages().get(
-                userId='me', id=id, format='metadata',
-                metadataHeaders=['From', 'To', 'Subject']
-            ).execute())
+            msg_data = await asyncio.to_thread(
+                lambda id=msg_id: service.users()
+                .messages()
+                .get(userId="me", id=id, format="metadata", metadataHeaders=["From", "To", "Subject"])
+                .execute()
+            )
 
             headers = msg_data.get("payload", {}).get("headers", [])
             from_address = next((h["value"] for h in headers if h["name"].lower() == "from"), "Unknown")
@@ -164,11 +172,11 @@ async def _sync_user_gmail_sent(session: AsyncSession, integration: Integration,
                 to_address=to_address,
                 subject=subject,
                 snippet=snippet,
-                direction='outbound',
+                direction="outbound",
                 received_at=sent_at,
                 is_read=True,
                 needs_reply=None,
-                deadline_detected=None
+                deadline_detected=None,
             )
             session.add(new_msg)
 
@@ -176,6 +184,7 @@ async def _sync_user_gmail_sent(session: AsyncSession, integration: Integration,
         logger.info(f"Sent-folder sync complete for user {integration.user_id}")
     except Exception as e:
         logger.error(f"Error syncing sent Gmail for user {integration.user_id}: {e}")
+
 
 async def gmail_sync_check():
     """Polls Gmail for new emails across all active integrations."""
@@ -186,12 +195,7 @@ async def gmail_sync_check():
     logger.info("Gmail sync: starting check cycle.")
     async with async_session_factory() as session:
         result = await session.execute(
-            select(Integration).where(
-                and_(
-                    Integration.provider == "gmail",
-                    Integration.status == "connected"
-                )
-            )
+            select(Integration).where(and_(Integration.provider == "gmail", Integration.status == "connected"))
         )
         integrations = result.scalars().all()
 
@@ -203,11 +207,12 @@ async def gmail_sync_check():
 
     logger.info("Gmail sync: cycle complete.")
 
+
 def start_gmail_sync_engine(scheduler):
     scheduler.add_job(
         gmail_sync_check,
         "interval",
-        seconds=600, # 10 minutes for email
+        seconds=600,  # 10 minutes for email
         id="gmail_sync_engine",
         replace_existing=True,
     )

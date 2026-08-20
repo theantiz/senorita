@@ -102,13 +102,11 @@ class SlackIntegrationAdapter(IntegrationAdapter):
 
     def is_token_valid(self, integration) -> bool:
         # Slack bot tokens are valid until revoked.
-        return (
-            integration.status == "connected"
-            and bool(integration.access_token_encrypted)
-        )
+        return integration.status == "connected" and bool(integration.access_token_encrypted)
 
     async def revoke_tokens(self, integration) -> None:
         from core.crypto import decrypt
+
         token = decrypt(integration.access_token_encrypted)
         async with httpx.AsyncClient() as client:
             resp = await client.post(

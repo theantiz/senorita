@@ -1,14 +1,15 @@
 import argparse
-import sys
 import os
+import sys
 from pathlib import Path
 
 # Add backend directory to path so imports work correctly
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import uvicorn
-from app.main import app
+
 from app.core.config import settings
+from app.main import app
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run Señorita Backend")

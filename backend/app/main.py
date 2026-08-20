@@ -7,7 +7,7 @@ from pathlib import Path
 # Ensure backend package is importable
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from fastapi import APIRouter, APIRouter, FastAPI, HTTPException, Request, Response, status
+from fastapi import APIRouter, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from sqlalchemy.exc import IntegrityError
@@ -68,6 +68,7 @@ async def lifespan(app: FastAPI):
 
     if not settings.TESTING:
         import asyncio
+
         from app.integrations.gmail_sync import start_gmail_sync_engine
         from app.integrations.google_calendar_sync import start_google_calendar_sync_engine
         from app.workers.monitoring.proactive_engine import start_proactive_engine
@@ -94,6 +95,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
 # ─── Security headers middleware ───────────────────────────────────────────────
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
@@ -107,6 +109,7 @@ async def add_security_headers(request: Request, call_next):
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
+
 # ─── CORS ─────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
@@ -115,6 +118,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # ─── Exception handlers ────────────────────────────────────────────────────────
 @app.exception_handler(HTTPException)
@@ -139,6 +143,7 @@ async def integrity_error_handler(request: Request, exc: IntegrityError):
         content={"detail": "Database constraint violation occurred."},
     )
 
+
 # ─── Prometheus metrics endpoint ───────────────────────────────────────────────
 @app.get("/metrics", include_in_schema=False)
 async def metrics_endpoint():
@@ -158,6 +163,7 @@ async def liveness():
 async def readiness():
     """Readiness: verifies Postgres is reachable before accepting traffic."""
     from sqlalchemy import text
+
     try:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))

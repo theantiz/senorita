@@ -21,6 +21,7 @@ from typing import Deque, Dict, Tuple
 @dataclass(frozen=True)
 class RateLimitRule:
     """A rate limit rule: at most `max_calls` in `window_seconds`."""
+
     max_calls: int
     window_seconds: float
 
@@ -89,9 +90,9 @@ class InProcessRateLimiter:
 limiter = InProcessRateLimiter()
 
 # Default rules — override via environment if needed
-limiter.define("chat_message",          RateLimitRule(60, 60))   # 60/min per user
-limiter.define("websocket_connect",     RateLimitRule(15, 60))   # 15 new WS/min per user
-limiter.define("agent_run_create",      RateLimitRule(20, 60))   # 20 runs/min per user
-limiter.define("plan_create",           RateLimitRule(10, 60))   # 10 plans/min per user
-limiter.define("confirmation_attempt",  RateLimitRule(10, 60))   # 10 confirmations/min per user
-limiter.define("tool_execution",        RateLimitRule(100, 60))  # 100 tool calls/min per user
+limiter.define("chat_message", RateLimitRule(60, 60))  # 60/min per user
+limiter.define("websocket_connect", RateLimitRule(15, 60))  # 15 new WS/min per user
+limiter.define("agent_run_create", RateLimitRule(20, 60))  # 20 runs/min per user
+limiter.define("plan_create", RateLimitRule(10, 60))  # 10 plans/min per user
+limiter.define("confirmation_attempt", RateLimitRule(10, 60))  # 10 confirmations/min per user
+limiter.define("tool_execution", RateLimitRule(100, 60))  # 100 tool calls/min per user

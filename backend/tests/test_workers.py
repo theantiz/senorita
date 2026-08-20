@@ -12,6 +12,7 @@ try:
 except ImportError:
     from zoneinfo import ZoneInfo
 
+
 @pytest.mark.asyncio
 async def test_check_reminders_fires_past_reminder(db_session):
     # Setup test user
@@ -26,7 +27,7 @@ async def test_check_reminders_fires_past_reminder(db_session):
         user_id=user.id,
         type="time",
         status="active",
-        trigger_payload={"datetime": past_time.isoformat(), "note": "Test reminder"}
+        trigger_payload={"datetime": past_time.isoformat(), "note": "Test reminder"},
     )
     db_session.add(reminder)
     await db_session.commit()
@@ -35,8 +36,11 @@ async def test_check_reminders_fires_past_reminder(db_session):
     # We mock dispatch_notification so it doesn't try to send a real system notification
     # We also mock async_session_factory so the worker queries the test DB, not the dev DB
     from tests.conftest import test_async_session_factory
-    with patch("app.workers.reminders.scheduler.dispatch_notification") as mock_dispatch, \
-         patch("app.workers.reminders.scheduler.async_session_factory", new=test_async_session_factory):
+
+    with (
+        patch("app.workers.reminders.scheduler.dispatch_notification") as mock_dispatch,
+        patch("app.workers.reminders.scheduler.async_session_factory", new=test_async_session_factory),
+    ):
         await check_reminders()
 
         # Verify it dispatched

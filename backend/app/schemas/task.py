@@ -9,13 +9,15 @@ class TaskBase(BaseModel):
     description: str | None = None
     due_at: datetime | None = None
     priority: str | None = None
-    status: str = 'pending'
+    status: str = "pending"
     project: str | None = None
     contact_id: UUID | None = None
     reminder_id: UUID | None = None
 
+
 class TaskCreate(TaskBase):
     pass
+
 
 class TaskUpdate(BaseModel):
     title: str | None = None
@@ -26,6 +28,7 @@ class TaskUpdate(BaseModel):
     project: str | None = None
     contact_id: UUID | None = None
     reminder_id: UUID | None = None
+
 
 class TaskRead(TaskBase):
     id: UUID

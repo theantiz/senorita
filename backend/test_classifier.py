@@ -1,15 +1,16 @@
 import asyncio
-import os
 import json
+import os
 from datetime import datetime
 from uuid import UUID
 
-from app.core.config import settings
 from app.agents.gemini_client import start_chat
+from app.core.config import settings
+
 
 async def main():
     chat = start_chat()
-    prompt = f"""Analyze the following exchange. Did the user mention a durable fact about their life worth remembering that wasn't already explicitly stored? 
+    prompt = """Analyze the following exchange. Did the user mention a durable fact about their life worth remembering that wasn't already explicitly stored? 
 If yes, extract it as a single sentence. Return ONLY a JSON object with:
 'has_fact': boolean,
 'fact': string (the sentence),
@@ -24,7 +25,7 @@ User: I should reach out to her sometime
 Assistant: That sounds like a good idea.
 """
     response = await chat.send_message(prompt)
-    text = (response.text or '').strip()
+    text = (response.text or "").strip()
     if text.startswith("```json"):
         text = text[7:-3]
     elif text.startswith("```"):
@@ -32,6 +33,7 @@ Assistant: That sounds like a good idea.
     data = json.loads(text)
     print("CLASSIFIER OUTPUT:")
     print(json.dumps(data, indent=2))
+
 
 if __name__ == "__main__":
     asyncio.run(main())

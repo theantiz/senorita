@@ -7,9 +7,7 @@ class Base(DeclarativeBase):
 
 
 class TimestampMixin:
-    created_at: Mapped[DateTime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[DateTime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -17,4 +15,3 @@ class TimestampMixin:
 
 class HasIdMixin:
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, index=True)
-

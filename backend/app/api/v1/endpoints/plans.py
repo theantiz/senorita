@@ -23,6 +23,7 @@ async def resume_run(
     Resume a run that is paused or waiting for confirmation.
     """
     from app.db.models.run import AgentRun
+
     stmt = select(AgentRun).where(AgentRun.id == run_id, AgentRun.user_id == current_user.id)
     result = await db.execute(stmt)
     run = result.scalar_one_or_none()
@@ -64,6 +65,7 @@ async def cancel_run(
     Cancel an active run.
     """
     from app.db.models.run import AgentRun
+
     stmt = select(AgentRun).where(AgentRun.id == run_id, AgentRun.user_id == current_user.id)
     result = await db.execute(stmt)
     run = result.scalar_one_or_none()
@@ -79,6 +81,7 @@ async def cancel_run(
 
     return {"message": "Run cancelled", "run_id": run_id}
 
+
 @router.get("/runs/{run_id}")
 async def get_run_status(
     run_id: UUID,
@@ -89,7 +92,11 @@ async def get_run_status(
 
     from app.db.models.run import AgentRun
 
-    stmt = select(AgentRun).options(selectinload(AgentRun.plan).selectinload(AgentPlan.steps)).where(AgentRun.id == run_id, AgentRun.user_id == current_user.id)
+    stmt = (
+        select(AgentRun)
+        .options(selectinload(AgentRun.plan).selectinload(AgentPlan.steps))
+        .where(AgentRun.id == run_id, AgentRun.user_id == current_user.id)
+    )
     result = await db.execute(stmt)
     run = result.scalar_one_or_none()
 
@@ -100,7 +107,7 @@ async def get_run_status(
         "agent_run_id": str(run.id),
         "status": run.status,
         "created_at": run.created_at.isoformat(),
-        "plan_id": str(run.plan_id) if run.plan_id else None
+        "plan_id": str(run.plan_id) if run.plan_id else None,
     }
 
     if run.plan:
@@ -108,13 +115,9 @@ async def get_run_status(
             "status": run.plan.status,
             "goal": run.plan.goal,
             "steps": [
-                {
-                    "step_id": s.step_id,
-                    "tool_name": s.tool_name,
-                    "status": s.status,
-                    "depends_on": s.depends_on
-                } for s in run.plan.steps
-            ]
+                {"step_id": s.step_id, "tool_name": s.tool_name, "status": s.status, "depends_on": s.depends_on}
+                for s in run.plan.steps
+            ],
         }
 
     return payload

@@ -4,6 +4,7 @@ from app.agents.tool_registry import get_tool_registry
 
 class PlanValidationError(Exception):
     """Raised when a plan fails validation."""
+
     pass
 
 
@@ -38,16 +39,12 @@ def validate_plan(plan: PlanSchema) -> None:  # noqa: C901
 
         # Validate risk level
         if step.risk_level not in ("LOW", "MEDIUM", "HIGH", "CRITICAL"):
-            raise PlanValidationError(
-                f"Step '{step.step_id}' has invalid risk_level '{step.risk_level}'."
-            )
+            raise PlanValidationError(f"Step '{step.step_id}' has invalid risk_level '{step.risk_level}'.")
 
         # 3. Dependency validation
         for dep in step.depends_on:
             if dep not in step_ids:
-                raise PlanValidationError(
-                    f"Step '{step.step_id}' depends on non-existent step_id '{dep}'."
-                )
+                raise PlanValidationError(f"Step '{step.step_id}' depends on non-existent step_id '{dep}'.")
             if dep == step.step_id:
                 raise PlanValidationError(f"Step '{step.step_id}' cannot depend on itself.")
 

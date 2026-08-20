@@ -29,6 +29,7 @@ async def extract_intent(context: AgentContext, provider: LLMProvider) -> Intent
         f"User Timezone: {context.timezone}\n"
         f"Recent History:\n{history_str}\n\n"
         f"Current User Query: {context.message}\n"
+        f"{context.enriched_context}\n"
     )
 
     # Use the structured generation to enforce pydantic validation on the output

@@ -19,8 +19,6 @@ class Conversation(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    __table_args__ = (
-        CheckConstraint(role.in_(['user','assistant']), name='conversation_role_check'),
-    )
+    __table_args__ = (CheckConstraint(role.in_(["user", "assistant"]), name="conversation_role_check"),)
 
     user = relationship("User", back_populates="conversations")

@@ -19,8 +19,8 @@ engine = create_async_engine(
     pool_size=5,
     max_overflow=10,
     pool_timeout=30,
-    pool_recycle=1800,    # 30 min – shorter than typical PG idle timeout (1 hour)
-    pool_pre_ping=True,   # Detects severed connections before use
+    pool_recycle=1800,  # 30 min – shorter than typical PG idle timeout (1 hour)
+    pool_pre_ping=True,  # Detects severed connections before use
 )
 
 async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

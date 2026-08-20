@@ -11,18 +11,20 @@ from app.db.models.integration import Integration
 from app.db.models.memory_entry import MemoryEntry
 from app.db.models.message_mode import MessageMode
 from app.db.models.notification_log import NotificationLog
+from app.db.models.plan import AgentPlan, AgentPlanStep
+from app.db.models.preference import Preference
 from app.db.models.reminder import Reminder
+from app.db.models.run import AgentEvent, AgentRun
 from app.db.models.slack_message import SlackMessage
 from app.db.models.task import Task
 from app.db.models.tool_invocation import ToolConfirmation, ToolIdempotencyKey, ToolInvocation
 from app.db.models.user import User
-from app.db.models.plan import AgentPlan, AgentPlanStep
-from app.db.models.run import AgentRun, AgentEvent
 
 __all__ = [
     "User",
     "Contact",
     "MemoryEntry",
+    "Preference",
     "Task",
     "Reminder",
     "CalendarEvent",

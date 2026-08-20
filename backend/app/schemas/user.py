@@ -9,10 +9,12 @@ class UserBase(BaseModel):
     timezone: str
     autonomy_level: int = 2
     style_profile: dict = {}
-    memory_capture_sensitivity: str = 'conservative'
+    memory_capture_sensitivity: str = "conservative"
+
 
 class UserCreate(UserBase):
     pass
+
 
 class UserUpdate(BaseModel):
     name: str | None = None
@@ -20,6 +22,7 @@ class UserUpdate(BaseModel):
     autonomy_level: int | None = None
     style_profile: dict | None = None
     memory_capture_sensitivity: str | None = None
+
 
 class UserRead(UserBase):
     id: UUID

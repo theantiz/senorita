@@ -26,7 +26,7 @@ def test_tool_planner_discovery_with_intent_filtering():
         constraints=[],
         required_capabilities=["communication"],
         ambiguities=[],
-        routing_decision="DIRECT_EXECUTION"
+        routing_decision="DIRECT_EXECUTION",
     )
 
     discovered = planner.discover("email Rahul", intent=intent)
@@ -40,7 +40,7 @@ def test_tool_planner_discovery_with_intent_filtering():
         constraints=[],
         required_capabilities=["productivity"],
         ambiguities=[],
-        routing_decision="DIRECT_EXECUTION"
+        routing_decision="DIRECT_EXECUTION",
     )
 
     discovered_prod = planner.discover("email Rahul", intent=intent_productivity)

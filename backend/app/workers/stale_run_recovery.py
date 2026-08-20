@@ -29,8 +29,8 @@ _CHECK_INTERVAL = int(getattr(settings, "STALE_RUN_CHECK_INTERVAL_SECONDS", 120)
 
 async def _mark_stale_runs() -> int:
     """Marks RUNNING runs older than the stale threshold as FAILED. Returns count."""
-    from app.db.models.run import AgentRun
     from app.agents.events import record_and_publish_event
+    from app.db.models.run import AgentRun
 
     cutoff = datetime.now(tz=timezone.utc) - timedelta(seconds=_STALE_TIMEOUT)
 

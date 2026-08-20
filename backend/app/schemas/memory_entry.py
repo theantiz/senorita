@@ -11,10 +11,12 @@ class MemoryEntryBase(BaseModel):
     confidence: str | None = None
     importance_score: float | None = None
     locked: bool = False
-    status: str = 'active'
+    status: str = "active"
+
 
 class MemoryEntryCreate(MemoryEntryBase):
     pass
+
 
 class MemoryEntryUpdate(BaseModel):
     content: str | None = None
@@ -24,6 +26,7 @@ class MemoryEntryUpdate(BaseModel):
     importance_score: float | None = None
     locked: bool | None = None
     status: str | None = None
+
 
 class MemoryEntryRead(MemoryEntryBase):
     id: UUID

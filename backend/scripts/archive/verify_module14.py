@@ -42,21 +42,13 @@ async def run_verification():
 
         # 3. Set Global Mode to 'approval_required'
         global_mode = MessageMode(
-            user_id=user_id,
-            scope="global",
-            contact_id=None,
-            channel=None,
-            mode="approval_required"
+            user_id=user_id, scope="global", contact_id=None, channel=None, mode="approval_required"
         )
         session.add(global_mode)
 
         # 4. Override Contact + Slack combination to 'trusted'
         slack_override = MessageMode(
-            user_id=user_id,
-            scope="contact",
-            contact_id=contact_id,
-            channel="slack",
-            mode="trusted"
+            user_id=user_id, scope="contact", contact_id=contact_id, channel="slack", mode="trusted"
         )
         session.add(slack_override)
 
@@ -94,7 +86,7 @@ async def run_verification():
             subject="Urgent question",
             snippet="Can we schedule a call?",
             received_at=datetime.now(timezone.utc),
-            needs_reply=True
+            needs_reply=True,
         )
         session.add(email)
 
@@ -106,7 +98,7 @@ async def run_verification():
             from_user="U98765",
             body_snippet="Hey, are you free now?",
             received_at=datetime.now(timezone.utc),
-            needs_reply=True
+            needs_reply=True,
         )
         session.add(slack)
 
@@ -117,6 +109,7 @@ async def run_verification():
 
         print("\nReal Output from _handle_search_all_unanswered():")
         import json
+
         print(json.dumps(results, indent=2))
 
         print("\nChecking against DB rows...")
@@ -127,6 +120,7 @@ async def run_verification():
             print("✅ PASS: Both channels successfully queried and unified.")
         else:
             print("❌ FAIL: Did not return 2 unanswered messages.")
+
 
 if __name__ == "__main__":
     asyncio.run(run_verification())

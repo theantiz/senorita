@@ -23,7 +23,10 @@ async def generate_plan(
     )
 
     tools_str = "\n".join(
-        [f"- {t.get('name', '')}: {t.get('description', '')} (Risk: {t.get('risk_level', 'LOW')})" for t in available_tools]
+        [
+            f"- {t.get('name', '')}: {t.get('description', '')} (Risk: {t.get('risk_level', 'LOW')})"
+            for t in available_tools
+        ]
     )
 
     prompt = (
@@ -31,6 +34,7 @@ async def generate_plan(
         f"Entities/Constraints: {intent.entities} | {intent.constraints}\n\n"
         f"Available Tools:\n{tools_str}\n\n"
         f"Original User Request: {context.message}\n"
+        f"{context.enriched_context}\n"
     )
 
     plan = await provider.generate_structured(

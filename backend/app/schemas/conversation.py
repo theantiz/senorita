@@ -9,8 +9,10 @@ class ConversationBase(BaseModel):
     role: str
     content: str
 
+
 class ConversationCreate(ConversationBase):
     pass
+
 
 class ConversationRead(ConversationBase):
     id: UUID

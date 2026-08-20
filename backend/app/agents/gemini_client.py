@@ -5,6 +5,7 @@ from app.core.config import settings
 
 _client_instance = None
 
+
 def get_client() -> genai.Client:
     global _client_instance
     if _client_instance is None:
@@ -12,6 +13,7 @@ def get_client() -> genai.Client:
             raise ValueError("GEMINI_API_KEY is not set")
         _client_instance = genai.Client(api_key=settings.GEMINI_API_KEY)
     return _client_instance
+
 
 def start_chat(tools: list | None = None, system_instruction: str | None = None):
     client = get_client()

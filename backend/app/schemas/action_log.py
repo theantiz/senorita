@@ -10,12 +10,15 @@ class ActionLogBase(BaseModel):
     result: str
     confirmed_by_user: bool = False
 
+
 class ActionLogCreate(ActionLogBase):
     pass
+
 
 class ActionLogUpdate(BaseModel):
     result: str | None = None
     confirmed_by_user: bool | None = None
+
 
 class ActionLogRead(ActionLogBase):
     id: UUID

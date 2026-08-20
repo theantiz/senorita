@@ -2,6 +2,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 async def dispatch_notification(title: str, message: str, payload: dict | None = None):
     """
     Stub for dispatching a notification.

@@ -29,10 +29,12 @@ if config.config_file_name is not None:
 # Use our app's metadata
 target_metadata = Base.metadata
 
+
 # Override the sqlalchemy.url from settings so we don't duplicate it
 # Convert asyncpg DSN → sync psycopg2 URL for Alembic's offline mode
 def get_sync_url() -> str:
     return settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+
 
 def run_migrations_offline() -> None:
     """Run migrations without a live DB connection (generates SQL)."""

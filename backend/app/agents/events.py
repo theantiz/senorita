@@ -1,12 +1,15 @@
 import asyncio
+import logging
 import uuid
 from collections import defaultdict
 from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.models.run import AgentRun, AgentEvent
-import logging
+
+from app.db.models.run import AgentEvent, AgentRun
 
 logger = logging.getLogger(__name__)
+
 
 class EventBroadcaster:
     def __init__(self):
@@ -30,6 +33,7 @@ class EventBroadcaster:
             except Exception as e:
                 logger.error(f"Failed to publish event to queue for run {run_id}: {e}")
 
+
 event_broadcaster = EventBroadcaster()
 
 
@@ -47,13 +51,13 @@ async def record_and_publish_event(
     Persist the event to Postgres and publish to any active WebSocket listeners.
     Ensures sequence ordering via SQL count.
     """
-    from sqlalchemy import select, func
-    
+    from sqlalchemy import func, select
+
     # Calculate next sequence number
     stmt = select(func.count()).where(AgentEvent.run_id == run_id)
     count = await session.scalar(stmt)
     sequence_number = (count or 0) + 1
-    
+
     event = AgentEvent(
         run_id=run_id,
         plan_id=plan_id,
@@ -62,13 +66,13 @@ async def record_and_publish_event(
         event_type=event_type,
         status=status,
         message=message,
-        metadata_payload=metadata_payload or {}
+        metadata_payload=metadata_payload or {},
     )
-    
+
     session.add(event)
     await session.commit()
     await session.refresh(event)
-    
+
     event_payload = {
         "event_id": str(event.id),
         "agent_run_id": str(run_id),
@@ -79,8 +83,8 @@ async def record_and_publish_event(
         "message": message,
         "timestamp": event.created_at.isoformat(),
         "metadata": event.metadata_payload,
-        "sequence": sequence_number
+        "sequence": sequence_number,
     }
-    
+
     event_broadcaster.publish(run_id, event_payload)
     return event

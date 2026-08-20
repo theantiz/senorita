@@ -15,14 +15,17 @@ class ToneStyle(BaseModel):
     uses_questions: Literal["rare", "occasional", "often"] = "occasional"
     uses_abbreviations: list[str] = Field(default_factory=list)
 
+
 class ToneRelationship(BaseModel):
     warmth: Literal["low", "medium", "high"] = "medium"
     professionalism: Literal["low", "medium", "high"] = "medium"
     directness: Literal["low", "medium", "high"] = "medium"
 
+
 class ReusablePattern(BaseModel):
     intent: str
     template: str
+
 
 class ChannelToneProfile(BaseModel):
     version: int = 1
@@ -39,9 +42,11 @@ class ChannelToneProfile(BaseModel):
     closing_examples: list[str] = Field(default_factory=list)
     reusable_patterns: list[ReusablePattern] = Field(default_factory=list)
 
+
 # A dictionary mapping channel name (e.g., "email", "slack") to its profile
 # We keep it as a dict in Pydantic so we can add arbitrary channels easily.
 ToneProfileDict = dict[str, ChannelToneProfile]
+
 
 class ContactBase(BaseModel):
     name: str
@@ -49,14 +54,17 @@ class ContactBase(BaseModel):
     tone_profile: dict = Field(default_factory=dict)
     last_discussed_topic: str | None = None
 
+
 class ContactCreate(ContactBase):
     pass
+
 
 class ContactUpdate(BaseModel):
     name: str | None = None
     relationship_type: str | None = None
     tone_profile: dict | None = None
     last_discussed_topic: str | None = None
+
 
 class ContactRead(ContactBase):
     id: UUID

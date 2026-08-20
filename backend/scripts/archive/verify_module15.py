@@ -39,10 +39,7 @@ async def run_verification():
         # Add mock integration so we know the user's slack ID
         user_slack_id = "U12345"
         integration = Integration(
-            user_id=user_id,
-            provider="slack",
-            status="connected",
-            permissions={"user_id": user_slack_id}
+            user_id=user_id, provider="slack", status="connected", permissions={"user_id": user_slack_id}
         )
         session.add(integration)
 
@@ -60,7 +57,7 @@ async def run_verification():
             channel_name="Buddy",
             body_snippet="Hey man, are we still on for lunch tomorrow?",
             received_at=datetime.now(timezone.utc),
-            needs_reply=True
+            needs_reply=True,
         )
         session.add(inbound)
         await session.flush()
@@ -77,7 +74,7 @@ async def run_verification():
             "cool see ya later",
             "dude what time?",
             "bet.",
-            "hey man, running 5 mins late!"
+            "hey man, running 5 mins late!",
         ]
 
         for i, text in enumerate(casual_messages):
@@ -85,11 +82,11 @@ async def run_verification():
                 user_id=user_id,
                 slack_channel_id="C_BUDDY",
                 slack_message_ts=f"1000000000.000{i+2}",
-                from_user=user_slack_id, # User sent this
+                from_user=user_slack_id,  # User sent this
                 channel_name="Buddy",
                 body_snippet=text,
                 received_at=datetime.now(timezone.utc),
-                needs_reply=False # outbound
+                needs_reply=False,  # outbound
             )
             session.add(msg)
 
@@ -104,7 +101,9 @@ async def run_verification():
         # Reload contact to get updated profile in memory
         await session.refresh(contact)
 
-        draft = await _handle_draft_slack_reply(session, user_id, str(inbound.slack_channel_id), "Confirm lunch is still on for tomorrow.")
+        draft = await _handle_draft_slack_reply(
+            session, user_id, str(inbound.slack_channel_id), "Confirm lunch is still on for tomorrow."
+        )
         print("Draft Output:")
         print(draft)
 
@@ -117,10 +116,10 @@ async def run_verification():
                 "sentence_length": "medium",
                 "punctuation": "standard",
                 "uses_lowercase": False,
-                "uses_exclamation": False
+                "uses_exclamation": False,
             },
             "greeting_examples": ["Dear Buddy", "Hello Buddy"],
-            "closing_examples": ["Best regards", "Sincerely"]
+            "closing_examples": ["Best regards", "Sincerely"],
         }
 
         new_profiles = dict(contact.tone_profile)
@@ -129,9 +128,12 @@ async def run_verification():
         await session.commit()
 
         print("\n[Test 4] Generating formal override draft...")
-        draft2 = await _handle_draft_slack_reply(session, user_id, str(inbound.slack_channel_id), "Confirm lunch is still on for tomorrow.")
+        draft2 = await _handle_draft_slack_reply(
+            session, user_id, str(inbound.slack_channel_id), "Confirm lunch is still on for tomorrow."
+        )
         print("Draft Output:")
         print(draft2)
+
 
 if __name__ == "__main__":
     asyncio.run(run_verification())

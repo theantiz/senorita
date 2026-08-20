@@ -13,16 +13,18 @@ from app.db.models import Contact, EmailMessage, Integration, SlackMessage
 
 logger = logging.getLogger(__name__)
 
+
 def _clean_email_body(text: str) -> str:
     """Removes common email signatures and quoted replies to isolate the user's actual text."""
     # Remove standard forwarded headers
-    text = re.sub(r'-----Original Message-----.*', '', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"-----Original Message-----.*", "", text, flags=re.IGNORECASE | re.DOTALL)
     # Remove common quoted reply blocks
-    text = re.sub(r'On\s+.*wrote:.*', '', text, flags=re.IGNORECASE | re.DOTALL)
-    text = re.sub(r'From:.*Sent:.*To:.*Subject:.*', '', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"On\s+.*wrote:.*", "", text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"From:.*Sent:.*To:.*Subject:.*", "", text, flags=re.IGNORECASE | re.DOTALL)
     # Remove HTML tags just in case
-    text = re.sub(r'<[^>]+>', '', text)
+    text = re.sub(r"<[^>]+>", "", text)
     return text.strip()
+
 
 async def infer_tone_profile(session: AsyncSession, user_id: UUID, contact_id: UUID, channel: str) -> dict | None:
     """
@@ -30,7 +32,11 @@ async def infer_tone_profile(session: AsyncSession, user_id: UUID, contact_id: U
     Only analyzes messages sent BY the user TO the contact.
     """
     # 1. Fetch Contact
-    contact = (await session.execute(select(Contact).where(Contact.id == contact_id, Contact.user_id == user_id))).scalars().first()
+    contact = (
+        (await session.execute(select(Contact).where(Contact.id == contact_id, Contact.user_id == user_id)))
+        .scalars()
+        .first()
+    )
     if not contact:
         return None
 
@@ -40,7 +46,15 @@ async def infer_tone_profile(session: AsyncSession, user_id: UUID, contact_id: U
         return None
 
     # 2. Fetch the user's identity for the channel to find outbound messages
-    integration = (await session.execute(select(Integration).where(Integration.user_id == user_id, Integration.provider == channel))).scalars().first()
+    integration = (
+        (
+            await session.execute(
+                select(Integration).where(Integration.user_id == user_id, Integration.provider == channel)
+            )
+        )
+        .scalars()
+        .first()
+    )
     if not integration:
         return None
 
@@ -49,30 +63,44 @@ async def infer_tone_profile(session: AsyncSession, user_id: UUID, contact_id: U
     if channel == "email" or channel == "gmail":
         channel_key = "email"
         # pull outbound emails directly using the direction column
-        msgs = (await session.execute(
-            select(EmailMessage)
-            .where(EmailMessage.user_id == user_id)
-            .where(EmailMessage.direction == 'outbound')
-            .order_by(EmailMessage.received_at.desc())
-            .limit(20)
-        )).scalars().all()
+        msgs = (
+            (
+                await session.execute(
+                    select(EmailMessage)
+                    .where(EmailMessage.user_id == user_id)
+                    .where(EmailMessage.direction == "outbound")
+                    .order_by(EmailMessage.received_at.desc())
+                    .limit(20)
+                )
+            )
+            .scalars()
+            .all()
+        )
         outbound_messages = [_clean_email_body(m.snippet) for m in msgs if m.snippet]
 
     elif channel == "slack":
         channel_key = "slack"
         # User's own slack ID is usually the bot's user ID or the installer's ID
-        user_slack_id = integration.permissions.get("authed_user", {}).get("id") or integration.permissions.get("user_id")
+        user_slack_id = integration.permissions.get("authed_user", {}).get("id") or integration.permissions.get(
+            "user_id"
+        )
         if not user_slack_id:
             logger.warning(f"Could not determine user's Slack ID from integration {integration.id}")
             return None
 
-        msgs = (await session.execute(
-            select(SlackMessage)
-            .where(SlackMessage.user_id == user_id)
-            .where(SlackMessage.from_user == user_slack_id)
-            .order_by(SlackMessage.received_at.desc())
-            .limit(20)
-        )).scalars().all()
+        msgs = (
+            (
+                await session.execute(
+                    select(SlackMessage)
+                    .where(SlackMessage.user_id == user_id)
+                    .where(SlackMessage.from_user == user_slack_id)
+                    .order_by(SlackMessage.received_at.desc())
+                    .limit(20)
+                )
+            )
+            .scalars()
+            .all()
+        )
         outbound_messages = [m.body_snippet for m in msgs if m.body_snippet]
     else:
         return None
@@ -84,7 +112,7 @@ async def infer_tone_profile(session: AsyncSession, user_id: UUID, contact_id: U
     # 3. Feed to Gemini
     client = get_client()
 
-    samples = "\\n---\\n".join(outbound_messages[:15]) # cap at 15 for prompt size
+    samples = "\\n---\\n".join(outbound_messages[:15])  # cap at 15 for prompt size
 
     prompt = f"""
     You are an expert linguist analyzing a user's conversational tone based on their sent messages.
@@ -121,7 +149,7 @@ async def infer_tone_profile(session: AsyncSession, user_id: UUID, contact_id: U
 
     try:
         resp = client.models.generate_content(model=settings.GEMINI_MODEL, contents=[prompt])
-        raw_json = (resp.text or '').strip()
+        raw_json = (resp.text or "").strip()
         if raw_json.startswith("```json"):
             raw_json = raw_json[7:-3]
         elif raw_json.startswith("```"):

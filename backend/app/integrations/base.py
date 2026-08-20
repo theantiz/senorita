@@ -54,9 +54,11 @@ class IntegrationAdapter(abc.ABC):
 
 _registry: dict[str, IntegrationAdapter] = {}
 
+
 def register_adapter(provider: str, adapter: IntegrationAdapter) -> None:
     """Register an adapter for a given provider name."""
     _registry[provider] = adapter
+
 
 def get_adapter(provider: str) -> IntegrationAdapter:
     """Retrieve the registered adapter for the provider name."""

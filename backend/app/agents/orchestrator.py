@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -14,7 +15,7 @@ from app.agents.gemini_client import get_client, start_chat
 from app.agents.prompts import build_system_instruction
 from app.agents.tool_registry import SENORITA_TOOLS, discover_tools_for_message, execute_tool, gemini_tools_for_names
 from app.agents.tool_system.persistence import redact_sensitive_arguments
-import os
+
 AGENT_MAX_EXECUTION_TIME = int(os.environ.get("AGENT_MAX_EXECUTION_TIME", "600"))
 
 from app.core.config import settings
@@ -256,6 +257,7 @@ Assistant: {final_text}
 
 async def handle_message(session: AsyncSession, user: User, message_text: str) -> str:  # noqa: C901
     from app.agents.context import AgentContext
+    from app.agents.context_builder import build_context
     from app.agents.executor import PlanExecutor
     from app.agents.intent import extract_intent
     from app.agents.llm_provider import GeminiProvider
@@ -267,13 +269,10 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
     from app.db.models.run import AgentRun
 
     message_text = message_text.strip()
-    memories = await _safe_memory_context(session, user.id, message_text)
-    contacts = await _fetch_contacts(session, user.id)
     conv_history = await _fetch_conversation_history(session, user.id)
     new_interaction_id = _previous_interaction_id(conv_history)
-    sys_inst = build_system_instruction(user, memories, contacts)
 
-    # 1. Build Context
+    # 1. Build Base Context
     context = AgentContext(
         user_id=str(user.id),
         conversation_id=new_interaction_id,
@@ -286,6 +285,12 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
 
     # 2. Extract Intent
     intent = await extract_intent(context, provider)
+    context.intent = intent
+
+    # 3. Build Enriched Context via ContextBuilder
+    context = await build_context(session, user, context)
+
+    sys_inst = build_system_instruction(user) + "\n" + context.enriched_context
 
     if intent.ambiguities:
         final_text = "I need a bit more clarification, baby: " + " ".join(intent.ambiguities)
@@ -308,9 +313,7 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
             validate_plan(plan)
 
             # Persist Plan to Database
-            db_plan = AgentPlan(
-                user_id=user.id, conversation_id=new_interaction_id, goal=plan.goal, status="CREATED"
-            )
+            db_plan = AgentPlan(user_id=user.id, conversation_id=new_interaction_id, goal=plan.goal, status="CREATED")
             session.add(db_plan)
             await session.flush()
 
@@ -339,9 +342,10 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
 
             # Start Background Execution
             import asyncio
-            from app.db.session import async_session_factory
             import os
-            
+
+            from app.db.session import async_session_factory
+
             async def _bg_executor(run_id):
                 try:
                     async with async_session_factory() as bg_session:
@@ -349,17 +353,20 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
                         try:
                             await asyncio.wait_for(executor.run(), timeout=AGENT_MAX_EXECUTION_TIME)
                         except asyncio.TimeoutError:
+                            from sqlalchemy import select
+
                             from app.agents.events import record_and_publish_event
                             from app.db.models.run import AgentRun
-                            from sqlalchemy import select
-                            
+
                             stmt = select(AgentRun).where(AgentRun.id == run_id)
                             res = await bg_session.execute(stmt)
                             run = res.scalar_one_or_none()
                             if run:
                                 run.status = "FAILED"
                                 await bg_session.commit()
-                                await record_and_publish_event(bg_session, run.id, "agent.failed", "failed", "Execution timed out.", run.plan_id)
+                                await record_and_publish_event(
+                                    bg_session, run.id, "agent.failed", "failed", "Execution timed out.", run.plan_id
+                                )
                 except Exception as e:
                     logger.error(f"Background execution failed: {e}")
 
@@ -428,10 +435,14 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
                         model_text = _response_text(response) or "I am using my tools to fulfill the request."
                         contents_list.append(types.Content(role="model", parts=[types.Part.from_text(text=model_text)]))
 
-                        await record_and_publish_event(bg_session, run.id, "agent.step_started", "running", f"Running {len(function_calls)} tools")
+                        await record_and_publish_event(
+                            bg_session, run.id, "agent.step_started", "running", f"Running {len(function_calls)} tools"
+                        )
 
                         tool_response_text = await _execute_tool_calls_for_model(bg_session, user.id, function_calls)
-                        contents_list.append(types.Content(role="user", parts=[types.Part.from_text(text=tool_response_text)]))
+                        contents_list.append(
+                            types.Content(role="user", parts=[types.Part.from_text(text=tool_response_text)])
+                        )
 
                     final_out = _response_text(response) if response else "I couldn't generate a response."
 
@@ -440,7 +451,11 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
                     await record_and_publish_event(bg_session, run.id, "agent.completed", "completed", final_out)
 
                     # Finalize Conversation for background run
-                    bg_session.add(Conversation(user_id=user.id, gemini_interaction_id=interaction_id, role="assistant", content=final_out))
+                    bg_session.add(
+                        Conversation(
+                            user_id=user.id, gemini_interaction_id=interaction_id, role="assistant", content=final_out
+                        )
+                    )
                     await bg_session.commit()
 
                     await _implicit_capture_routine(
@@ -454,33 +469,35 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
                 logger.error(f"Direct execution background failed: {e}")
 
         contents = _build_contents(conv_history, message_text)
-        
+
         async def _timeout_wrapper():
             try:
                 await asyncio.wait_for(
                     _bg_direct_executor(db_run.id, message_text, sys_inst, contents, new_interaction_id),
-                    timeout=AGENT_MAX_EXECUTION_TIME
+                    timeout=AGENT_MAX_EXECUTION_TIME,
                 )
             except asyncio.TimeoutError:
                 async with async_session_factory() as bg_session:
+                    from sqlalchemy import select
+
                     from app.agents.events import record_and_publish_event
                     from app.db.models.run import AgentRun
-                    from sqlalchemy import select
+
                     stmt = select(AgentRun).where(AgentRun.id == db_run.id)
                     res = await bg_session.execute(stmt)
                     run = res.scalar_one_or_none()
                     if run:
                         run.status = "FAILED"
                         await bg_session.commit()
-                        await record_and_publish_event(bg_session, run.id, "agent.failed", "failed", "Execution timed out.")
+                        await record_and_publish_event(
+                            bg_session, run.id, "agent.failed", "failed", "Execution timed out."
+                        )
 
         asyncio.create_task(_timeout_wrapper())
 
     # Finalize Conversation for the initial user message
     session.add(
-        Conversation(
-            user_id=user.id, gemini_interaction_id=new_interaction_id, role="user", content=message_text
-        )
+        Conversation(user_id=user.id, gemini_interaction_id=new_interaction_id, role="user", content=message_text)
     )
     await session.commit()
 

@@ -1,0 +1,18 @@
+--- app/core/metrics.py
++++ app/core/metrics.py
+@@ -102,6 +102,15 @@
+     websocket_auth_failures_total = Counter("senorita_websocket_auth_failures_total", "Failed WS authentications")
+     websocket_reconnects_total = Counter("senorita_websocket_reconnects_total", "WS reconnects with replay")
+ 
++    voice_requests_total = Counter("senorita_voice_requests_total", "Voice STT requests")
++    voice_failures_total = Counter("senorita_voice_failures_total", "Voice processing failures")
++    voice_latency = Histogram("senorita_voice_latency_seconds", "Voice E2E latency")
++    memory_retrieval_total = Counter("senorita_memory_retrieval_total", "Memory searches")
++    memory_updates_total = Counter("senorita_memory_updates_total", "Memory updates")
++    memory_supersessions_total = Counter("senorita_memory_supersessions_total", "Memory supersessions")
++    proactive_notifications_total = Counter("senorita_proactive_notifications_total", "Proactive notifications sent")
++    proactive_duplicates_total = Counter("senorita_proactive_duplicates_total", "Proactive notifications deduplicated")
++    workflow_execution_total = Counter("senorita_workflow_execution_total", "Workflows executed")
+ else:
+ 
+     class DummyMetric:

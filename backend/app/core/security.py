@@ -53,15 +53,16 @@ async def get_current_user_ws(
     session: AsyncSession = Depends(get_db),
 ) -> User:
     import fastapi
+
     token = websocket.headers.get("Authorization")
     if token and token.startswith("Bearer "):
         token = token.split(" ")[1]
     else:
         token = websocket.query_params.get("token")
-        
+
     if not token:
         raise fastapi.HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing auth token")
-        
+
     token_hash = hash_token(token)
     stmt = select(AuthToken).where(AuthToken.token_hash == token_hash)
     result = await session.execute(stmt)
@@ -73,8 +74,8 @@ async def get_current_user_ws(
     stmt_user = select(User).where(User.id == auth_token.user_id)
     result_user = await session.execute(stmt_user)
     user = result_user.scalars().first()
-    
+
     if not user:
         raise fastapi.HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-        
+
     return user

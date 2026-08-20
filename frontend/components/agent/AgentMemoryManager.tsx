@@ -3,13 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Trash2, Edit2, Lock, Unlock } from 'lucide-react';
 
+import { api } from '@/lib/api';
+
 export function AgentMemoryManager() {
   const [memories, setMemories] = useState<any[]>([]);
   const [query, setQuery] = useState('');
   
-  // Dummy fetch for now
   useEffect(() => {
-    // In real usage, this calls API /api/v1/memory
+    api.get('/memory').then(res => setMemories(res.data)).catch(console.error);
   }, []);
 
   return (
@@ -37,18 +38,32 @@ export function AgentMemoryManager() {
         ) : (
           memories.map((m) => (
             <div key={m.id} className="p-4 hover:bg-gray-50 transition-colors flex justify-between items-center group">
+
               <div>
                 <div className="flex items-center space-x-2 mb-1">
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 uppercase tracking-wide">
                     {m.memory_type}
                   </span>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide ${m.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    {m.status || 'active'}
+                  </span>
                   <span className="text-xs text-gray-400 font-medium">
                     {m.confidence === 'HIGH' ? 'High Confidence' : m.confidence === 'MEDIUM' ? 'Medium Confidence' : 'Low Confidence'}
                   </span>
+                  <span className="text-xs text-gray-400 font-medium">
+                    Score: {m.importance_score || 0}
+                  </span>
                 </div>
-                <p className="text-gray-800">{m.content}</p>
-                <p className="text-xs text-gray-400 mt-1">Updated {new Date(m.updated_at).toLocaleDateString()}</p>
+                <p className={`text-gray-800 ${m.status !== 'active' ? 'line-through text-gray-400' : ''}`}>{m.content}</p>
+                <div className="text-xs text-gray-400 mt-1 flex gap-3 flex-wrap">
+                  <span>Created: {m.created_at ? new Date(m.created_at).toLocaleDateString() : 'N/A'}</span>
+                  <span>Updated: {m.updated_at ? new Date(m.updated_at).toLocaleDateString() : 'N/A'}</span>
+                  {m.valid_from && <span>Valid From: {new Date(m.valid_from).toLocaleDateString()}</span>}
+                  {m.valid_until && <span>Valid Until: {new Date(m.valid_until).toLocaleDateString()}</span>}
+                  {m.supersedes_memory_id && <span>Supersedes: {m.supersedes_memory_id}</span>}
+                </div>
               </div>
+
               
               <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">

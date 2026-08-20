@@ -11,6 +11,7 @@ def mock_embed_text():
         mock.return_value = [0.1] * 3072
         yield mock
 
+
 @pytest.mark.asyncio
 async def test_memory_crud_and_search(client: AsyncClient, mock_embed_text):
     # 1. Login to get token
@@ -23,7 +24,7 @@ async def test_memory_crud_and_search(client: AsyncClient, mock_embed_text):
         "content": "User loves chocolate",
         "memory_type": "preference",
         "source_ref": "chat",
-        "importance_score": 0.8
+        "importance_score": 0.8,
     }
     create_res = await client.post("/api/v1/memory", json=memory_data, headers=headers)
     assert create_res.status_code == 200

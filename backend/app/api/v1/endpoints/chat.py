@@ -1,9 +1,9 @@
 import asyncio
 import base64
+import json
 import os
 import re
 import tempfile
-import json
 from dataclasses import dataclass
 
 import edge_tts
@@ -18,12 +18,15 @@ from app.api.deps import get_current_user, get_db
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.core.metrics import (
+    agent_event_replayed_total,
+    voice_failures_total,
+    voice_latency,
+    voice_requests_total,
     websocket_active_connections,
+    websocket_auth_failures_total,
     websocket_connections_total,
     websocket_disconnects_total,
     websocket_reconnects_total,
-    websocket_auth_failures_total,
-    agent_event_replayed_total,
 )
 from app.core.rate_limit import limiter
 from app.db.models import User
@@ -197,6 +200,7 @@ async def chat_websocket(
     session: AsyncSession = Depends(get_db),
 ):  # noqa: C901
     from app.api.deps import get_current_user_ws
+
     try:
         current_user = await get_current_user_ws(websocket, session)
     except Exception:
@@ -222,6 +226,7 @@ async def chat_websocket(
     )
 
     import uuid
+
     from sqlalchemy import select
 
     from app.agents.events import event_broadcaster
@@ -312,18 +317,20 @@ async def chat_websocket(
                                 replay_result = await session.execute(replay_stmt)
                                 replayed = 0
                                 for evt in replay_result.scalars().all():
-                                    await websocket.send_json({
-                                        "event_id": str(evt.id),
-                                        "agent_run_id": str(evt.run_id),
-                                        "plan_id": str(evt.plan_id) if evt.plan_id else None,
-                                        "step_id": evt.step_id,
-                                        "type": evt.event_type,
-                                        "status": evt.status,
-                                        "message": evt.message,
-                                        "timestamp": evt.created_at.isoformat(),
-                                        "metadata": evt.metadata_payload,
-                                        "sequence": evt.sequence_number,
-                                    })
+                                    await websocket.send_json(
+                                        {
+                                            "event_id": str(evt.id),
+                                            "agent_run_id": str(evt.run_id),
+                                            "plan_id": str(evt.plan_id) if evt.plan_id else None,
+                                            "step_id": evt.step_id,
+                                            "type": evt.event_type,
+                                            "status": evt.status,
+                                            "message": evt.message,
+                                            "timestamp": evt.created_at.isoformat(),
+                                            "metadata": evt.metadata_payload,
+                                            "sequence": evt.sequence_number,
+                                        }
+                                    )
                                     replayed += 1
                                 if replayed:
                                     agent_event_replayed_total.inc(replayed)
@@ -347,24 +354,37 @@ async def chat_websocket(
                 if not audio_base64:
                     continue
                 import base64
+                import time
+
                 audio_bytes = base64.b64decode(audio_base64)
-                
+                voice_requests_total.inc()
+                start_time = time.time()
                 try:
                     transcription = await transcribe_audio_bytes(audio_bytes, mime_type)
                     if not transcription.text or transcription.text == "UNCLEAR_AUDIO":
+                        voice_failures_total.inc()
                         await websocket.send_json({"type": "error", "message": "I didn't hear anything clearly."})
                         continue
-                    
+
                     response_text = await handle_message(session, current_user, transcription.text)
-                    
+
                     # We can send the text immediately
                     await websocket.send_json({"type": "final", "message": response_text})
-                    
+
                     # Synthesize and send audio chunk
                     out_audio_b64 = await synthesize_speech_base64(response_text)
                     if out_audio_b64:
-                        await websocket.send_json({"type": "voice_response", "audio_base64": out_audio_b64, "transcription": transcription.text, "message": response_text})
+                        await websocket.send_json(
+                            {
+                                "type": "voice_response",
+                                "audio_base64": out_audio_b64,
+                                "transcription": transcription.text,
+                                "message": response_text,
+                            }
+                        )
+                    voice_latency.observe(time.time() - start_time)
                 except Exception as exc:
+                    voice_failures_total.inc()
                     log.error("websocket.voice_error", user_id=str(current_user.id), error=type(exc).__name__)
                     await websocket.send_json({"type": "error", "message": "Voice processing failed."})
                 continue

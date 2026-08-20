@@ -18,7 +18,9 @@ class MessageMode(Base):
     # Scope: 'global' or 'contact'
     scope: Mapped[str] = mapped_column(String, nullable=False)
 
-    contact_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("contacts.id", ondelete="CASCADE"), nullable=True)
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("contacts.id", ondelete="CASCADE"), nullable=True
+    )
 
     # Null channel means "all channels" for this scope
     channel: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -29,19 +31,12 @@ class MessageMode(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (
+        CheckConstraint(scope.in_(["global", "contact"]), name="check_message_mode_scope"),
+        CheckConstraint(channel.in_(["gmail", "slack"]), name="check_message_mode_channel"),
         CheckConstraint(
-            scope.in_(['global', 'contact']),
-            name='check_message_mode_scope'
+            mode.in_(["draft_only", "approval_required", "trusted", "autonomous"]), name="check_message_mode_mode"
         ),
-        CheckConstraint(
-            channel.in_(['gmail', 'slack']),
-            name='check_message_mode_channel'
-        ),
-        CheckConstraint(
-            mode.in_(['draft_only', 'approval_required', 'trusted', 'autonomous']),
-            name='check_message_mode_mode'
-        ),
-        UniqueConstraint('user_id', 'scope', 'contact_id', 'channel', name='uq_message_mode'),
+        UniqueConstraint("user_id", "scope", "contact_id", "channel", name="uq_message_mode"),
     )
 
     user = relationship("User")

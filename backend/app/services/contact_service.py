@@ -12,10 +12,12 @@ async def get_contacts(session: AsyncSession, user_id: UUID) -> list[Contact]:
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
+
 async def get_contact(session: AsyncSession, user_id: UUID, contact_id: UUID) -> Contact | None:
     stmt = select(Contact).where(Contact.user_id == user_id, Contact.id == contact_id)
     result = await session.execute(stmt)
     return result.scalars().first()
+
 
 async def create_contact(session: AsyncSession, user_id: UUID, contact_in: ContactCreate) -> Contact:
     contact = Contact(user_id=user_id, **contact_in.model_dump())
@@ -24,7 +26,10 @@ async def create_contact(session: AsyncSession, user_id: UUID, contact_in: Conta
     await session.refresh(contact)
     return contact
 
-async def update_contact(session: AsyncSession, user_id: UUID, contact_id: UUID, contact_in: ContactUpdate) -> Contact | None:
+
+async def update_contact(
+    session: AsyncSession, user_id: UUID, contact_id: UUID, contact_in: ContactUpdate
+) -> Contact | None:
     contact = await get_contact(session, user_id, contact_id)
     if not contact:
         return None
@@ -33,6 +38,7 @@ async def update_contact(session: AsyncSession, user_id: UUID, contact_id: UUID,
     await session.commit()
     await session.refresh(contact)
     return contact
+
 
 async def delete_contact(session: AsyncSession, user_id: UUID, contact_id: UUID) -> bool:
     contact = await get_contact(session, user_id, contact_id)

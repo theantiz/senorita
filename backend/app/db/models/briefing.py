@@ -18,8 +18,6 @@ class Briefing(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    __table_args__ = (
-        CheckConstraint(type.in_(['daily', 'end_of_day']), name='chk_briefings_type'),
-    )
+    __table_args__ = (CheckConstraint(type.in_(["daily", "end_of_day"]), name="chk_briefings_type"),)
 
     user = relationship("User", backref="briefings")

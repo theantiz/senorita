@@ -26,12 +26,13 @@ from app.core.metrics import llm_input_tokens_total, llm_output_tokens_total
 log = get_logger(__name__)
 
 # Cost constants — USD per 1M tokens (adjust per model pricing)
-_COST_PER_1M_INPUT = 0.075   # Gemini Flash lite input
-_COST_PER_1M_OUTPUT = 0.30   # Gemini Flash lite output
+_COST_PER_1M_INPUT = 0.075  # Gemini Flash lite input
+_COST_PER_1M_OUTPUT = 0.30  # Gemini Flash lite output
 
 
 class UsageExceededError(Exception):
     """Raised when a per-user daily limit has been reached."""
+
     def __init__(self, limit_type: str, limit: float, current: float):
         self.limit_type = limit_type
         self.limit = limit
@@ -142,10 +143,12 @@ class UsageAccounting:
             raise UsageExceededError("agent_run", daily_run_limit, existing.agent_runs)
 
         await self.session.execute(
-            update(_DailyUsage).where(
+            update(_DailyUsage)
+            .where(
                 _DailyUsage.user_id == self.user_id,
                 _DailyUsage.usage_date == today,
-            ).values(agent_runs=_DailyUsage.agent_runs + 1)
+            )
+            .values(agent_runs=_DailyUsage.agent_runs + 1)
         )
         await self.session.commit()
 
@@ -165,10 +168,12 @@ class UsageAccounting:
     async def _increment(self, today: date, input_t: int, output_t: int) -> None:
         cost = _estimate_cost(input_t, output_t)
         await self.session.execute(
-            update(_DailyUsage).where(
+            update(_DailyUsage)
+            .where(
                 _DailyUsage.user_id == self.user_id,
                 _DailyUsage.usage_date == today,
-            ).values(
+            )
+            .values(
                 input_tokens=_DailyUsage.input_tokens + input_t,
                 output_tokens=_DailyUsage.output_tokens + output_t,
                 estimated_cost_usd=_DailyUsage.estimated_cost_usd + cost,
@@ -181,6 +186,7 @@ class UsageAccounting:
 
 from sqlalchemy import Column, Date, Float, Integer, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+
 from app.db.base import Base  # noqa: E402
 
 
@@ -196,6 +202,4 @@ class _DailyUsage(Base):
     agent_runs = Column(Integer, nullable=False, server_default="0")
     tool_invocations = Column(Integer, nullable=False, server_default="0")
 
-    __table_args__ = (
-        UniqueConstraint("user_id", "usage_date", name="uq_daily_usage_user_date"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "usage_date", name="uq_daily_usage_user_date"),)

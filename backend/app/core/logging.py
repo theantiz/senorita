@@ -19,12 +19,20 @@ import sys
 import time
 from typing import Any
 
-
 _SENSITIVE_KEYS = frozenset(
     {
-        "password", "token", "api_key", "secret", "authorization",
-        "access_token", "refresh_token", "client_secret", "private_key",
-        "oauth_token", "bearer", "api_secret",
+        "password",
+        "token",
+        "api_key",
+        "secret",
+        "authorization",
+        "access_token",
+        "refresh_token",
+        "client_secret",
+        "private_key",
+        "oauth_token",
+        "bearer",
+        "api_secret",
     }
 )
 
@@ -34,10 +42,7 @@ def _redact(obj: Any, depth: int = 0) -> Any:
     if depth > 5:
         return obj
     if isinstance(obj, dict):
-        return {
-            k: "***REDACTED***" if k.lower() in _SENSITIVE_KEYS else _redact(v, depth + 1)
-            for k, v in obj.items()
-        }
+        return {k: "***REDACTED***" if k.lower() in _SENSITIVE_KEYS else _redact(v, depth + 1) for k, v in obj.items()}
     if isinstance(obj, list):
         return [_redact(i, depth + 1) for i in obj]
     return obj
@@ -58,12 +63,30 @@ class JSONFormatter(logging.Formatter):
         for key, value in record.__dict__.items():
             if key.startswith("_") or key in logging.LogRecord.__dict__:
                 continue
-            if key in ("levelname", "levelno", "name", "msg", "args",
-                       "created", "filename", "funcName", "lineno",
-                       "module", "msecs", "pathname", "process",
-                       "processName", "relativeCreated", "stack_info",
-                       "taskName", "thread", "threadName", "exc_info",
-                       "exc_text", "message"):
+            if key in (
+                "levelname",
+                "levelno",
+                "name",
+                "msg",
+                "args",
+                "created",
+                "filename",
+                "funcName",
+                "lineno",
+                "module",
+                "msecs",
+                "pathname",
+                "process",
+                "processName",
+                "relativeCreated",
+                "stack_info",
+                "taskName",
+                "thread",
+                "threadName",
+                "exc_info",
+                "exc_text",
+                "message",
+            ):
                 continue
             payload[key] = _redact(value)
 
@@ -91,9 +114,7 @@ def _build_logger(name: str) -> logging.Logger:
     if use_json:
         handler.setFormatter(JSONFormatter())
     else:
-        handler.setFormatter(
-            logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
 
     log.addHandler(handler)
     return log
@@ -141,6 +162,7 @@ class StructuredLogger:
 
     def exception(self, event: str, **ctx: Any) -> None:
         import sys
+
         exc = sys.exc_info()
         record = self._log.makeRecord(
             self._log.name,

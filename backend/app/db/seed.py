@@ -17,24 +17,12 @@ async def seed_db():
 
     async with async_session() as session:
         # Create user
-        user = User(
-            id=uuid.uuid4(),
-            name="Test User",
-            timezone="UTC",
-            autonomy_level=2,
-            style_profile={}
-        )
+        user = User(id=uuid.uuid4(), name="Test User", timezone="UTC", autonomy_level=2, style_profile={})
         session.add(user)
         await session.flush()
 
         # Create contact
-        contact = Contact(
-            id=uuid.uuid4(),
-            user_id=user.id,
-            name="Alice",
-            relationship_type="Friend",
-            tone_profile={}
-        )
+        contact = Contact(id=uuid.uuid4(), user_id=user.id, name="Alice", relationship_type="Friend", tone_profile={})
         session.add(contact)
 
         # Create memory
@@ -43,7 +31,7 @@ async def seed_db():
             user_id=user.id,
             content="Alice likes vintage scarves.",
             category="preference",
-            embedding=None
+            embedding=None,
         )
         session.add(memory)
 
@@ -54,6 +42,7 @@ async def seed_db():
         print(f"Inserted Memory: '{memory.content}' ({memory.id}) linked to User")
 
     await engine.dispose()
+
 
 if __name__ == "__main__":
     asyncio.run(seed_db())

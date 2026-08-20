@@ -27,20 +27,17 @@ async def main():
 
             # Test chat
             res_chat = await client.post(
-                "http://localhost:8000/chat",
-                headers={"Authorization": f"Bearer {token}"},
-                json={"message": "hello"}
+                "http://localhost:8000/chat", headers={"Authorization": f"Bearer {token}"}, json={"message": "hello"}
             )
             print("Chat response:", res_chat.status_code)
 
             # Test voice
-            files = {'audio': ('test.webm', b'fake audio data', 'audio/webm')}
+            files = {"audio": ("test.webm", b"fake audio data", "audio/webm")}
             res_voice = await client.post(
-                "http://localhost:8000/chat/voice",
-                headers={"Authorization": f"Bearer {token}"},
-                files=files
+                "http://localhost:8000/chat/voice", headers={"Authorization": f"Bearer {token}"}, files=files
             )
             print("Voice response:", res_voice.status_code, res_voice.text)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

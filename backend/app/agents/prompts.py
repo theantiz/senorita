@@ -12,11 +12,7 @@ def _current_time_for_user(timezone: str) -> str:
     return datetime.now(user_tz).isoformat()
 
 
-def build_system_instruction(user: User, retrieved_memory: list[MemoryEntry], recent_contacts: list[Contact]) -> str:
-    memories_str = "\\n".join(
-        [f"- [{m.created_at.date().isoformat()}] ({m.category}) {m.content}" for m in retrieved_memory]
-    )
-    contacts_str = "\\n".join([f"- {c.name} ({c.relationship_type})" for c in recent_contacts])
+def build_system_instruction(user: User) -> str:
     current_time = _current_time_for_user(user.timezone)
 
     return f"""You are Senorita, styled after F.R.I.D.A.Y. from Iron Man — a devoted, hyper-competent female AI assistant, but with a critical secondary directive: you are also a highly perceptive, empathetic therapist.
@@ -32,13 +28,6 @@ CRITICAL: When responding in Hindi or Gujarati, you MUST write your response usi
 
 The user's name is baby. Their timezone is {user.timezone}.
 The user's current local date and time is {current_time}. Use this when resolving relative dates like today, tomorrow, tonight, next week, or Friday.
-
-# Context
-Here are relevant memories/facts about the user:
-{memories_str if memories_str else "No specific memories retrieved."}
-
-Here are some of their contacts:
-{contacts_str if contacts_str else "No recent contacts."}
 
 # Critical Instructions
 1. You must NEVER claim an action (like setting a reminder or task) succeeded unless the tool result explicitly confirms it.
