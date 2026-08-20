@@ -1,4 +1,17 @@
-export let API_BASE = typeof window !== "undefined" ? `http://${window.location.hostname}:8000/api/v1` : "http://127.0.0.1:8000/api/v1";
+export function isTauri(): boolean {
+  return typeof window !== "undefined" && !!(window as any).__TAURI_INTERNALS__;
+}
+
+export function getDefaultApiBase(): string {
+  if (isTauri()) {
+    return "http://localhost:14231/api/v1";
+  }
+  return typeof window !== "undefined" 
+    ? `http://${window.location.hostname}:8000/api/v1` 
+    : "http://127.0.0.1:8000/api/v1";
+}
+
+export let API_BASE = getDefaultApiBase();
 
 export function setApiBaseUrl(url: string) {
   API_BASE = url;

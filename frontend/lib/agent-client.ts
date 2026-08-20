@@ -1,3 +1,5 @@
+import { getDefaultApiBase } from "./api";
+
 export type ConnectionState = 'CONNECTING' | 'CONNECTED' | 'RECONNECTING' | 'DISCONNECTED' | 'FAILED';
 
 export interface AgentEventPayload {
@@ -35,10 +37,8 @@ export class AgentStreamClient {
 
   constructor(token: string) {
     this.token = token;
-    // Derive WS URL from current window location if in browser
-    const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = typeof window !== 'undefined' ? window.location.host : 'localhost:8000';
-    this.url = `${protocol}//${host}/api/v1/chat/stream?token=${this.token}`;
+    const apiBase = getDefaultApiBase();
+    this.url = `${apiBase.replace(/^http/, 'ws')}/chat/stream?token=${this.token}`;
   }
 
   public onEvent(callback: EventCallback) {

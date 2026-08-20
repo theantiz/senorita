@@ -116,7 +116,8 @@ async def add_security_headers(request: Request, call_next):
 # ─── CORS ─────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list + ["http://localhost:3001", "http://10.21.13.220:3000", "http://10.21.13.220:3001"],
+    allow_origins=settings.cors_origins_list,
+    allow_origin_regex=r"^http://(?:localhost|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+)(?::\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

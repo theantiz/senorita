@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuth } from "./AuthContext";
-import { loginUser, setupAuth, setApiBaseUrl } from "@/lib/api";
+import { loginUser, setupAuth, setApiBaseUrl, getDefaultApiBase } from "@/lib/api";
 import { SectionReveal } from "./SectionReveal";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -23,7 +23,7 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { 
     setMounted(true); 
-    setApiBaseUrl(`http://localhost:14231/api/v1`);
+    setApiBaseUrl(getDefaultApiBase());
   }, []);
 
   if (!mounted) return null;
