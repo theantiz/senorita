@@ -338,6 +338,37 @@ async def chat_websocket(
                         pass
                 continue
 
+            if msg_type == "voice":
+                if not limiter.allow("chat_message", user_key):
+                    await websocket.send_json({"type": "error", "message": "Rate limit reached. Please slow down."})
+                    continue
+                audio_base64 = data.get("audio_base64")
+                mime_type = data.get("mime_type", "audio/webm")
+                if not audio_base64:
+                    continue
+                import base64
+                audio_bytes = base64.b64decode(audio_base64)
+                
+                try:
+                    transcription = await transcribe_audio_bytes(audio_bytes, mime_type)
+                    if not transcription.text or transcription.text == "UNCLEAR_AUDIO":
+                        await websocket.send_json({"type": "error", "message": "I didn't hear anything clearly."})
+                        continue
+                    
+                    response_text = await handle_message(session, current_user, transcription.text)
+                    
+                    # We can send the text immediately
+                    await websocket.send_json({"type": "final", "message": response_text})
+                    
+                    # Synthesize and send audio chunk
+                    out_audio_b64 = await synthesize_speech_base64(response_text)
+                    if out_audio_b64:
+                        await websocket.send_json({"type": "voice_response", "audio_base64": out_audio_b64, "transcription": transcription.text, "message": response_text})
+                except Exception as exc:
+                    log.error("websocket.voice_error", user_id=str(current_user.id), error=type(exc).__name__)
+                    await websocket.send_json({"type": "error", "message": "Voice processing failed."})
+                continue
+
             # New chat message from WS
             message = data.get("message")
             if message and isinstance(message, str):

@@ -39,7 +39,7 @@ async def test_memory_crud_and_search(client: AsyncClient, mock_embed_text):
     assert any(m["id"] == memory_id for m in results)
 
     # 4. Lock memory
-    lock_res = await client.patch(f"/api/v1/memory/{memory_id}/lock", headers=headers)
+    lock_res = await client.patch(f"/api/v1/memory/{memory_id}", json={"locked": True}, headers=headers)
     assert lock_res.status_code == 200
     assert lock_res.json()["locked"] == True
 

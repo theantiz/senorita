@@ -207,7 +207,7 @@ def start_gmail_sync_engine(scheduler):
     scheduler.add_job(
         gmail_sync_check,
         "interval",
-        seconds=settings.PROACTIVE_CHECK_INTERVAL_SECONDS,
+        seconds=600, # 10 minutes for email
         id="gmail_sync_engine",
         replace_existing=True,
     )

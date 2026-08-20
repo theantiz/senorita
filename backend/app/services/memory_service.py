@@ -74,3 +74,13 @@ async def delete_memory(session: AsyncSession, user_id: UUID, memory_id: UUID) -
     await session.delete(memory)
     await session.commit()
     return True
+
+async def delete_all_memories(session: AsyncSession, user_id: UUID) -> int:
+    stmt = select(MemoryEntry).where(MemoryEntry.user_id == user_id)
+    result = await session.execute(stmt)
+    memories = result.scalars().all()
+    count = len(memories)
+    for m in memories:
+        await session.delete(m)
+    await session.commit()
+    return count

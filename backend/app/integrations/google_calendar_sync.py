@@ -209,7 +209,7 @@ def start_google_calendar_sync_engine(scheduler):
     scheduler.add_job(
         google_calendar_sync_check,
         "interval",
-        seconds=settings.PROACTIVE_CHECK_INTERVAL_SECONDS,
+        seconds=300, # 5 minutes for calendar
         id="google_calendar_sync_engine",
         replace_existing=True,
     )

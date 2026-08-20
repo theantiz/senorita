@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     # Workers
     TESTING: bool = False
     REMINDER_POLL_INTERVAL_SECONDS: int = 10
-    PROACTIVE_CHECK_INTERVAL_SECONDS: int = 120  # 2 minutes
+    PROACTIVE_CHECK_INTERVAL_SECONDS: int = 300  # 5 minutes
     PROACTIVE_WINDOW_DAYS: int = 21  # memory date look-ahead window
     DAILY_NOTIFICATION_CAP: int = 5  # max proactive notifications/day/user
 

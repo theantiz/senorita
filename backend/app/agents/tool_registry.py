@@ -1019,47 +1019,62 @@ async def _handle_store_memory(
     content = _require_text(content, "content", max_len=2_000)
     memory_type = _normalize_choice(memory_type, "memory_type", VALID_MEMORY_CATEGORIES)
     confidence = _normalize_choice(confidence.upper(), "confidence", {"HIGH", "MEDIUM", "LOW"})
+    
+    embedding = await embed_text(content, task_type="RETRIEVAL_DOCUMENT")
+
+    existing_mem = None
+    dist = None
+    if embedding:
+        from sqlalchemy import select
+        stmt = select(MemoryEntry, MemoryEntry.embedding.cosine_distance(embedding).label("dist"))\
+            .where(MemoryEntry.user_id == user_id, MemoryEntry.memory_type == memory_type, MemoryEntry.status == 'active')\
+            .order_by("dist").limit(1)
+        res = await session.execute(stmt)
+        row = res.first()
+        if row and row.dist is not None and row.dist < 0.20:
+            existing_mem = row[0]
+            dist = row.dist
+
     if importance_score is None:
-        prompt = f"Score the importance of this fact from 0.0 to 1.0, and provide a 1-line justification. Fact: '{content}'. Return ONLY a JSON object with 'score' (float) and 'justification' (string)."
+        if existing_mem:
+            prompt = f"New Fact: '{content}'. Existing Fact (ID: {existing_mem.id}): '{existing_mem.content}'. Does the new fact CONTRADICT or SUPERSEDE the existing fact? Return JSON with 'score' (float 0.0-1.0), 'justification', and 'supersedes' (boolean)."
+        else:
+            prompt = f"Score the importance of this fact from 0.0 to 1.0, and provide a 1-line justification. Fact: '{content}'. Return ONLY a JSON object with 'score' (float) and 'justification' (string)."
         try:
             chat = start_chat()
             response = await chat.send_message(prompt)
             text = (response.text or "").strip()
-            if text.startswith("```json"):
-                text = text[7:-3]
-            elif text.startswith("```"):
-                text = text[3:-3]
+            if text.startswith("```json"): text = text[7:-3]
+            elif text.startswith("```"): text = text[3:-3]
             data = json.loads(_strip_model_json(text))
             importance_score = _clamp_float(data.get("score"), "importance_score")
+            supersedes = data.get("supersedes", False)
         except Exception:
             importance_score = 0.5
+            supersedes = False
     else:
         importance_score = _clamp_float(importance_score, "importance_score")
+        supersedes = existing_mem is not None  # If not scored via LLM but dist is close, default to supersede or update?
 
-    embedding = await embed_text(content, task_type="RETRIEVAL_DOCUMENT")
-
-    # Semantic deduplication: if there's a highly similar memory, update it instead of inserting duplicates
-    from sqlalchemy import select
-    if embedding:
-        stmt = select(MemoryEntry).where(MemoryEntry.user_id == user_id).order_by(MemoryEntry.embedding.cosine_distance(embedding)).limit(1)
-        res = await session.execute(stmt)
-        existing_mem = res.scalar_one_or_none()
-        
-        # We need to manually calculate the cosine similarity, or we can just rely on the DB.
-        # But wait, we can't easily get the distance from scalar_one_or_none. 
-        # So we query both the object and the distance:
-        stmt = select(MemoryEntry, MemoryEntry.embedding.cosine_distance(embedding).label("dist")).where(MemoryEntry.user_id == user_id).order_by("dist").limit(1)
-        res = await session.execute(stmt)
-        row = res.first()
-        if row and row.dist is not None and row.dist < 0.15:  # Similarity > 0.85
-            mem = row[0]
-            mem.content = content
-            mem.memory_type = memory_type
-            mem.confidence = confidence
-            mem.importance_score = importance_score
-            mem.embedding = embedding
+    if existing_mem:
+        if supersedes:
+            # Supersede
+            existing_mem.status = "superseded"
+            mem = MemoryEntry(
+                user_id=user_id, content=content, memory_type=memory_type, confidence=confidence, 
+                importance_score=importance_score, embedding=embedding, supersedes_memory_id=existing_mem.id
+            )
+            session.add(mem)
             await session.flush()
-            return {"id": str(mem.id), "content": mem.content, "action": "updated", "confidence": confidence, "importance_score": importance_score}
+            return {"id": str(mem.id), "content": mem.content, "action": "superseded", "supersedes_id": str(existing_mem.id)}
+        else:
+            # Update (merge or just same subject but not contradictory)
+            existing_mem.content = content
+            existing_mem.confidence = confidence
+            existing_mem.importance_score = importance_score
+            existing_mem.embedding = embedding
+            await session.flush()
+            return {"id": str(existing_mem.id), "content": existing_mem.content, "action": "updated"}
 
     # NOTE: Entries with importance_score < 0.3 must be excluded from future proactive-surfacing logic.
     mem = MemoryEntry(

@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.db.models import User
 from app.api.deps import get_db
-from app.schemas.memory_entry import MemoryEntryCreate, MemoryEntryRead
-from app.services.memory_service import create_memory, delete_memory, get_memories, get_memory
+from app.services.memory_service import create_memory, delete_memory, delete_all_memories, get_memories, get_memory, update_memory
+from app.schemas.memory_entry import MemoryEntryCreate, MemoryEntryRead, MemoryEntryUpdate
 
 router = APIRouter(prefix="/memory", tags=["memory"])
 
@@ -31,6 +31,11 @@ async def list_memories(
 async def create_new_memory(memory_in: MemoryEntryCreate, session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     return await create_memory(session, current_user.id, memory_in)
 
+@router.delete("")
+async def delete_all_existing_memories(session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    count = await delete_all_memories(session, current_user.id)
+    return {"ok": True, "deleted": count}
+
 @router.delete("/{memory_id}")
 async def delete_existing_memory(memory_id: UUID, session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     success = await delete_memory(session, current_user.id, memory_id)
@@ -38,12 +43,9 @@ async def delete_existing_memory(memory_id: UUID, session: AsyncSession = Depend
         raise HTTPException(status_code=404, detail="Memory not found")
     return {"ok": True}
 
-@router.patch("/{memory_id}/lock", response_model=MemoryEntryRead)
-async def toggle_memory_lock(memory_id: UUID, session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    memory = await get_memory(session, current_user.id, memory_id)
+@router.patch("/{memory_id}", response_model=MemoryEntryRead)
+async def patch_existing_memory(memory_id: UUID, memory_update: MemoryEntryUpdate, session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    memory = await update_memory(session, current_user.id, memory_id, memory_update)
     if not memory:
         raise HTTPException(status_code=404, detail="Memory not found")
-    memory.locked = not memory.locked
-    await session.commit()
-    await session.refresh(memory)
     return memory

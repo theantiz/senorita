@@ -22,6 +22,7 @@ class MemoryEntry(Base):
     importance_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     locked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     status: Mapped[str] = mapped_column(Text, default='active', nullable=False)
+    supersedes_memory_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("memory_entries.id", ondelete="SET NULL"), nullable=True)
     embedding = mapped_column(Vector(3072), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
