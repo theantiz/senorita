@@ -8,7 +8,12 @@ const config = {
     './app/**/*.{ts,tsx}',
   ],
   theme: {
+
     extend: {
+      animation: {
+        'spin-slow': 'spin 3s linear infinite',
+      },
+
       colors: {
         border: "rgba(255,255,255,0.09)",
         input: "rgba(255,255,255,0.05)",
