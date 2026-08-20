@@ -21,13 +21,24 @@ class PermissionManager:
             return True
         return value.strip().lower() not in {"0", "false", "no", "off"}
 
+
     def permission_mode(self, definition: ToolDefinition, context: ToolContext) -> ConfirmationPolicy:
-        if definition.name in context.permissions:
-            return ConfirmationPolicy(context.permissions[definition.name])
-        for permission in definition.required_permissions:
-            if permission.value in context.permissions:
-                return ConfirmationPolicy(context.permissions[permission.value])
+        # Check specific tool first (e.g. gmail.send_email)
+        pol = context.permissions.get(definition.name)
+        if not pol:
+            # Check category wildcard (e.g. calendar.*)
+            pol = context.permissions.get(f"{definition.category}.*")
+        
+        if pol:
+            pol = pol.upper()
+            if pol == "FULL_AUTO": return ConfirmationPolicy.ALWAYS_ALLOW
+            if pol == "TRUSTED": return ConfirmationPolicy.ASK_ONCE
+            if pol == "CONFIRM": return ConfirmationPolicy.ASK_EACH_TIME
+            if pol == "SUGGEST": return ConfirmationPolicy.NEVER_ALLOW
+            if pol == "NEVER_ALLOW": return ConfirmationPolicy.NEVER_ALLOW
+            
         return definition.confirmation_policy
+
 
     def is_allowed_without_confirmation(self, definition: ToolDefinition, context: ToolContext) -> bool:
         mode = self.permission_mode(definition, context)

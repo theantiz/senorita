@@ -72,11 +72,13 @@ async def lifespan(app: FastAPI):
         from app.integrations.gmail_sync import start_gmail_sync_engine
         from app.integrations.google_calendar_sync import start_google_calendar_sync_engine
         from app.workers.monitoring.proactive_engine import start_proactive_engine
+        from app.workers.memory_capture.behavior_learning import start_behavior_learning_engine
         from app.workers.reminders.scheduler import start_scheduler_in_background
         from app.workers.stale_run_recovery import stale_run_recovery_loop
 
         scheduler = start_scheduler_in_background()
         start_proactive_engine(scheduler)
+        start_behavior_learning_engine(scheduler)
         start_gmail_sync_engine(scheduler)
         start_google_calendar_sync_engine(scheduler)
 

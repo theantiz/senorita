@@ -1,6 +1,8 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
+    goals,
+    autonomy,
     activity,
     agent,
     auth,
@@ -43,3 +45,6 @@ api_router.include_router(notifications.router)
 api_router.include_router(plans.router)
 api_router.include_router(agent.router, prefix="/agent", tags=["agent"])
 api_router.include_router(preferences.router, prefix="/preferences", tags=["preferences"])
+
+api_router.include_router(goals.router, prefix="/goals", tags=["goals"])
+api_router.include_router(autonomy.router, prefix="/autonomy", tags=["autonomy"])

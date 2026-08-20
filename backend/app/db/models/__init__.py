@@ -47,3 +47,5 @@ __all__ = [
     "AgentRun",
     "AgentEvent",
 ]
+from .goal import Goal, Project
+from .autonomy_policy import AutonomyPolicy

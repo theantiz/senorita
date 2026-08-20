@@ -4,6 +4,7 @@ import { ActivityTimeline } from './ActivityTimeline';
 import { PermissionCenter } from './PermissionCenter';
 import { AgentMemoryManager } from './AgentMemoryManager';
 import { AgentPreferenceManager } from './AgentPreferenceManager';
+import { AutonomyManager } from './AutonomyManager';
 import { AgentProactiveCenter } from './AgentProactiveCenter';
 
 export function CommandCenter({ events, notifications, onDismissNotification }: any) {

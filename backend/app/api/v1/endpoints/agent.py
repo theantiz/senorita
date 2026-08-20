@@ -44,5 +44,6 @@ async def preview_context(
         "preferences": ctx.preferences,
         "calendar_events": ctx.calendar_events,
         "tasks": ctx.tasks,
+        "goals": ctx.goals,
         "metadata": ctx.context_metadata,
     }

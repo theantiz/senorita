@@ -602,7 +602,18 @@ async def execute_tool(session: AsyncSession, user_id: UUID, function_name: str,
 
     confirmed = bool(kwargs.pop("_confirmed", False))
     idempotency_key = kwargs.pop("_idempotency_key", None) or kwargs.pop("idempotency_key", None)
-    context = ToolContext(user_id=user_id, idempotency_key=str(idempotency_key) if idempotency_key else None)
+
+    from sqlalchemy import select
+    from app.db.models.autonomy_policy import AutonomyPolicy
+    stmt = select(AutonomyPolicy).where(AutonomyPolicy.user_id == user_id)
+    res = await session.execute(stmt)
+    policies = res.scalars().all()
+    permissions_dict = {}
+    for p in policies:
+        permissions_dict[p.action_scope] = p.autonomy_level
+    
+    context = ToolContext(user_id=user_id, idempotency_key=str(idempotency_key) if idempotency_key else None, permissions=permissions_dict)
+
     result = await get_tool_executor().execute(session, context, function_name, kwargs, confirmed=confirmed)
     return result.to_dict()
 
