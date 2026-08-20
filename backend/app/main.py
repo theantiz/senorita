@@ -85,6 +85,7 @@ async def lifespan(app: FastAPI):
         # Stale run recovery runs as a lightweight background coroutine
         asyncio.create_task(stale_run_recovery_loop())
 
+        start_morning_briefing_cron(scheduler)
     yield
 
     await engine.dispose()

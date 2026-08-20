@@ -22,6 +22,8 @@ class EventBus:
         
     async def publish(self, session: AsyncSession, user: User, event_type: str, event_data: dict):
         logger.info(f"Event published: {event_type} for user {user.id}")
+        from app.events.trigger_engine import process_event
+        asyncio.create_task(process_event(session, user, event_type, event_data))
         if event_type in self.handlers:
             for handler in self.handlers[event_type]:
                 try:

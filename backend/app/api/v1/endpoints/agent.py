@@ -47,3 +47,12 @@ async def preview_context(
         "goals": ctx.goals,
         "metadata": ctx.context_metadata,
     }
+
+
+@router.get("/runs", response_model=Any)
+async def list_agent_runs(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from app.db.models.run import AgentRun
+    from sqlalchemy import select, desc
+    stmt = select(AgentRun).where(AgentRun.user_id == current_user.id).order_by(desc(AgentRun.created_at)).limit(20)
+    res = await db.execute(stmt)
+    return res.scalars().all()

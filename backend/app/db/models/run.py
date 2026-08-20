@@ -22,6 +22,13 @@ class AgentRun(Base):
     )
     request_id: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    autonomous: Mapped[bool] = mapped_column(default=False)
+    triggered_by: Mapped[str] = mapped_column(Text, nullable=True)
+    trigger_event_id: Mapped[str] = mapped_column(Text, nullable=True)
+    workflow_id: Mapped[str] = mapped_column(Text, nullable=True)
+    decision_id: Mapped[str] = mapped_column(Text, nullable=True)
+
+
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default="CREATED", index=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

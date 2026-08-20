@@ -49,3 +49,4 @@ __all__ = [
 ]
 from .goal import Goal, Project
 from .autonomy_policy import AutonomyPolicy
+from .cooldown import Cooldown

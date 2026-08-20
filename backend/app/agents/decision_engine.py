@@ -9,9 +9,6 @@ from app.agents.gemini_client import get_client
 logger = logging.getLogger(__name__)
 
 async def evaluate_trigger(session: AsyncSession, user: User, event_type: str, event_data: dict, context_summary: str) -> Dict[str, Any]:
-    """
-    Decides whether an autonomous trigger should proceed, notify the user, or do nothing.
-    """
     prompt = f"""
 You are the Decision Engine for Señorita AI. 
 An autonomous event has just occurred. You must decide the appropriate action based on the user's context.
@@ -20,14 +17,13 @@ Event Type: {event_type}
 Event Data: {json.dumps(event_data)}
 User Context: {context_summary}
 
-Analyze the event and output a JSON decision object:
+Analyze the event and output a JSON decision object EXACTLY matching this format:
 {{
-    "is_useful": boolean,
-    "is_urgent": boolean,
-    "should_notify": boolean,
-    "should_act": boolean,
-    "should_ask": boolean,
-    "reasoning": "string"
+    "decision": "ACT" | "NOTIFY" | "IGNORE",
+    "confidence": 0.0 to 1.0,
+    "reason": "string explaining reasoning",
+    "workflow": "prepare_for_meeting" | "daily_planning" | "follow_up_email" | null,
+    "urgency": "low" | "medium" | "high"
 }}
 """
     client = get_client()
@@ -45,10 +41,9 @@ Analyze the event and output a JSON decision object:
     except Exception as e:
         logger.error(f"Decision engine failure: {e}")
         return {
-            "is_useful": False,
-            "is_urgent": False,
-            "should_notify": False,
-            "should_act": False,
-            "should_ask": False,
-            "reasoning": "Error evaluating decision."
+            "decision": "IGNORE",
+            "confidence": 0.0,
+            "reason": f"Error evaluating decision: {e}",
+            "workflow": None,
+            "urgency": "low"
         }
