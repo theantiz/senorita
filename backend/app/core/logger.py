@@ -1,33 +1,7 @@
-import logging
-import os
-import sys
+# Backwards-compatibility shim — import from here as before:
+#   from app.core.logger import logger
+# New code should prefer:
+#   from app.core.logging import get_logger
+from app.core.logging import get_logger, logger  # noqa: F401
 
-
-def setup_logger(name: str = "senorita") -> logging.Logger:
-    """Configures and returns a centralized logger for the application."""
-    logger = logging.getLogger(name)
-    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-    level = getattr(logging, log_level, logging.INFO)
-    logger.setLevel(level)
-    logger.propagate = False
-
-    # Only configure if no handlers are present to avoid duplicate logs
-    if not logger.handlers:
-        # Create console handler with formatting
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(level)
-
-        # Standard format
-        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        console_handler.setFormatter(formatter)
-
-        logger.addHandler(console_handler)
-    else:
-        for handler in logger.handlers:
-            handler.setLevel(level)
-
-    return logger
-
-
-# Create default instance
-logger = setup_logger()
+__all__ = ["logger", "get_logger"]

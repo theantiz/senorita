@@ -7,15 +7,21 @@ from httpx import AsyncClient
 
 @pytest.fixture
 def mock_gemini_client():
-    with patch("app.agents.orchestrator.get_client") as mock_get_client:
+    with patch("app.agents.llm_provider.get_client") as mock_get_client1, patch("app.agents.orchestrator.get_client") as mock_get_client2:
         mock_client = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.text = "I have created the task."
-        mock_response.function_calls = None
-        mock_response.candidates = []
+        mock_response_intent = AsyncMock()
+        mock_response_intent.text = '{"intent": "generic_chat", "confidence": 1.0, "entities": {}, "constraints": [], "required_capabilities": [], "ambiguities": [], "routing_decision": "DIRECT_EXECUTION"}'
+        mock_response_intent.function_calls = None
+        mock_response_intent.candidates = []
 
-        mock_client.aio.models.generate_content.return_value = mock_response
-        mock_get_client.return_value = mock_client
+        mock_response_text = AsyncMock()
+        mock_response_text.text = "I have created the task."
+        mock_response_text.function_calls = None
+        mock_response_text.candidates = []
+
+        mock_client.aio.models.generate_content.side_effect = [mock_response_intent, mock_response_text]
+        mock_get_client1.return_value = mock_client
+        mock_get_client2.return_value = mock_client
 
         yield mock_client
 
@@ -41,4 +47,4 @@ async def test_chat_basic_response(client: AsyncClient, mock_gemini_client):
     chat_res = res
     assert chat_res.status_code == 200
     assert "response" in chat_res.json()
-    assert chat_res.json()["response"] == "I have created the task."
+    assert "I've started" in chat_res.json()["response"]

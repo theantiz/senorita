@@ -19,9 +19,9 @@ from app.db.base import Base  # noqa: E402
 from app.db.session import get_db  # noqa: E402
 from app.main import app  # noqa: E402
 
-# Assuming docker-compose is running with port 5433
+# Assuming docker-compose is running with port 5433 or local postgres on 5432
 DB_HOST = os.environ.get("DB_HOST", "localhost")
-DB_PORT = os.environ.get("DB_PORT", "5433")
+DB_PORT = os.environ.get("DB_PORT", "5432")
 DB_USER = os.environ.get("POSTGRES_USER", "senorita")
 DB_PASS = os.environ.get("POSTGRES_PASSWORD", "senorita")
 DB_NAME = "senorita_test"

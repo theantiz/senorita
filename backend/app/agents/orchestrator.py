@@ -14,6 +14,9 @@ from app.agents.gemini_client import get_client, start_chat
 from app.agents.prompts import build_system_instruction
 from app.agents.tool_registry import SENORITA_TOOLS, discover_tools_for_message, execute_tool, gemini_tools_for_names
 from app.agents.tool_system.persistence import redact_sensitive_arguments
+import os
+AGENT_MAX_EXECUTION_TIME = int(os.environ.get("AGENT_MAX_EXECUTION_TIME", "600"))
+
 from app.core.config import settings
 from app.core.logger import logger
 from app.core.state import get_pause_state
@@ -251,92 +254,234 @@ Assistant: {final_text}
         logger.warning("Implicit capture failed", exc_info=True)
 
 
-async def handle_message(session: AsyncSession, user: User, message_text: str) -> str:
+async def handle_message(session: AsyncSession, user: User, message_text: str) -> str:  # noqa: C901
+    from app.agents.context import AgentContext
+    from app.agents.executor import PlanExecutor
+    from app.agents.intent import extract_intent
+    from app.agents.llm_provider import GeminiProvider
+    from app.agents.plan_validator import PlanValidationError, validate_plan
+    from app.agents.planner import generate_plan
+    from app.agents.tool_registry import get_tool_registry
+    from app.agents.tool_system.planner import ToolPlanner
+    from app.db.models.plan import AgentPlan, AgentPlanStep
+    from app.db.models.run import AgentRun
+
     message_text = message_text.strip()
     memories = await _safe_memory_context(session, user.id, message_text)
     contacts = await _fetch_contacts(session, user.id)
     conv_history = await _fetch_conversation_history(session, user.id)
     new_interaction_id = _previous_interaction_id(conv_history)
-
     sys_inst = build_system_instruction(user, memories, contacts)
-    contents = _build_contents(conv_history, message_text)
-    client = get_client()
-    discovered_tool_names = discover_tools_for_message(message_text)
-    available_tools = gemini_tools_for_names(discovered_tool_names)
-    config = types.GenerateContentConfig(
-        tools=available_tools,
-        system_instruction=sys_inst,
-        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+
+    # 1. Build Context
+    context = AgentContext(
+        user_id=str(user.id),
+        conversation_id=new_interaction_id,
+        request_id=new_interaction_id or "",
+        message=message_text,
+        timezone=user.timezone,
+        recent_messages=[{"role": msg.role, "content": msg.content} for msg in conv_history[-5:]],
     )
-    no_tools_config = types.GenerateContentConfig(
-        system_instruction=sys_inst,
-        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-    )
+    provider = GeminiProvider()
 
-    response = None
-    for round_index in range(MAX_TOOL_ROUNDS + 1):  # initial answer + bounded tool rounds
-        response = await _call_model_with_retries(client, contents, config)
+    # 2. Extract Intent
+    intent = await extract_intent(context, provider)
 
-        function_calls = response.function_calls
-        if not function_calls:
-            if response.candidates:
-                contents.append(response.candidates[0].content)
-            break
+    if intent.ambiguities:
+        final_text = "I need a bit more clarification, baby: " + " ".join(intent.ambiguities)
+    elif intent.routing_decision == "MULTI_STEP_PLAN":
+        # 3. Complex Request -> Plan
+        planner = ToolPlanner(get_tool_registry())
+        discovered_tool_names = planner.discover(message_text, intent=intent)
 
-        if round_index >= MAX_TOOL_ROUNDS:
-            logger.warning("Tool round limit reached for user %s", user.id)
-            contents.append(
-                types.Content(
-                    role="user",
-                    parts=[
-                        types.Part.from_text(
-                            text=(
-                                "Tool round limit reached. Stop calling tools and give the user the best concise "
-                                "answer based on the tool results already available."
-                            )
-                        )
-                    ],
-                )
+        # Get raw definitions to pass to prompt
+        registry = get_tool_registry()
+        available_tools_info = [
+            {"name": t.name, "description": t.description, "risk_level": t.risk_level.name}
+            for t in registry.enabled()
+            if t.name in discovered_tool_names
+        ]
+
+        plan = await generate_plan(context, intent, available_tools_info, provider)
+
+        try:
+            validate_plan(plan)
+
+            # Persist Plan to Database
+            db_plan = AgentPlan(
+                user_id=user.id, conversation_id=new_interaction_id, goal=plan.goal, status="CREATED"
             )
-            response = await _call_model_with_retries(client, contents, no_tools_config)
-            break
+            session.add(db_plan)
+            await session.flush()
 
-        model_text = _response_text(response) or "I am using my tools to fulfill the request."
-        contents.append(types.Content(role="model", parts=[types.Part.from_text(text=model_text)]))
+            for step in plan.steps:
+                db_step = AgentPlanStep(
+                    plan_id=db_plan.id,
+                    step_id=step.step_id,
+                    tool_name=step.tool_name,
+                    arguments=step.arguments,
+                    depends_on=step.depends_on,
+                    execution_mode=step.execution_mode,
+                    risk_level=step.risk_level,
+                    status="CREATED",
+                )
+                session.add(db_step)
 
-        tool_response_text = await _execute_tool_calls_for_model(session, user.id, function_calls)
-        contents.append(types.Content(role="user", parts=[types.Part.from_text(text=tool_response_text)]))
+            # Persist Run
+            db_run = AgentRun(
+                user_id=user.id,
+                conversation_id=new_interaction_id,
+                plan_id=db_plan.id,
+                status="CREATED",
+            )
+            session.add(db_run)
+            await session.commit()
 
-    final_text = _response_text(response) if response else ""
-    if not final_text:
-        final_text = "I completed what I could, baby, but the model returned an empty response."
+            # Start Background Execution
+            import asyncio
+            from app.db.session import async_session_factory
+            import os
+            
+            async def _bg_executor(run_id):
+                try:
+                    async with async_session_factory() as bg_session:
+                        executor = PlanExecutor(bg_session, run_id, GeminiProvider())
+                        try:
+                            await asyncio.wait_for(executor.run(), timeout=AGENT_MAX_EXECUTION_TIME)
+                        except asyncio.TimeoutError:
+                            from app.agents.events import record_and_publish_event
+                            from app.db.models.run import AgentRun
+                            from sqlalchemy import select
+                            
+                            stmt = select(AgentRun).where(AgentRun.id == run_id)
+                            res = await bg_session.execute(stmt)
+                            run = res.scalar_one_or_none()
+                            if run:
+                                run.status = "FAILED"
+                                await bg_session.commit()
+                                await record_and_publish_event(bg_session, run.id, "agent.failed", "failed", "Execution timed out.", run.plan_id)
+                except Exception as e:
+                    logger.error(f"Background execution failed: {e}")
 
-    session.add(
-        Conversation(
+            asyncio.create_task(_bg_executor(db_run.id))
+
+            final_text = f"I've started a background plan for you, baby. (Run ID: {db_run.id})"
+
+        except PlanValidationError as e:
+            logger.warning(f"Plan validation failed: {e}")
+            final_text = f"I tried to make a plan for that, baby, but it wasn't safe to execute. {str(e)}"
+    else:
+        # 4. Simple Request -> Direct Execution Fallback
+        # Persist Run without a plan
+        db_run = AgentRun(
             user_id=user.id,
-            gemini_interaction_id=new_interaction_id,
-            role="user",
-            content=message_text,
+            conversation_id=new_interaction_id,
+            status="CREATED",
         )
-    )
+        session.add(db_run)
+        await session.commit()
+
+        final_text = f"I've started a background run for you, baby. (Run ID: {db_run.id})"
+
+        import asyncio
+
+        from app.db.session import async_session_factory
+
+        async def _bg_direct_executor(run_id, msg_text, sys_instruction, contents_list, interaction_id):
+            try:
+                async with async_session_factory() as bg_session:
+                    from sqlalchemy import select
+
+                    from app.agents.events import record_and_publish_event
+                    from app.db.models.run import AgentRun
+
+                    stmt = select(AgentRun).where(AgentRun.id == run_id)
+                    res = await bg_session.execute(stmt)
+                    run = res.scalar_one()
+
+                    run.status = "RUNNING"
+                    await bg_session.commit()
+                    await record_and_publish_event(bg_session, run.id, "agent.started", "running", "Agent run started")
+
+                    client = get_client()
+                    discovered_tool_names = discover_tools_for_message(msg_text)
+                    available_tools = gemini_tools_for_names(discovered_tool_names)
+                    config = types.GenerateContentConfig(
+                        tools=available_tools,
+                        system_instruction=sys_instruction,
+                        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+                    )
+
+                    response = None
+                    for round_index in range(MAX_TOOL_ROUNDS + 1):
+                        response = await _call_model_with_retries(client, contents_list, config)
+
+                        function_calls = response.function_calls
+                        if not function_calls:
+                            if response.candidates:
+                                contents_list.append(response.candidates[0].content)
+                            break
+
+                        if round_index >= MAX_TOOL_ROUNDS:
+                            break
+
+                        model_text = _response_text(response) or "I am using my tools to fulfill the request."
+                        contents_list.append(types.Content(role="model", parts=[types.Part.from_text(text=model_text)]))
+
+                        await record_and_publish_event(bg_session, run.id, "agent.step_started", "running", f"Running {len(function_calls)} tools")
+
+                        tool_response_text = await _execute_tool_calls_for_model(bg_session, user.id, function_calls)
+                        contents_list.append(types.Content(role="user", parts=[types.Part.from_text(text=tool_response_text)]))
+
+                    final_out = _response_text(response) if response else "I couldn't generate a response."
+
+                    run.status = "COMPLETED"
+                    await bg_session.commit()
+                    await record_and_publish_event(bg_session, run.id, "agent.completed", "completed", final_out)
+
+                    # Finalize Conversation for background run
+                    bg_session.add(Conversation(user_id=user.id, gemini_interaction_id=interaction_id, role="assistant", content=final_out))
+                    await bg_session.commit()
+
+                    await _implicit_capture_routine(
+                        user_id=user.id,
+                        message_text=msg_text,
+                        final_text=final_out,
+                        sensitivity=user.memory_capture_sensitivity,
+                        timezone_str=user.timezone,
+                    )
+            except Exception as e:
+                logger.error(f"Direct execution background failed: {e}")
+
+        contents = _build_contents(conv_history, message_text)
+        
+        async def _timeout_wrapper():
+            try:
+                await asyncio.wait_for(
+                    _bg_direct_executor(db_run.id, message_text, sys_inst, contents, new_interaction_id),
+                    timeout=AGENT_MAX_EXECUTION_TIME
+                )
+            except asyncio.TimeoutError:
+                async with async_session_factory() as bg_session:
+                    from app.agents.events import record_and_publish_event
+                    from app.db.models.run import AgentRun
+                    from sqlalchemy import select
+                    stmt = select(AgentRun).where(AgentRun.id == db_run.id)
+                    res = await bg_session.execute(stmt)
+                    run = res.scalar_one_or_none()
+                    if run:
+                        run.status = "FAILED"
+                        await bg_session.commit()
+                        await record_and_publish_event(bg_session, run.id, "agent.failed", "failed", "Execution timed out.")
+
+        asyncio.create_task(_timeout_wrapper())
+
+    # Finalize Conversation for the initial user message
     session.add(
         Conversation(
-            user_id=user.id,
-            gemini_interaction_id=new_interaction_id,
-            role="assistant",
-            content=final_text,
+            user_id=user.id, gemini_interaction_id=new_interaction_id, role="user", content=message_text
         )
     )
     await session.commit()
-
-    asyncio.create_task(
-        _implicit_capture_routine(
-            user_id=user.id,
-            message_text=message_text,
-            final_text=final_text,
-            sensitivity=user.memory_capture_sensitivity,
-            timezone_str=user.timezone,
-        )
-    )
 
     return final_text

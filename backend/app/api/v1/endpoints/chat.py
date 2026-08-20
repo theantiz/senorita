@@ -3,10 +3,11 @@ import base64
 import os
 import re
 import tempfile
+import json
 from dataclasses import dataclass
 
 import edge_tts
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, status
 from google.genai import types
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,10 +16,27 @@ from app.agents.gemini_client import get_client
 from app.agents.orchestrator import handle_message
 from app.api.deps import get_current_user, get_db
 from app.core.config import settings
-from app.core.logger import logger
+from app.core.logging import get_logger
+from app.core.metrics import (
+    websocket_active_connections,
+    websocket_connections_total,
+    websocket_disconnects_total,
+    websocket_reconnects_total,
+    websocket_auth_failures_total,
+    agent_event_replayed_total,
+)
+from app.core.rate_limit import limiter
 from app.db.models import User
 
+log = get_logger(__name__)
+
+# For backward compat with existing code that imports `logger`
+logger = log
+
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+# Maximum WebSocket message size (bytes) — protects against payload flooding
+_WS_MAX_MSG_BYTES = 64 * 1024  # 64 KB
 
 SUPPORTED_AUDIO_MIME_EXTENSIONS = {
     "audio/webm": ".webm",
@@ -171,6 +189,178 @@ async def transcribe_audio_bytes(audio_bytes: bytes, content_type: str | None) -
             os.unlink(tmp_path)
         if uploaded_file is not None and uploaded_file.name:
             asyncio.create_task(_delete_uploaded_file(client, uploaded_file.name))
+
+
+@router.websocket("/stream")
+async def chat_websocket(
+    websocket: WebSocket,
+    session: AsyncSession = Depends(get_db),
+):  # noqa: C901
+    from app.api.deps import get_current_user_ws
+    try:
+        current_user = await get_current_user_ws(websocket, session)
+    except Exception:
+        websocket_auth_failures_total.inc()
+        await websocket.close(code=1008)
+        return
+
+    # Rate limit WS connections per user
+    user_key = str(current_user.id)
+    if not limiter.allow("websocket_connect", user_key):
+        log.warning("websocket.rate_limited", user_id=user_key)
+        await websocket.close(code=1008)
+        return
+
+    await websocket.accept()
+    websocket_connections_total.inc()
+    websocket_active_connections.inc()
+
+    log.info(
+        "websocket.connected",
+        user_id=str(current_user.id),
+        remote=getattr(websocket, "client", None) and str(websocket.client),
+    )
+
+    import uuid
+    from sqlalchemy import select
+
+    from app.agents.events import event_broadcaster
+    from app.db.models.run import AgentEvent, AgentRun
+
+    active_subscriptions: set[asyncio.Queue] = set()
+    active_run_ids: set[uuid.UUID] = set()
+
+    async def _pump_events(q: asyncio.Queue):
+        try:
+            while True:
+                event = await q.get()
+                await websocket.send_json(event)
+        except asyncio.CancelledError:
+            pass
+        except Exception as exc:
+            log.error("websocket.pump_error", error=str(exc))
+
+    tasks = []
+
+    try:
+        while True:
+            try:
+                data_text = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+            except asyncio.TimeoutError:
+                await websocket.send_json({"type": "ping"})
+                continue
+
+            # Enforce message size limit
+            if len(data_text.encode()) > _WS_MAX_MSG_BYTES:
+                await websocket.send_json({"type": "error", "message": "Message too large."})
+                continue
+
+            try:
+                data = json.loads(data_text)
+            except (ValueError, json.JSONDecodeError):
+                await websocket.send_json({"type": "error", "message": "Invalid JSON."})
+                continue
+
+            msg_type = data.get("type")
+
+            if msg_type == "pong":
+                continue
+
+            if msg_type == "subscribe":
+                run_id_str = data.get("agent_run_id")
+                if run_id_str:
+                    try:
+                        run_id = uuid.UUID(run_id_str)
+                        if run_id not in active_run_ids:
+                            # ── OWNERSHIP VERIFICATION ──────────────────────────────
+                            # Verify the run belongs to the authenticated user.
+                            # A user must NEVER receive another user's events.
+                            ownership_stmt = select(AgentRun).where(
+                                AgentRun.id == run_id,
+                                AgentRun.user_id == current_user.id,
+                            )
+                            ownership_result = await session.execute(ownership_stmt)
+                            owned_run = ownership_result.scalar_one_or_none()
+                            if owned_run is None:
+                                log.warning(
+                                    "websocket.subscription_denied",
+                                    user_id=str(current_user.id),
+                                    run_id=str(run_id),
+                                    reason="run_not_owned",
+                                )
+                                await websocket.send_json({"type": "error", "message": "Forbidden."})
+                                continue
+                            # ────────────────────────────────────────────────────────
+
+                            q = event_broadcaster.subscribe(run_id)
+                            active_subscriptions.add(q)
+                            active_run_ids.add(run_id)
+                            task = asyncio.create_task(_pump_events(q))
+                            tasks.append(task)
+
+                            # Replay missed events
+                            last_seq = data.get("last_sequence", 0)
+                            if last_seq >= 0:
+                                replay_stmt = (
+                                    select(AgentEvent)
+                                    .where(
+                                        AgentEvent.run_id == run_id,
+                                        AgentEvent.sequence_number > last_seq,
+                                    )
+                                    .order_by(AgentEvent.sequence_number)
+                                )
+                                replay_result = await session.execute(replay_stmt)
+                                replayed = 0
+                                for evt in replay_result.scalars().all():
+                                    await websocket.send_json({
+                                        "event_id": str(evt.id),
+                                        "agent_run_id": str(evt.run_id),
+                                        "plan_id": str(evt.plan_id) if evt.plan_id else None,
+                                        "step_id": evt.step_id,
+                                        "type": evt.event_type,
+                                        "status": evt.status,
+                                        "message": evt.message,
+                                        "timestamp": evt.created_at.isoformat(),
+                                        "metadata": evt.metadata_payload,
+                                        "sequence": evt.sequence_number,
+                                    })
+                                    replayed += 1
+                                if replayed:
+                                    agent_event_replayed_total.inc(replayed)
+                                    websocket_reconnects_total.inc()
+                                    log.info(
+                                        "websocket.reconnected",
+                                        user_id=str(current_user.id),
+                                        run_id=str(run_id),
+                                        replayed=replayed,
+                                    )
+                    except ValueError:
+                        pass
+                continue
+
+            # New chat message from WS
+            message = data.get("message")
+            if message and isinstance(message, str):
+                # Rate limit chat messages per user
+                if not limiter.allow("chat_message", user_key):
+                    await websocket.send_json({"type": "error", "message": "Rate limit reached. Please slow down."})
+                    continue
+                try:
+                    response_text = await handle_message(session, current_user, message)
+                    await websocket.send_json({"type": "final", "message": response_text})
+                except Exception as exc:
+                    log.error("websocket.handler_error", user_id=str(current_user.id), error=type(exc).__name__)
+                    await websocket.send_json({"type": "error", "message": "An unexpected error occurred."})
+
+    except WebSocketDisconnect:
+        log.info("websocket.disconnected", user_id=str(current_user.id))
+    finally:
+        websocket_active_connections.dec()
+        websocket_disconnects_total.inc()
+        for t in tasks:
+            t.cancel()
+        for run_id, q in zip(active_run_ids, active_subscriptions, strict=False):
+            event_broadcaster.unsubscribe(run_id, q)
 
 
 @router.post("")

@@ -9,6 +9,10 @@ const VoiceOrb = dynamic(() => import("../components/VoiceOrb").then(mod => mod.
 import { useAudioAnalyser } from "../../hooks/useAudioAnalyser";
 import { useVoiceAssistant, VoiceAssistantStatus } from "../../hooks/useVoiceAssistant";
 
+import { useAgentStream } from "../../hooks/useAgentStream";
+import { AgentPlanProgress } from "../../components/agent/AgentPlanProgress";
+import { AgentConfirmationCard } from "../../components/agent/AgentConfirmationCard";
+
 export default function Chat() {
   const { token, setToken } = useAuth();
   const [messages, setMessages] = useState<{ role: string; text: string; ts?: string }[]>([]);
@@ -17,6 +21,8 @@ export default function Chat() {
   const [initialLoading, setInitialLoading] = useState(true);
   const endRef = useRef<HTMLDivElement>(null);
   const { getFrequencies, startAnalyser, stopAnalyser } = useAudioAnalyser();
+
+  const { state: agentState, sendMessage: sendAgentMessage, resume, cancel } = useAgentStream(token || "");
 
   useEffect(() => {
     async function loadHistory() {
@@ -38,6 +44,22 @@ export default function Chat() {
     loadHistory();
   }, [token]);
 
+  useEffect(() => {
+    if (agentState.status === 'COMPLETED' || agentState.status === 'FAILED' || agentState.status === 'CANCELLED') {
+      setLoading(false);
+      if (token) {
+        getChatHistory(token).then(history => {
+            const formatted = history.map((h: any) => ({
+              role: h.role,
+              text: h.text,
+              ts: new Date(h.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }));
+            setMessages(formatted);
+        });
+      }
+    }
+  }, [agentState.status, token]);
+
   const { status, activeStream, manualTrigger, isWakeWordEnabled, setIsWakeWordEnabled } = useVoiceAssistant({
     token,
     onCommandProcessed: (transcription, response) => {
@@ -48,13 +70,12 @@ export default function Chat() {
                  if (lastMsg && lastMsg.text === "[Voice Audio]") {
                       lastMsg.text = `[Voice] ${transcription}`;
                  } else {
-                      newMsgs.push({ role: "user", text: `[Voice] ${transcription}`, ts: new Date().toLocaleTimeString() });
+                      newMsgs.push({ role: 'user', text: `[Voice] ${transcription}` });
                  }
                  return newMsgs;
              });
-        }
-        if (response) {
-            setMessages((prev) => [...prev, { role: "assistant", text: response, ts: new Date().toLocaleTimeString() }]);
+             sendAgentMessage(transcription);
+             setLoading(true);
         }
     },
     getFrequencies
@@ -146,8 +167,26 @@ export default function Chat() {
         style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))' }}
       >
         {/* Corner labels */}
-        <div className="absolute top-2 left-3 font-mono text-[8px] text-white/20 tracking-widest">COMMS LOG</div>
-        <div className="absolute top-2 right-3 font-mono text-[8px] text-white/20 tracking-widest">ENCRYPTED</div>
+        <div className="absolute top-2 left-3 font-mono text-[8px] text-white/20 tracking-widest flex items-center gap-2">
+          COMMS LOG
+          <span className={`w-2 h-2 rounded-full ${
+            agentState.connectionState === 'CONNECTED' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 
+            agentState.connectionState === 'CONNECTING' ? 'bg-yellow-500 animate-pulse' : 
+            agentState.connectionState === 'RECONNECTING' ? 'bg-orange-500 animate-pulse' : 
+            'bg-red-500'
+          }`} title={agentState.connectionState} />
+          {agentState.connectionState !== 'CONNECTED' && (
+            <span className="text-yellow-500/70">{agentState.connectionState}</span>
+          )}
+        </div>
+        <div className="absolute top-2 right-3 font-mono text-[8px] text-white/20 tracking-widest flex gap-3">
+          {agentState.status && ['RUNNING', 'WAITING_FOR_CONFIRMATION', 'CREATED', 'PAUSED'].includes(agentState.status) && (
+            <button onClick={cancel} className="text-red-400 hover:text-red-300 hover:underline">
+              [CANCEL TASK]
+            </button>
+          )}
+          <span>ENCRYPTED</span>
+        </div>
 
         {initialLoading ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
@@ -204,7 +243,21 @@ export default function Chat() {
           </div>
         ))}
 
-        {loading && (
+        {agentState.steps.length > 0 && agentState.status && ['RUNNING', 'WAITING_FOR_CONFIRMATION', 'CREATED'].includes(agentState.status) && (
+           <AgentPlanProgress steps={agentState.steps} goal={agentState.goal} />
+        )}
+
+        {agentState.needsConfirmation && (
+           <AgentConfirmationCard metadata={agentState.confirmationData} onResume={resume} onCancel={cancel} />
+        )}
+
+        {agentState.error && (
+           <div className="border border-red-500/30 bg-red-500/10 text-red-400 p-3 text-xs font-mono">
+             SYSTEM ERROR: {agentState.error}
+           </div>
+        )}
+
+        {loading && !agentState.needsConfirmation && (!agentState.steps || agentState.steps.length === 0 || agentState.status === 'RUNNING') && (
           <div className="flex justify-start">
             <div className="border border-white/20 bg-white/5 px-4 py-3"
               style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}>
@@ -214,7 +267,9 @@ export default function Chat() {
                     <span key={i} className="w-1.5 h-1.5 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
                   ))}
                 </div>
-                <span className="font-mono text-[9px] text-white/40 tracking-widest">PROCESSING...</span>
+                <span className="font-mono text-[9px] text-white/40 tracking-widest">
+                  {agentState.status === 'RUNNING' ? 'ORCHESTRATING...' : 'PROCESSING...'}
+                </span>
               </div>
             </div>
           </div>

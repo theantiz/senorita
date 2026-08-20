@@ -12,6 +12,7 @@ from app.api.v1.endpoints import (
     memory,
     message_modes,
     notifications,
+    plans,
     reminders,
     slack,
     system,
@@ -37,3 +38,4 @@ api_router.include_router(slack.router)
 api_router.include_router(message_modes.router)
 api_router.include_router(briefings.router)
 api_router.include_router(notifications.router)
+api_router.include_router(plans.router)

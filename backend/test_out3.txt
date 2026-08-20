@@ -1,0 +1,1659 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-8.2.2, pluggy-1.6.0 -- /Users/antiz/Developer/senorita/backend/.venv/bin/python3.12
+cachedir: .pytest_cache
+rootdir: /Users/antiz/Developer/senorita/backend
+configfile: pytest.ini
+plugins: cov-5.0.0, env-1.1.3, anyio-4.14.2, asyncio-0.23.7, mock-3.14.0
+asyncio: mode=Mode.AUTO
+collecting ... collected 1 item
+
+tests/test_chat_agent.py::test_chat_basic_response FAILED                [100%]
+
+=================================== FAILURES ===================================
+___________________________ test_chat_basic_response ___________________________
+  + Exception Group Traceback (most recent call last):
+  |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/_utils.py", line 77, in collapse_excgroups
+  |     yield
+  |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 186, in __call__
+  |     async with anyio.create_task_group() as task_group:
+  |                ^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 815, in __aexit__
+  |     raise BaseExceptionGroup(
+  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Traceback (most recent call last):
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/_pytest/runner.py", line 341, in from_call
+    |     result: Optional[TResult] = func()
+    |                                 ^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/_pytest/runner.py", line 241, in <lambda>
+    |     lambda: runtest_hook(item=item, **kwds), when=when, reraise=reraise
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    |     return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    |     return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pluggy/_callers.py", line 167, in _multicall
+    |     raise exception
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pluggy/_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/_pytest/threadexception.py", line 87, in pytest_runtest_call
+    |     yield from thread_exception_runtest_hook()
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/_pytest/threadexception.py", line 63, in thread_exception_runtest_hook
+    |     yield
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pluggy/_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/_pytest/unraisableexception.py", line 90, in pytest_runtest_call
+    |     yield from unraisable_exception_runtest_hook()
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/_pytest/unraisableexception.py", line 65, in unraisable_exception_runtest_hook
+    |     yield
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pluggy/_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/_pytest/logging.py", line 850, in pytest_runtest_call
+    |     yield from self._runtest_for(item, "call")
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/_pytest/logging.py", line 833, in _runtest_for
+    |     yield
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pluggy/_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/_pytest/capture.py", line 878, in pytest_runtest_call
+    |     return (yield)
+    |             ^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pluggy/_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/_pytest/skipping.py", line 257, in pytest_runtest_call
+    |     return (yield)
+    |             ^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    |     res = hook_impl.function(*args)
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/_pytest/runner.py", line 183, in pytest_runtest_call
+    |     raise e
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/_pytest/runner.py", line 173, in pytest_runtest_call
+    |     item.runtest()
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py", line 436, in runtest
+    |     super().runtest()
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/_pytest/python.py", line 1632, in runtest
+    |     self.ihook.pytest_pyfunc_call(pyfuncitem=self)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    |     return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    |     return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pluggy/_callers.py", line 167, in _multicall
+    |     raise exception
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pluggy/_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pluggy/_callers.py", line 53, in run_old_style_hookwrapper
+    |     return result.get_result()
+    |            ^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pluggy/_result.py", line 103, in get_result
+    |     raise exc.with_traceback(tb)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pluggy/_callers.py", line 38, in run_old_style_hookwrapper
+    |     res = yield
+    |           ^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    |     res = hook_impl.function(*args)
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/_pytest/python.py", line 162, in pytest_pyfunc_call
+    |     result = testfunction(**testargs)
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py", line 902, in inner
+    |     _loop.run_until_complete(task)
+    |   File "/opt/homebrew/Cellar/python@3.12/3.12.13_4/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    |     return future.result()
+    |            ^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/tests/test_chat_agent.py", line 35, in test_chat_basic_response
+    |     res = await client.post(
+    |           ^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1905, in post
+    |     return await self.request(
+    |            ^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1585, in request
+    |     return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1674, in send
+    |     response = await self._send_handling_auth(
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1702, in _send_handling_auth
+    |     response = await self._send_handling_redirects(
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1739, in _send_handling_redirects
+    |     response = await self._send_single_request(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1776, in _send_single_request
+    |     response = await transport.handle_async_request(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/httpx/_transports/asgi.py", line 157, in handle_async_request
+    |     await self.app(scope, receive, send)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/fastapi/applications.py", line 1054, in __call__
+    |     await super().__call__(scope, receive, send)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/applications.py", line 113, in __call__
+    |     await self.middleware_stack(scope, receive, send)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/errors.py", line 187, in __call__
+    |     raise exc
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/errors.py", line 165, in __call__
+    |     await self.app(scope, receive, _send)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/cors.py", line 85, in __call__
+    |     await self.app(scope, receive, send)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 185, in __call__
+    |     with collapse_excgroups():
+    |          ^^^^^^^^^^^^^^^^^^^^
+    |   File "/opt/homebrew/Cellar/python@3.12/3.12.13_4/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py", line 158, in __exit__
+    |     self.gen.throw(value)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/_utils.py", line 83, in collapse_excgroups
+    |     raise exc
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 187, in __call__
+    |     response = await self.dispatch_func(request, call_next)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/app/main.py", line 100, in add_security_headers
+    |     response = await call_next(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 163, in call_next
+    |     raise app_exc
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 149, in coro
+    |     await self.app(scope, receive_or_disconnect, send_no_error)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+    |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 62, in wrapped_app
+    |     raise exc
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 51, in wrapped_app
+    |     await app(scope, receive, sender)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/routing.py", line 715, in __call__
+    |     await self.middleware_stack(scope, receive, send)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/routing.py", line 735, in app
+    |     await route.handle(scope, receive, send)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/routing.py", line 288, in handle
+    |     await self.app(scope, receive, send)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/routing.py", line 76, in app
+    |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 62, in wrapped_app
+    |     raise exc
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 51, in wrapped_app
+    |     await app(scope, receive, sender)
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/routing.py", line 73, in app
+    |     response = await f(request)
+    |                ^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 301, in app
+    |     raw_response = await run_endpoint_function(
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 212, in run_endpoint_function
+    |     return await dependant.call(**values)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/app/api/v1/endpoints/chat.py", line 370, in chat_endpoint
+    |     response_text = await handle_message(session, current_user, request.message)
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/app/agents/orchestrator.py", line 285, in handle_message
+    |     intent = await extract_intent(context, provider)
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/app/agents/intent.py", line 35, in extract_intent
+    |     intent = await provider.generate_structured(
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/app/agents/llm_provider.py", line 53, in generate_structured
+    |     response = await client.aio.models.generate_content(
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/google/genai/models.py", line 5826, in generate_content
+    |     response = await self._generate_content(
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/google/genai/models.py", line 4991, in _generate_content
+    |     request_dict = _GenerateContentParameters_to_mldev(
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/google/genai/models.py", line 1151, in _GenerateContentParameters_to_mldev
+    |     _GenerateContentConfig_to_mldev(
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/google/genai/models.py", line 870, in _GenerateContentConfig_to_mldev
+    |     t.t_schema(api_client, getv(from_object, ['response_schema'])),
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/google/genai/_transformers.py", line 550, in t_schema
+    |     return types.Schema.model_validate(schema)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pydantic/main.py", line 596, in model_validate
+    |     return cls.__pydantic_validator__.validate_python(
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    | pydantic_core._pydantic_core.ValidationError: 1 validation error for Schema
+    | additionalProperties
+    |   Extra inputs are not permitted [type=extra_forbidden, input_value=False, input_type=bool]
+    |     For further information visit https://errors.pydantic.dev/2.9/v/extra_forbidden
+    +------------------------------------
+
+During handling of the above exception, another exception occurred:
+
+client = <httpx.AsyncClient object at 0x10eb4c770>
+mock_gemini_client = <AsyncMock name='get_client()' id='4541905712'>
+
+    @pytest.mark.asyncio
+    async def test_chat_basic_response(client: AsyncClient, mock_gemini_client):
+        # Setup user
+        import uuid
+        username = f"test_chat_user_{uuid.uuid4().hex[:8]}"
+        setup_res = await client.post("/api/v1/auth/login", json={"name": username})
+        assert setup_res.status_code == 200, setup_res.text
+        token = setup_res.json()["token"]
+    
+        with patch("app.agents.orchestrator.embed_text") as mock_embed:
+            mock_embed.return_value = [0.1] * 3072
+    
+            # Send a basic chat message
+>           res = await client.post(
+                "/api/v1/chat",
+                json={"message": "create a task to buy groceries"},
+                headers={"Authorization": f"Bearer {token}"}
+            ) # Mocking memory vector search so we don't try to connect to missing services
+
+tests/test_chat_agent.py:35: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <httpx.AsyncClient object at 0x10eb4c770>, url = '/api/v1/chat'
+
+    async def post(
+        self,
+        url: URL | str,
+        *,
+        content: RequestContent | None = None,
+        data: RequestData | None = None,
+        files: RequestFiles | None = None,
+        json: typing.Any | None = None,
+        params: QueryParamTypes | None = None,
+        headers: HeaderTypes | None = None,
+        cookies: CookieTypes | None = None,
+        auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,
+        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
+        extensions: RequestExtensions | None = None,
+    ) -> Response:
+        """
+        Send a `POST` request.
+    
+        **Parameters**: See `httpx.request`.
+        """
+>       return await self.request(
+            "POST",
+            url,
+            content=content,
+            data=data,
+            files=files,
+            json=json,
+            params=params,
+            headers=headers,
+            cookies=cookies,
+            auth=auth,
+            follow_redirects=follow_redirects,
+            timeout=timeout,
+            extensions=extensions,
+        )
+
+.venv/lib/python3.12/site-packages/httpx/_client.py:1905: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <httpx.AsyncClient object at 0x10eb4c770>, method = 'POST'
+url = '/api/v1/chat'
+
+    async def request(
+        self,
+        method: str,
+        url: URL | str,
+        *,
+        content: RequestContent | None = None,
+        data: RequestData | None = None,
+        files: RequestFiles | None = None,
+        json: typing.Any | None = None,
+        params: QueryParamTypes | None = None,
+        headers: HeaderTypes | None = None,
+        cookies: CookieTypes | None = None,
+        auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,
+        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
+        extensions: RequestExtensions | None = None,
+    ) -> Response:
+        """
+        Build and send a request.
+    
+        Equivalent to:
+    
+        ```python
+        request = client.build_request(...)
+        response = await client.send(request, ...)
+        ```
+    
+        See `AsyncClient.build_request()`, `AsyncClient.send()`
+        and [Merging of configuration][0] for how the various parameters
+        are merged with client-level configuration.
+    
+        [0]: /advanced/clients/#merging-of-configuration
+        """
+    
+        if cookies is not None:  # pragma: no cover
+            message = (
+                "Setting per-request cookies=<...> is being deprecated, because "
+                "the expected behaviour on cookie persistence is ambiguous. Set "
+                "cookies directly on the client instance instead."
+            )
+            warnings.warn(message, DeprecationWarning)
+    
+        request = self.build_request(
+            method=method,
+            url=url,
+            content=content,
+            data=data,
+            files=files,
+            json=json,
+            params=params,
+            headers=headers,
+            cookies=cookies,
+            timeout=timeout,
+            extensions=extensions,
+        )
+>       return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+
+.venv/lib/python3.12/site-packages/httpx/_client.py:1585: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <httpx.AsyncClient object at 0x10eb4c770>
+request = <Request('POST', 'http://test/api/v1/chat')>
+
+    async def send(
+        self,
+        request: Request,
+        *,
+        stream: bool = False,
+        auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,
+        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+    ) -> Response:
+        """
+        Send a request.
+    
+        The request is sent as-is, unmodified.
+    
+        Typically you'll want to build one with `AsyncClient.build_request()`
+        so that any client-level configuration is merged into the request,
+        but passing an explicit `httpx.Request()` is supported as well.
+    
+        See also: [Request instances][0]
+    
+        [0]: /advanced/clients/#request-instances
+        """
+        if self._state == ClientState.CLOSED:
+            raise RuntimeError("Cannot send a request, as the client has been closed.")
+    
+        self._state = ClientState.OPENED
+        follow_redirects = (
+            self.follow_redirects
+            if isinstance(follow_redirects, UseClientDefault)
+            else follow_redirects
+        )
+    
+        self._set_timeout(request)
+    
+        auth = self._build_request_auth(request, auth)
+    
+>       response = await self._send_handling_auth(
+            request,
+            auth=auth,
+            follow_redirects=follow_redirects,
+            history=[],
+        )
+
+.venv/lib/python3.12/site-packages/httpx/_client.py:1674: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <httpx.AsyncClient object at 0x10eb4c770>
+request = <Request('POST', 'http://test/api/v1/chat')>
+auth = <httpx.Auth object at 0x10ed5de50>, follow_redirects = False
+history = []
+
+    async def _send_handling_auth(
+        self,
+        request: Request,
+        auth: Auth,
+        follow_redirects: bool,
+        history: list[Response],
+    ) -> Response:
+        auth_flow = auth.async_auth_flow(request)
+        try:
+            request = await auth_flow.__anext__()
+    
+            while True:
+>               response = await self._send_handling_redirects(
+                    request,
+                    follow_redirects=follow_redirects,
+                    history=history,
+                )
+
+.venv/lib/python3.12/site-packages/httpx/_client.py:1702: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <httpx.AsyncClient object at 0x10eb4c770>
+request = <Request('POST', 'http://test/api/v1/chat')>, follow_redirects = False
+history = []
+
+    async def _send_handling_redirects(
+        self,
+        request: Request,
+        follow_redirects: bool,
+        history: list[Response],
+    ) -> Response:
+        while True:
+            if len(history) > self.max_redirects:
+                raise TooManyRedirects(
+                    "Exceeded maximum allowed redirects.", request=request
+                )
+    
+            for hook in self._event_hooks["request"]:
+                await hook(request)
+    
+>           response = await self._send_single_request(request)
+
+.venv/lib/python3.12/site-packages/httpx/_client.py:1739: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <httpx.AsyncClient object at 0x10eb4c770>
+request = <Request('POST', 'http://test/api/v1/chat')>
+
+    async def _send_single_request(self, request: Request) -> Response:
+        """
+        Sends a single request, without handling any redirections.
+        """
+        transport = self._transport_for_url(request.url)
+        timer = Timer()
+        await timer.async_start()
+    
+        if not isinstance(request.stream, AsyncByteStream):
+            raise RuntimeError(
+                "Attempted to send an sync request with an AsyncClient instance."
+            )
+    
+        with request_context(request=request):
+>           response = await transport.handle_async_request(request)
+
+.venv/lib/python3.12/site-packages/httpx/_client.py:1776: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <httpx.ASGITransport object at 0x10eb4ff50>
+request = <Request('POST', 'http://test/api/v1/chat')>
+
+    async def handle_async_request(
+        self,
+        request: Request,
+    ) -> Response:
+        assert isinstance(request.stream, AsyncByteStream)
+    
+        # ASGI scope.
+        scope = {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": request.method,
+            "headers": [(k.lower(), v) for (k, v) in request.headers.raw],
+            "scheme": request.url.scheme,
+            "path": request.url.path,
+            "raw_path": request.url.raw_path.split(b"?")[0],
+            "query_string": request.url.query,
+            "server": (request.url.host, request.url.port),
+            "client": self.client,
+            "root_path": self.root_path,
+        }
+    
+        # Request.
+        request_body_chunks = request.stream.__aiter__()
+        request_complete = False
+    
+        # Response.
+        status_code = None
+        response_headers = None
+        body_parts = []
+        response_started = False
+        response_complete = create_event()
+    
+        # ASGI callables.
+    
+        async def receive() -> dict[str, typing.Any]:
+            nonlocal request_complete
+    
+            if request_complete:
+                await response_complete.wait()
+                return {"type": "http.disconnect"}
+    
+            try:
+                body = await request_body_chunks.__anext__()
+            except StopAsyncIteration:
+                request_complete = True
+                return {"type": "http.request", "body": b"", "more_body": False}
+            return {"type": "http.request", "body": body, "more_body": True}
+    
+        async def send(message: typing.MutableMapping[str, typing.Any]) -> None:
+            nonlocal status_code, response_headers, response_started
+    
+            if message["type"] == "http.response.start":
+                assert not response_started
+    
+                status_code = message["status"]
+                response_headers = message.get("headers", [])
+                response_started = True
+    
+            elif message["type"] == "http.response.body":
+                assert not response_complete.is_set()
+                body = message.get("body", b"")
+                more_body = message.get("more_body", False)
+    
+                if body and request.method != "HEAD":
+                    body_parts.append(body)
+    
+                if not more_body:
+                    response_complete.set()
+    
+        try:
+>           await self.app(scope, receive, send)
+
+.venv/lib/python3.12/site-packages/httpx/_transports/asgi.py:157: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <fastapi.applications.FastAPI object at 0x10e8dedb0>
+scope = {'app': <fastapi.applications.FastAPI object at 0x10e8dedb0>, 'asgi': {'version': '3.0'}, 'client': ('127.0.0.1', 123), 'endpoint': <function chat_endpoint at 0x10e7ed9e0>, ...}
+receive = <function ASGITransport.handle_async_request.<locals>.receive at 0x10eb694e0>
+send = <function ASGITransport.handle_async_request.<locals>.send at 0x10eb6b600>
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if self.root_path:
+            scope["root_path"] = self.root_path
+>       await super().__call__(scope, receive, send)
+
+.venv/lib/python3.12/site-packages/fastapi/applications.py:1054: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <fastapi.applications.FastAPI object at 0x10e8dedb0>
+scope = {'app': <fastapi.applications.FastAPI object at 0x10e8dedb0>, 'asgi': {'version': '3.0'}, 'client': ('127.0.0.1', 123), 'endpoint': <function chat_endpoint at 0x10e7ed9e0>, ...}
+receive = <function ASGITransport.handle_async_request.<locals>.receive at 0x10eb694e0>
+send = <function ASGITransport.handle_async_request.<locals>.send at 0x10eb6b600>
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        scope["app"] = self
+        if self.middleware_stack is None:
+            self.middleware_stack = self.build_middleware_stack()
+>       await self.middleware_stack(scope, receive, send)
+
+.venv/lib/python3.12/site-packages/starlette/applications.py:113: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <starlette.middleware.errors.ServerErrorMiddleware object at 0x10ead7800>
+scope = {'app': <fastapi.applications.FastAPI object at 0x10e8dedb0>, 'asgi': {'version': '3.0'}, 'client': ('127.0.0.1', 123), 'endpoint': <function chat_endpoint at 0x10e7ed9e0>, ...}
+receive = <function ASGITransport.handle_async_request.<locals>.receive at 0x10eb694e0>
+send = <function ASGITransport.handle_async_request.<locals>.send at 0x10eb6b600>
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+    
+        response_started = False
+    
+        async def _send(message: Message) -> None:
+            nonlocal response_started, send
+    
+            if message["type"] == "http.response.start":
+                response_started = True
+            await send(message)
+    
+        try:
+            await self.app(scope, receive, _send)
+        except Exception as exc:
+            request = Request(scope)
+            if self.debug:
+                # In debug mode, return traceback responses.
+                response = self.debug_response(request, exc)
+            elif self.handler is None:
+                # Use our default 500 error handler.
+                response = self.error_response(request, exc)
+            else:
+                # Use an installed 500 error handler.
+                if is_async_callable(self.handler):
+                    response = await self.handler(request, exc)
+                else:
+                    response = await run_in_threadpool(self.handler, request, exc)
+    
+            if not response_started:
+                await response(scope, receive, send)
+    
+            # We always continue to raise the exception.
+            # This allows servers to log the error, or allows test clients
+            # to optionally raise the error within the test case.
+>           raise exc
+
+.venv/lib/python3.12/site-packages/starlette/middleware/errors.py:187: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <starlette.middleware.errors.ServerErrorMiddleware object at 0x10ead7800>
+scope = {'app': <fastapi.applications.FastAPI object at 0x10e8dedb0>, 'asgi': {'version': '3.0'}, 'client': ('127.0.0.1', 123), 'endpoint': <function chat_endpoint at 0x10e7ed9e0>, ...}
+receive = <function ASGITransport.handle_async_request.<locals>.receive at 0x10eb694e0>
+send = <function ASGITransport.handle_async_request.<locals>.send at 0x10eb6b600>
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+    
+        response_started = False
+    
+        async def _send(message: Message) -> None:
+            nonlocal response_started, send
+    
+            if message["type"] == "http.response.start":
+                response_started = True
+            await send(message)
+    
+        try:
+>           await self.app(scope, receive, _send)
+
+.venv/lib/python3.12/site-packages/starlette/middleware/errors.py:165: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <starlette.middleware.cors.CORSMiddleware object at 0x10ebc1ee0>
+scope = {'app': <fastapi.applications.FastAPI object at 0x10e8dedb0>, 'asgi': {'version': '3.0'}, 'client': ('127.0.0.1', 123), 'endpoint': <function chat_endpoint at 0x10e7ed9e0>, ...}
+receive = <function ASGITransport.handle_async_request.<locals>.receive at 0x10eb694e0>
+send = <function ServerErrorMiddleware.__call__.<locals>._send at 0x10eb6bce0>
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":  # pragma: no cover
+            await self.app(scope, receive, send)
+            return
+    
+        method = scope["method"]
+        headers = Headers(scope=scope)
+        origin = headers.get("origin")
+    
+        if origin is None:
+>           await self.app(scope, receive, send)
+
+.venv/lib/python3.12/site-packages/starlette/middleware/cors.py:85: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <starlette.middleware.base.BaseHTTPMiddleware object at 0x10ebc1eb0>
+scope = {'app': <fastapi.applications.FastAPI object at 0x10e8dedb0>, 'asgi': {'version': '3.0'}, 'client': ('127.0.0.1', 123), 'endpoint': <function chat_endpoint at 0x10e7ed9e0>, ...}
+receive = <function ASGITransport.handle_async_request.<locals>.receive at 0x10eb694e0>
+send = <function ServerErrorMiddleware.__call__.<locals>._send at 0x10eb6bce0>
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+    
+        request = _CachedRequest(scope, receive)
+        wrapped_receive = request.wrapped_receive
+        response_sent = anyio.Event()
+    
+        async def call_next(request: Request) -> Response:
+            app_exc: Exception | None = None
+            send_stream: ObjectSendStream[typing.MutableMapping[str, typing.Any]]
+            recv_stream: ObjectReceiveStream[typing.MutableMapping[str, typing.Any]]
+            send_stream, recv_stream = anyio.create_memory_object_stream()
+    
+            async def receive_or_disconnect() -> Message:
+                if response_sent.is_set():
+                    return {"type": "http.disconnect"}
+    
+                async with anyio.create_task_group() as task_group:
+    
+                    async def wrap(func: typing.Callable[[], typing.Awaitable[T]]) -> T:
+                        result = await func()
+                        task_group.cancel_scope.cancel()
+                        return result
+    
+                    task_group.start_soon(wrap, response_sent.wait)
+                    message = await wrap(wrapped_receive)
+    
+                if response_sent.is_set():
+                    return {"type": "http.disconnect"}
+    
+                return message
+    
+            async def close_recv_stream_on_response_sent() -> None:
+                await response_sent.wait()
+                recv_stream.close()
+    
+            async def send_no_error(message: Message) -> None:
+                try:
+                    await send_stream.send(message)
+                except anyio.BrokenResourceError:
+                    # recv_stream has been closed, i.e. response_sent has been set.
+                    return
+    
+            async def coro() -> None:
+                nonlocal app_exc
+    
+                async with send_stream:
+                    try:
+                        await self.app(scope, receive_or_disconnect, send_no_error)
+                    except Exception as exc:
+                        app_exc = exc
+    
+            task_group.start_soon(close_recv_stream_on_response_sent)
+            task_group.start_soon(coro)
+    
+            try:
+                message = await recv_stream.receive()
+                info = message.get("info", None)
+                if message["type"] == "http.response.debug" and info is not None:
+                    message = await recv_stream.receive()
+            except anyio.EndOfStream:
+                if app_exc is not None:
+                    raise app_exc
+                raise RuntimeError("No response returned.")
+    
+            assert message["type"] == "http.response.start"
+    
+            async def body_stream() -> typing.AsyncGenerator[bytes, None]:
+                async with recv_stream:
+                    async for message in recv_stream:
+                        assert message["type"] == "http.response.body"
+                        body = message.get("body", b"")
+                        if body:
+                            yield body
+                        if not message.get("more_body", False):
+                            break
+    
+                if app_exc is not None:
+                    raise app_exc
+    
+            response = _StreamingResponse(status_code=message["status"], content=body_stream(), info=info)
+            response.raw_headers = message["headers"]
+            return response
+    
+>       with collapse_excgroups():
+
+.venv/lib/python3.12/site-packages/starlette/middleware/base.py:185: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <contextlib._GeneratorContextManager object at 0x10ed5f050>
+typ = <class 'ExceptionGroup'>
+value = ExceptionGroup('unhandled errors in a TaskGroup', [1 validation error for Schema
+additionalProperties
+  Extra inputs a...put_value=False, input_type=bool]
+    For further information visit https://errors.pydantic.dev/2.9/v/extra_forbidden])
+traceback = <traceback object at 0x10edb7b80>
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+                next(self.gen)
+            except StopIteration:
+                return False
+            else:
+                try:
+                    raise RuntimeError("generator didn't stop")
+                finally:
+                    self.gen.close()
+        else:
+            if value is None:
+                # Need to force instantiation so we can reliably
+                # tell if we get the same exception back
+                value = typ()
+            try:
+>               self.gen.throw(value)
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_4/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:158: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @contextmanager
+    def collapse_excgroups() -> typing.Generator[None, None, None]:
+        try:
+            yield
+        except BaseException as exc:
+            if has_exceptiongroups:
+                while isinstance(exc, BaseExceptionGroup) and len(exc.exceptions) == 1:
+                    exc = exc.exceptions[0]  # pragma: no cover
+    
+>           raise exc
+
+.venv/lib/python3.12/site-packages/starlette/_utils.py:83: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <starlette.middleware.base.BaseHTTPMiddleware object at 0x10ebc1eb0>
+scope = {'app': <fastapi.applications.FastAPI object at 0x10e8dedb0>, 'asgi': {'version': '3.0'}, 'client': ('127.0.0.1', 123), 'endpoint': <function chat_endpoint at 0x10e7ed9e0>, ...}
+receive = <function ASGITransport.handle_async_request.<locals>.receive at 0x10eb694e0>
+send = <function ServerErrorMiddleware.__call__.<locals>._send at 0x10eb6bce0>
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+    
+        request = _CachedRequest(scope, receive)
+        wrapped_receive = request.wrapped_receive
+        response_sent = anyio.Event()
+    
+        async def call_next(request: Request) -> Response:
+            app_exc: Exception | None = None
+            send_stream: ObjectSendStream[typing.MutableMapping[str, typing.Any]]
+            recv_stream: ObjectReceiveStream[typing.MutableMapping[str, typing.Any]]
+            send_stream, recv_stream = anyio.create_memory_object_stream()
+    
+            async def receive_or_disconnect() -> Message:
+                if response_sent.is_set():
+                    return {"type": "http.disconnect"}
+    
+                async with anyio.create_task_group() as task_group:
+    
+                    async def wrap(func: typing.Callable[[], typing.Awaitable[T]]) -> T:
+                        result = await func()
+                        task_group.cancel_scope.cancel()
+                        return result
+    
+                    task_group.start_soon(wrap, response_sent.wait)
+                    message = await wrap(wrapped_receive)
+    
+                if response_sent.is_set():
+                    return {"type": "http.disconnect"}
+    
+                return message
+    
+            async def close_recv_stream_on_response_sent() -> None:
+                await response_sent.wait()
+                recv_stream.close()
+    
+            async def send_no_error(message: Message) -> None:
+                try:
+                    await send_stream.send(message)
+                except anyio.BrokenResourceError:
+                    # recv_stream has been closed, i.e. response_sent has been set.
+                    return
+    
+            async def coro() -> None:
+                nonlocal app_exc
+    
+                async with send_stream:
+                    try:
+                        await self.app(scope, receive_or_disconnect, send_no_error)
+                    except Exception as exc:
+                        app_exc = exc
+    
+            task_group.start_soon(close_recv_stream_on_response_sent)
+            task_group.start_soon(coro)
+    
+            try:
+                message = await recv_stream.receive()
+                info = message.get("info", None)
+                if message["type"] == "http.response.debug" and info is not None:
+                    message = await recv_stream.receive()
+            except anyio.EndOfStream:
+                if app_exc is not None:
+                    raise app_exc
+                raise RuntimeError("No response returned.")
+    
+            assert message["type"] == "http.response.start"
+    
+            async def body_stream() -> typing.AsyncGenerator[bytes, None]:
+                async with recv_stream:
+                    async for message in recv_stream:
+                        assert message["type"] == "http.response.body"
+                        body = message.get("body", b"")
+                        if body:
+                            yield body
+                        if not message.get("more_body", False):
+                            break
+    
+                if app_exc is not None:
+                    raise app_exc
+    
+            response = _StreamingResponse(status_code=message["status"], content=body_stream(), info=info)
+            response.raw_headers = message["headers"]
+            return response
+    
+        with collapse_excgroups():
+            async with anyio.create_task_group() as task_group:
+>               response = await self.dispatch_func(request, call_next)
+
+.venv/lib/python3.12/site-packages/starlette/middleware/base.py:187: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+request = <starlette.middleware.base._CachedRequest object at 0x10ed5f020>
+call_next = <function BaseHTTPMiddleware.__call__.<locals>.call_next at 0x10eb68e00>
+
+    @app.middleware("http")
+    async def add_security_headers(request: Request, call_next):
+>       response = await call_next(request)
+
+app/main.py:100: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+request = <starlette.middleware.base._CachedRequest object at 0x10ed5f020>
+
+    async def call_next(request: Request) -> Response:
+        app_exc: Exception | None = None
+        send_stream: ObjectSendStream[typing.MutableMapping[str, typing.Any]]
+        recv_stream: ObjectReceiveStream[typing.MutableMapping[str, typing.Any]]
+        send_stream, recv_stream = anyio.create_memory_object_stream()
+    
+        async def receive_or_disconnect() -> Message:
+            if response_sent.is_set():
+                return {"type": "http.disconnect"}
+    
+            async with anyio.create_task_group() as task_group:
+    
+                async def wrap(func: typing.Callable[[], typing.Awaitable[T]]) -> T:
+                    result = await func()
+                    task_group.cancel_scope.cancel()
+                    return result
+    
+                task_group.start_soon(wrap, response_sent.wait)
+                message = await wrap(wrapped_receive)
+    
+            if response_sent.is_set():
+                return {"type": "http.disconnect"}
+    
+            return message
+    
+        async def close_recv_stream_on_response_sent() -> None:
+            await response_sent.wait()
+            recv_stream.close()
+    
+        async def send_no_error(message: Message) -> None:
+            try:
+                await send_stream.send(message)
+            except anyio.BrokenResourceError:
+                # recv_stream has been closed, i.e. response_sent has been set.
+                return
+    
+        async def coro() -> None:
+            nonlocal app_exc
+    
+            async with send_stream:
+                try:
+                    await self.app(scope, receive_or_disconnect, send_no_error)
+                except Exception as exc:
+                    app_exc = exc
+    
+        task_group.start_soon(close_recv_stream_on_response_sent)
+        task_group.start_soon(coro)
+    
+        try:
+            message = await recv_stream.receive()
+            info = message.get("info", None)
+            if message["type"] == "http.response.debug" and info is not None:
+                message = await recv_stream.receive()
+        except anyio.EndOfStream:
+            if app_exc is not None:
+>               raise app_exc
+
+.venv/lib/python3.12/site-packages/starlette/middleware/base.py:163: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    async def coro() -> None:
+        nonlocal app_exc
+    
+        async with send_stream:
+            try:
+>               await self.app(scope, receive_or_disconnect, send_no_error)
+
+.venv/lib/python3.12/site-packages/starlette/middleware/base.py:149: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <starlette.middleware.exceptions.ExceptionMiddleware object at 0x10ebc1e80>
+scope = {'app': <fastapi.applications.FastAPI object at 0x10e8dedb0>, 'asgi': {'version': '3.0'}, 'client': ('127.0.0.1', 123), 'endpoint': <function chat_endpoint at 0x10e7ed9e0>, ...}
+receive = <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x10eb6bba0>
+send = <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x10eb6a340>
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+    
+        scope["starlette.exception_handlers"] = (
+            self._exception_handlers,
+            self._status_handlers,
+        )
+    
+        conn: Request | WebSocket
+        if scope["type"] == "http":
+            conn = Request(scope, receive, send)
+        else:
+            conn = WebSocket(scope, receive, send)
+    
+>       await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+
+.venv/lib/python3.12/site-packages/starlette/middleware/exceptions.py:62: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+scope = {'app': <fastapi.applications.FastAPI object at 0x10e8dedb0>, 'asgi': {'version': '3.0'}, 'client': ('127.0.0.1', 123), 'endpoint': <function chat_endpoint at 0x10e7ed9e0>, ...}
+receive = <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x10eb6bba0>
+send = <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x10eb6a340>
+
+    async def wrapped_app(scope: Scope, receive: Receive, send: Send) -> None:
+        response_started = False
+    
+        async def sender(message: Message) -> None:
+            nonlocal response_started
+    
+            if message["type"] == "http.response.start":
+                response_started = True
+            await send(message)
+    
+        try:
+            await app(scope, receive, sender)
+        except Exception as exc:
+            handler = None
+    
+            if isinstance(exc, HTTPException):
+                handler = status_handlers.get(exc.status_code)
+    
+            if handler is None:
+                handler = _lookup_exception_handler(exception_handlers, exc)
+    
+            if handler is None:
+>               raise exc
+
+.venv/lib/python3.12/site-packages/starlette/_exception_handler.py:62: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+scope = {'app': <fastapi.applications.FastAPI object at 0x10e8dedb0>, 'asgi': {'version': '3.0'}, 'client': ('127.0.0.1', 123), 'endpoint': <function chat_endpoint at 0x10e7ed9e0>, ...}
+receive = <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x10eb6bba0>
+send = <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x10eb6a340>
+
+    async def wrapped_app(scope: Scope, receive: Receive, send: Send) -> None:
+        response_started = False
+    
+        async def sender(message: Message) -> None:
+            nonlocal response_started
+    
+            if message["type"] == "http.response.start":
+                response_started = True
+            await send(message)
+    
+        try:
+>           await app(scope, receive, sender)
+
+.venv/lib/python3.12/site-packages/starlette/_exception_handler.py:51: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <fastapi.routing.APIRouter object at 0x10e9c33b0>
+scope = {'app': <fastapi.applications.FastAPI object at 0x10e8dedb0>, 'asgi': {'version': '3.0'}, 'client': ('127.0.0.1', 123), 'endpoint': <function chat_endpoint at 0x10e7ed9e0>, ...}
+receive = <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x10eb6bba0>
+send = <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x10eb689a0>
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """
+        The main entry point to the Router class.
+        """
+>       await self.middleware_stack(scope, receive, send)
+
+.venv/lib/python3.12/site-packages/starlette/routing.py:715: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <fastapi.routing.APIRouter object at 0x10e9c33b0>
+scope = {'app': <fastapi.applications.FastAPI object at 0x10e8dedb0>, 'asgi': {'version': '3.0'}, 'client': ('127.0.0.1', 123), 'endpoint': <function chat_endpoint at 0x10e7ed9e0>, ...}
+receive = <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x10eb6bba0>
+send = <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x10eb689a0>
+
+    async def app(self, scope: Scope, receive: Receive, send: Send) -> None:
+        assert scope["type"] in ("http", "websocket", "lifespan")
+    
+        if "router" not in scope:
+            scope["router"] = self
+    
+        if scope["type"] == "lifespan":
+            await self.lifespan(scope, receive, send)
+            return
+    
+        partial = None
+    
+        for route in self.routes:
+            # Determine if any route matches the incoming scope,
+            # and hand over to the matching route if found.
+            match, child_scope = route.matches(scope)
+            if match == Match.FULL:
+                scope.update(child_scope)
+>               await route.handle(scope, receive, send)
+
+.venv/lib/python3.12/site-packages/starlette/routing.py:735: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = APIRoute(path='/api/v1/chat', name='chat_endpoint', methods=['POST'])
+scope = {'app': <fastapi.applications.FastAPI object at 0x10e8dedb0>, 'asgi': {'version': '3.0'}, 'client': ('127.0.0.1', 123), 'endpoint': <function chat_endpoint at 0x10e7ed9e0>, ...}
+receive = <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x10eb6bba0>
+send = <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x10eb689a0>
+
+    async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if self.methods and scope["method"] not in self.methods:
+            headers = {"Allow": ", ".join(self.methods)}
+            if "app" in scope:
+                raise HTTPException(status_code=405, headers=headers)
+            else:
+                response = PlainTextResponse("Method Not Allowed", status_code=405, headers=headers)
+            await response(scope, receive, send)
+        else:
+>           await self.app(scope, receive, send)
+
+.venv/lib/python3.12/site-packages/starlette/routing.py:288: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+scope = {'app': <fastapi.applications.FastAPI object at 0x10e8dedb0>, 'asgi': {'version': '3.0'}, 'client': ('127.0.0.1', 123), 'endpoint': <function chat_endpoint at 0x10e7ed9e0>, ...}
+receive = <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x10eb6bba0>
+send = <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x10eb689a0>
+
+    async def app(scope: Scope, receive: Receive, send: Send) -> None:
+        request = Request(scope, receive, send)
+    
+        async def app(scope: Scope, receive: Receive, send: Send) -> None:
+            response = await f(request)
+            await response(scope, receive, send)
+    
+>       await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+
+.venv/lib/python3.12/site-packages/starlette/routing.py:76: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+scope = {'app': <fastapi.applications.FastAPI object at 0x10e8dedb0>, 'asgi': {'version': '3.0'}, 'client': ('127.0.0.1', 123), 'endpoint': <function chat_endpoint at 0x10e7ed9e0>, ...}
+receive = <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x10eb6bba0>
+send = <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x10eb689a0>
+
+    async def wrapped_app(scope: Scope, receive: Receive, send: Send) -> None:
+        response_started = False
+    
+        async def sender(message: Message) -> None:
+            nonlocal response_started
+    
+            if message["type"] == "http.response.start":
+                response_started = True
+            await send(message)
+    
+        try:
+            await app(scope, receive, sender)
+        except Exception as exc:
+            handler = None
+    
+            if isinstance(exc, HTTPException):
+                handler = status_handlers.get(exc.status_code)
+    
+            if handler is None:
+                handler = _lookup_exception_handler(exception_handlers, exc)
+    
+            if handler is None:
+>               raise exc
+
+.venv/lib/python3.12/site-packages/starlette/_exception_handler.py:62: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+scope = {'app': <fastapi.applications.FastAPI object at 0x10e8dedb0>, 'asgi': {'version': '3.0'}, 'client': ('127.0.0.1', 123), 'endpoint': <function chat_endpoint at 0x10e7ed9e0>, ...}
+receive = <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x10eb6bba0>
+send = <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x10eb689a0>
+
+    async def wrapped_app(scope: Scope, receive: Receive, send: Send) -> None:
+        response_started = False
+    
+        async def sender(message: Message) -> None:
+            nonlocal response_started
+    
+            if message["type"] == "http.response.start":
+                response_started = True
+            await send(message)
+    
+        try:
+>           await app(scope, receive, sender)
+
+.venv/lib/python3.12/site-packages/starlette/_exception_handler.py:51: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+scope = {'app': <fastapi.applications.FastAPI object at 0x10e8dedb0>, 'asgi': {'version': '3.0'}, 'client': ('127.0.0.1', 123), 'endpoint': <function chat_endpoint at 0x10e7ed9e0>, ...}
+receive = <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x10eb6bba0>
+send = <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x10eba2020>
+
+    async def app(scope: Scope, receive: Receive, send: Send) -> None:
+>       response = await f(request)
+
+.venv/lib/python3.12/site-packages/starlette/routing.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+request = <starlette.requests.Request object at 0x10ed5f620>
+
+    async def app(request: Request) -> Response:
+        response: Union[Response, None] = None
+        async with AsyncExitStack() as file_stack:
+            try:
+                body: Any = None
+                if body_field:
+                    if is_body_form:
+                        body = await request.form()
+                        file_stack.push_async_callback(body.close)
+                    else:
+                        body_bytes = await request.body()
+                        if body_bytes:
+                            json_body: Any = Undefined
+                            content_type_value = request.headers.get("content-type")
+                            if not content_type_value:
+                                json_body = await request.json()
+                            else:
+                                message = email.message.Message()
+                                message["content-type"] = content_type_value
+                                if message.get_content_maintype() == "application":
+                                    subtype = message.get_content_subtype()
+                                    if subtype == "json" or subtype.endswith("+json"):
+                                        json_body = await request.json()
+                            if json_body != Undefined:
+                                body = json_body
+                            else:
+                                body = body_bytes
+            except json.JSONDecodeError as e:
+                validation_error = RequestValidationError(
+                    [
+                        {
+                            "type": "json_invalid",
+                            "loc": ("body", e.pos),
+                            "msg": "JSON decode error",
+                            "input": {},
+                            "ctx": {"error": e.msg},
+                        }
+                    ],
+                    body=e.doc,
+                )
+                raise validation_error from e
+            except HTTPException:
+                # If a middleware raises an HTTPException, it should be raised again
+                raise
+            except Exception as e:
+                http_error = HTTPException(
+                    status_code=400, detail="There was an error parsing the body"
+                )
+                raise http_error from e
+            errors: List[Any] = []
+            async with AsyncExitStack() as async_exit_stack:
+                solved_result = await solve_dependencies(
+                    request=request,
+                    dependant=dependant,
+                    body=body,
+                    dependency_overrides_provider=dependency_overrides_provider,
+                    async_exit_stack=async_exit_stack,
+                    embed_body_fields=embed_body_fields,
+                )
+                errors = solved_result.errors
+                if not errors:
+>                   raw_response = await run_endpoint_function(
+                        dependant=dependant,
+                        values=solved_result.values,
+                        is_coroutine=is_coroutine,
+                    )
+
+.venv/lib/python3.12/site-packages/fastapi/routing.py:301: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    async def run_endpoint_function(
+        *, dependant: Dependant, values: Dict[str, Any], is_coroutine: bool
+    ) -> Any:
+        # Only called by get_request_handler. Has been split into its own function to
+        # facilitate profiling endpoints, since inner functions are harder to profile.
+        assert dependant.call is not None, "dependant.call must be a function"
+    
+        if is_coroutine:
+>           return await dependant.call(**values)
+
+.venv/lib/python3.12/site-packages/fastapi/routing.py:212: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+request = ChatRequest(message='create a task to buy groceries')
+session = <sqlalchemy.ext.asyncio.session.AsyncSession object at 0x10ed5fb60>
+current_user = <app.db.models.user.User object at 0x10ed85cd0>
+
+    @router.post("")
+    async def chat_endpoint(
+        request: ChatRequest, session: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+    ):
+>       response_text = await handle_message(session, current_user, request.message)
+
+app/api/v1/endpoints/chat.py:370: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+session = <sqlalchemy.ext.asyncio.session.AsyncSession object at 0x10ed5fb60>
+user = <app.db.models.user.User object at 0x10ed85cd0>
+message_text = 'create a task to buy groceries'
+
+    async def handle_message(session: AsyncSession, user: User, message_text: str) -> str:  # noqa: C901
+        from app.agents.context import AgentContext
+        from app.agents.executor import PlanExecutor
+        from app.agents.intent import extract_intent
+        from app.agents.llm_provider import GeminiProvider
+        from app.agents.plan_validator import PlanValidationError, validate_plan
+        from app.agents.planner import generate_plan
+        from app.agents.tool_registry import get_tool_registry
+        from app.agents.tool_system.planner import ToolPlanner
+        from app.db.models.plan import AgentPlan, AgentPlanStep
+        from app.db.models.run import AgentRun
+    
+        message_text = message_text.strip()
+        memories = await _safe_memory_context(session, user.id, message_text)
+        contacts = await _fetch_contacts(session, user.id)
+        conv_history = await _fetch_conversation_history(session, user.id)
+        new_interaction_id = _previous_interaction_id(conv_history)
+        sys_inst = build_system_instruction(user, memories, contacts)
+    
+        # 1. Build Context
+        context = AgentContext(
+            user_id=str(user.id),
+            conversation_id=new_interaction_id,
+            request_id=new_interaction_id or "",
+            message=message_text,
+            timezone=user.timezone,
+            recent_messages=[{"role": msg.role, "content": msg.content} for msg in conv_history[-5:]],
+        )
+        provider = GeminiProvider()
+    
+        # 2. Extract Intent
+>       intent = await extract_intent(context, provider)
+
+app/agents/orchestrator.py:285: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+context = AgentContext(user_id='d8b1c185-5e92-431c-9c68-b9824bc52d8f', conversation_id=None, request_id='', message='create a task to buy groceries', timezone='UTC', locale='en', permissions=[], integrations=[], memory_context=[], recent_messages=[])
+provider = <app.agents.llm_provider.GeminiProvider object at 0x10edb2060>
+
+    async def extract_intent(context: AgentContext, provider: LLMProvider) -> IntentSchema:
+        """
+        Extracts the user's intent, entities, constraints, capabilities, and ambiguities
+        from the current conversation context. This operation never executes tools directly.
+        """
+        system_instruction = (
+            "You are an expert intent extraction engine. Given a user query and recent history, "
+            "extract the core intent, entities, constraints, required capabilities (such as 'calendar', "
+            "'contacts', 'email', 'reminders', 'search', 'documents'), and any ambiguities. "
+            "If the request is ambiguous (e.g. 'schedule a meeting with Rahul' but there are multiple Rahuls, "
+            "or 'cancel it' but it's not clear what 'it' is), list those ambiguities explicitly in the ambiguities field.\n"
+            "Set routing_decision to 'DIRECT_EXECUTION' if the request can be completed with a single tool call or simple inquiry. "
+            "Set routing_decision to 'MULTI_STEP_PLAN' if the request requires multiple dependent tools, background actions, or complex workflows."
+        )
+    
+        history_lines = []
+        for msg in context.recent_messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            history_lines.append(f"{role.capitalize()}: {content}")
+        history_str = "\n".join(history_lines)
+    
+        prompt = (
+            f"User Timezone: {context.timezone}\n"
+            f"Recent History:\n{history_str}\n\n"
+            f"Current User Query: {context.message}\n"
+        )
+    
+        # Use the structured generation to enforce pydantic validation on the output
+>       intent = await provider.generate_structured(
+            prompt=prompt,
+            schema=IntentSchema,
+            system_instruction=system_instruction,
+        )
+
+app/agents/intent.py:35: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.agents.llm_provider.GeminiProvider object at 0x10edb2060>
+prompt = 'User Timezone: UTC\nRecent History:\n\n\nCurrent User Query: create a task to buy groceries\n'
+schema = <class 'app.agents.schemas.IntentSchema'>
+system_instruction = "You are an expert intent extraction engine. Given a user query and recent history, extract the core intent, entities,...ision to 'MULTI_STEP_PLAN' if the request requires multiple dependent tools, background actions, or complex workflows."
+
+    async def generate_structured(self, prompt: str, schema: Type[T], system_instruction: str = "") -> T:
+        client = get_client()
+        config = types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=schema,
+            system_instruction=system_instruction or None,
+            temperature=0.1,
+        )
+>       response = await client.aio.models.generate_content(
+            model=settings.GEMINI_MODEL,
+            contents=prompt,
+            config=config,
+        )
+
+app/agents/llm_provider.py:53: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <google.genai.models.AsyncModels object at 0x10edb21b0>
+
+    async def generate_content(
+        self,
+        *,
+        model: str,
+        contents: Union[types.ContentListUnion, types.ContentListUnionDict],
+        config: Optional[types.GenerateContentConfigOrDict] = None,
+    ) -> types.GenerateContentResponse:
+      """Makes an API request to generate content using a model.
+    
+      Some models support multimodal input and output.
+    
+      Usage:
+    
+      .. code-block:: python
+    
+        from google.genai import types
+        from google import genai
+    
+        client = genai.Client(
+            vertexai=True, project='my-project-id', location='us-central1'
+        )
+    
+        response = await client.aio.models.generate_content(
+            model='gemini-1.5-flash-002',
+            contents='User input: I like bagels. Answer:',
+            config=types.GenerateContentConfig(
+                system_instruction=
+                  [
+                    'You are a helpful language translator.',
+                    'Your mission is to translate text in English to French.'
+                  ]
+            ),
+        )
+        print(response.text)
+        # J'aime les bagels.
+      """
+      if _extra_utils.should_disable_afc(config):
+        return await self._generate_content(
+            model=model, contents=contents, config=config
+        )
+      remaining_remote_calls_afc = _extra_utils.get_max_remote_calls_afc(config)
+      logging.info(
+          f'AFC is enabled with max remote calls: {remaining_remote_calls_afc}.'
+      )
+      automatic_function_calling_history = []
+      response = None
+      while remaining_remote_calls_afc > 0:
+>       response = await self._generate_content(
+            model=model, contents=contents, config=config
+        )
+
+.venv/lib/python3.12/site-packages/google/genai/models.py:5826: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <google.genai.models.AsyncModels object at 0x10edb21b0>
+
+    async def _generate_content(
+        self,
+        *,
+        model: str,
+        contents: Union[types.ContentListUnion, types.ContentListUnionDict],
+        config: Optional[types.GenerateContentConfigOrDict] = None,
+    ) -> types.GenerateContentResponse:
+      parameter_model = types._GenerateContentParameters(
+          model=model,
+          contents=contents,
+          config=config,
+      )
+    
+      if self._api_client.vertexai:
+        request_dict = _GenerateContentParameters_to_vertex(
+            self._api_client, parameter_model
+        )
+        path = '{model}:generateContent'.format_map(request_dict.get('_url'))
+      else:
+>       request_dict = _GenerateContentParameters_to_mldev(
+            self._api_client, parameter_model
+        )
+
+.venv/lib/python3.12/site-packages/google/genai/models.py:4991: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api_client = <google.genai._api_client.ApiClient object at 0x10edb1e80>
+from_object = _GenerateContentParameters(model='gemini-3.1-flash-lite', contents='User Timezone: UTC\nRecent History:\n\n\nCurrent U...edia_resolution=None, speech_config=None, audio_timestamp=None, automatic_function_calling=None, thinking_config=None))
+parent_object = None
+
+    def _GenerateContentParameters_to_mldev(
+        api_client: ApiClient,
+        from_object: Union[dict, object],
+        parent_object: dict = None,
+    ) -> dict:
+      to_object = {}
+      if getv(from_object, ['model']) is not None:
+        setv(
+            to_object,
+            ['_url', 'model'],
+            t.t_model(api_client, getv(from_object, ['model'])),
+        )
+    
+      if getv(from_object, ['contents']) is not None:
+        setv(
+            to_object,
+            ['contents'],
+            [
+                _Content_to_mldev(api_client, item, to_object)
+                for item in t.t_contents(
+                    api_client, getv(from_object, ['contents'])
+                )
+            ],
+        )
+    
+      if getv(from_object, ['config']) is not None:
+        setv(
+            to_object,
+            ['generationConfig'],
+>           _GenerateContentConfig_to_mldev(
+                api_client, getv(from_object, ['config']), to_object
+            ),
+        )
+
+.venv/lib/python3.12/site-packages/google/genai/models.py:1151: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api_client = <google.genai._api_client.ApiClient object at 0x10edb1e80>
+from_object = GenerateContentConfig(http_options=None, system_instruction="You are an expert intent extraction engine. Given a user ...media_resolution=None, speech_config=None, audio_timestamp=None, automatic_function_calling=None, thinking_config=None)
+parent_object = {'_url': {'model': 'models/gemini-3.1-flash-lite'}, 'contents': [{'parts': [{'text': 'User Timezone: UTC\nRecent Histo..._PLAN' if the request requires multiple dependent tools, background actions, or complex workflows."}], 'role': 'user'}}
+
+    def _GenerateContentConfig_to_mldev(
+        api_client: ApiClient,
+        from_object: Union[dict, object],
+        parent_object: dict = None,
+    ) -> dict:
+      to_object = {}
+    
+      if getv(from_object, ['system_instruction']) is not None:
+        setv(
+            parent_object,
+            ['systemInstruction'],
+            _Content_to_mldev(
+                api_client,
+                t.t_content(api_client, getv(from_object, ['system_instruction'])),
+                to_object,
+            ),
+        )
+    
+      if getv(from_object, ['temperature']) is not None:
+        setv(to_object, ['temperature'], getv(from_object, ['temperature']))
+    
+      if getv(from_object, ['top_p']) is not None:
+        setv(to_object, ['topP'], getv(from_object, ['top_p']))
+    
+      if getv(from_object, ['top_k']) is not None:
+        setv(to_object, ['topK'], getv(from_object, ['top_k']))
+    
+      if getv(from_object, ['candidate_count']) is not None:
+        setv(to_object, ['candidateCount'], getv(from_object, ['candidate_count']))
+    
+      if getv(from_object, ['max_output_tokens']) is not None:
+        setv(
+            to_object, ['maxOutputTokens'], getv(from_object, ['max_output_tokens'])
+        )
+    
+      if getv(from_object, ['stop_sequences']) is not None:
+        setv(to_object, ['stopSequences'], getv(from_object, ['stop_sequences']))
+    
+      if getv(from_object, ['response_logprobs']) is not None:
+        setv(
+            to_object,
+            ['responseLogprobs'],
+            getv(from_object, ['response_logprobs']),
+        )
+    
+      if getv(from_object, ['logprobs']) is not None:
+        setv(to_object, ['logprobs'], getv(from_object, ['logprobs']))
+    
+      if getv(from_object, ['presence_penalty']) is not None:
+        setv(
+            to_object, ['presencePenalty'], getv(from_object, ['presence_penalty'])
+        )
+    
+      if getv(from_object, ['frequency_penalty']) is not None:
+        setv(
+            to_object,
+            ['frequencyPenalty'],
+            getv(from_object, ['frequency_penalty']),
+        )
+    
+      if getv(from_object, ['seed']) is not None:
+        setv(to_object, ['seed'], getv(from_object, ['seed']))
+    
+      if getv(from_object, ['response_mime_type']) is not None:
+        setv(
+            to_object,
+            ['responseMimeType'],
+            getv(from_object, ['response_mime_type']),
+        )
+    
+      if getv(from_object, ['response_schema']) is not None:
+        setv(
+            to_object,
+            ['responseSchema'],
+            _Schema_to_mldev(
+                api_client,
+>               t.t_schema(api_client, getv(from_object, ['response_schema'])),
+                to_object,
+            ),
+        )
+
+.venv/lib/python3.12/site-packages/google/genai/models.py:870: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+client = <google.genai._api_client.ApiClient object at 0x10edb1e80>
+origin = <class 'app.agents.schemas.IntentSchema'>
+
+    def t_schema(
+        client: _api_client.ApiClient, origin: Union[types.SchemaUnionDict, Any]
+    ) -> Optional[types.Schema]:
+      if not origin:
+        return None
+      if isinstance(origin, dict):
+        process_schema(origin, client)
+        return types.Schema.model_validate(origin)
+      if isinstance(origin, EnumMeta):
+        return _process_enum(origin, client)
+      if isinstance(origin, types.Schema):
+        if dict(origin) == dict(types.Schema()):
+          # response_schema value was coerced to an empty Schema instance because it did not adhere to the Schema field annotation
+          raise ValueError(f'Unsupported schema type.')
+        schema = origin.model_dump(exclude_unset=True)
+        process_schema(schema, client)
+        return types.Schema.model_validate(schema)
+    
+      if (
+          # in Python 3.9 Generic alias list[int] counts as a type,
+          # and breaks issubclass because it's not a class.
+          not isinstance(origin, GenericAlias) and
+          isinstance(origin, type) and
+          issubclass(origin, pydantic.BaseModel)
+      ):
+        schema = origin.model_json_schema()
+        process_schema(schema, client)
+>       return types.Schema.model_validate(schema)
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for Schema
+E       additionalProperties
+E         Extra inputs are not permitted [type=extra_forbidden, input_value=False, input_type=bool]
+E           For further information visit https://errors.pydantic.dev/2.9/v/extra_forbidden
+
+.venv/lib/python3.12/site-packages/google/genai/_transformers.py:550: ValidationError
+----------------------------- Captured stdout call -----------------------------
+{"ts": "2026-08-20T03:49:55Z", "level": "ERROR", "logger": "senorita", "msg": "unhandled_exception", "path": "/api/v1/chat", "exc": "  + Exception Group Traceback (most recent call last):\n  |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/_utils.py\", line 77, in collapse_excgroups\n  |     yield\n  |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/base.py\", line 186, in __call__\n  |     async with anyio.create_task_group() as task_group:\n  |                ^^^^^^^^^^^^^^^^^^^^^^^^^\n  |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py\", line 815, in __aexit__\n  |     raise BaseExceptionGroup(\n  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)\n  +-+---------------- 1 ----------------\n    | Traceback (most recent call last):\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/errors.py\", line 165, in __call__\n    |     await self.app(scope, receive, _send)\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/cors.py\", line 85, in __call__\n    |     await self.app(scope, receive, send)\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/base.py\", line 185, in __call__\n    |     with collapse_excgroups():\n    |          ^^^^^^^^^^^^^^^^^^^^\n    |   File \"/opt/homebrew/Cellar/python@3.12/3.12.13_4/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py\", line 158, in __exit__\n    |     self.gen.throw(value)\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/_utils.py\", line 83, in collapse_excgroups\n    |     raise exc\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/base.py\", line 187, in __call__\n    |     response = await self.dispatch_func(request, call_next)\n    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/Users/antiz/Developer/senorita/backend/app/main.py\", line 100, in add_security_headers\n    |     response = await call_next(request)\n    |                ^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/base.py\", line 163, in call_next\n    |     raise app_exc\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/base.py\", line 149, in coro\n    |     await self.app(scope, receive_or_disconnect, send_no_error)\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/exceptions.py\", line 62, in __call__\n    |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py\", line 62, in wrapped_app\n    |     raise exc\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py\", line 51, in wrapped_app\n    |     await app(scope, receive, sender)\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/routing.py\", line 715, in __call__\n    |     await self.middleware_stack(scope, receive, send)\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/routing.py\", line 735, in app\n    |     await route.handle(scope, receive, send)\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/routing.py\", line 288, in handle\n    |     await self.app(scope, receive, send)\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/routing.py\", line 76, in app\n    |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py\", line 62, in wrapped_app\n    |     raise exc\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py\", line 51, in wrapped_app\n    |     await app(scope, receive, sender)\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/routing.py\", line 73, in app\n    |     response = await f(request)\n    |                ^^^^^^^^^^^^^^^^\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/fastapi/routing.py\", line 301, in app\n    |     raw_response = await run_endpoint_function(\n    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/fastapi/routing.py\", line 212, in run_endpoint_function\n    |     return await dependant.call(**values)\n    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/Users/antiz/Developer/senorita/backend/app/api/v1/endpoints/chat.py\", line 370, in chat_endpoint\n    |     response_text = await handle_message(session, current_user, request.message)\n    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/Users/antiz/Developer/senorita/backend/app/agents/orchestrator.py\", line 285, in handle_message\n    |     intent = await extract_intent(context, provider)\n    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/Users/antiz/Developer/senorita/backend/app/agents/intent.py\", line 35, in extract_intent\n    |     intent = await provider.generate_structured(\n    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/Users/antiz/Developer/senorita/backend/app/agents/llm_provider.py\", line 53, in generate_structured\n    |     response = await client.aio.models.generate_content(\n    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/google/genai/models.py\", line 5826, in generate_content\n    |     response = await self._generate_content(\n    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/google/genai/models.py\", line 4991, in _generate_content\n    |     request_dict = _GenerateContentParameters_to_mldev(\n    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/google/genai/models.py\", line 1151, in _GenerateContentParameters_to_mldev\n    |     _GenerateContentConfig_to_mldev(\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/google/genai/models.py\", line 870, in _GenerateContentConfig_to_mldev\n    |     t.t_schema(api_client, getv(from_object, ['response_schema'])),\n    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/google/genai/_transformers.py\", line 550, in t_schema\n    |     return types.Schema.model_validate(schema)\n    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |   File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pydantic/main.py\", line 596, in model_validate\n    |     return cls.__pydantic_validator__.validate_python(\n    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    | pydantic_core._pydantic_core.ValidationError: 1 validation error for Schema\n    | additionalProperties\n    |   Extra inputs are not permitted [type=extra_forbidden, input_value=False, input_type=bool]\n    |     For further information visit https://errors.pydantic.dev/2.9/v/extra_forbidden\n    +------------------------------------\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/errors.py\", line 165, in __call__\n    await self.app(scope, receive, _send)\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/cors.py\", line 85, in __call__\n    await self.app(scope, receive, send)\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/base.py\", line 185, in __call__\n    with collapse_excgroups():\n         ^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_4/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py\", line 158, in __exit__\n    self.gen.throw(value)\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/_utils.py\", line 83, in collapse_excgroups\n    raise exc\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/base.py\", line 187, in __call__\n    response = await self.dispatch_func(request, call_next)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/antiz/Developer/senorita/backend/app/main.py\", line 100, in add_security_headers\n    response = await call_next(request)\n               ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/base.py\", line 163, in call_next\n    raise app_exc\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/base.py\", line 149, in coro\n    await self.app(scope, receive_or_disconnect, send_no_error)\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/middleware/exceptions.py\", line 62, in __call__\n    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py\", line 62, in wrapped_app\n    raise exc\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py\", line 51, in wrapped_app\n    await app(scope, receive, sender)\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/routing.py\", line 715, in __call__\n    await self.middleware_stack(scope, receive, send)\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/routing.py\", line 735, in app\n    await route.handle(scope, receive, send)\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/routing.py\", line 288, in handle\n    await self.app(scope, receive, send)\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/routing.py\", line 76, in app\n    await wrap_app_handling_exceptions(app, request)(scope, receive, send)\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py\", line 62, in wrapped_app\n    raise exc\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py\", line 51, in wrapped_app\n    await app(scope, receive, sender)\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/starlette/routing.py\", line 73, in app\n    response = await f(request)\n               ^^^^^^^^^^^^^^^^\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/fastapi/routing.py\", line 301, in app\n    raw_response = await run_endpoint_function(\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/fastapi/routing.py\", line 212, in run_endpoint_function\n    return await dependant.call(**values)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/antiz/Developer/senorita/backend/app/api/v1/endpoints/chat.py\", line 370, in chat_endpoint\n    response_text = await handle_message(session, current_user, request.message)\n                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/antiz/Developer/senorita/backend/app/agents/orchestrator.py\", line 285, in handle_message\n    intent = await extract_intent(context, provider)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/antiz/Developer/senorita/backend/app/agents/intent.py\", line 35, in extract_intent\n    intent = await provider.generate_structured(\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/antiz/Developer/senorita/backend/app/agents/llm_provider.py\", line 53, in generate_structured\n    response = await client.aio.models.generate_content(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/google/genai/models.py\", line 5826, in generate_content\n    response = await self._generate_content(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/google/genai/models.py\", line 4991, in _generate_content\n    request_dict = _GenerateContentParameters_to_mldev(\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/google/genai/models.py\", line 1151, in _GenerateContentParameters_to_mldev\n    _GenerateContentConfig_to_mldev(\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/google/genai/models.py\", line 870, in _GenerateContentConfig_to_mldev\n    t.t_schema(api_client, getv(from_object, ['response_schema'])),\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/google/genai/_transformers.py\", line 550, in t_schema\n    return types.Schema.model_validate(schema)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/antiz/Developer/senorita/backend/.venv/lib/python3.12/site-packages/pydantic/main.py\", line 596, in model_validate\n    return cls.__pydantic_validator__.validate_python(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\npydantic_core._pydantic_core.ValidationError: 1 validation error for Schema\nadditionalProperties\n  Extra inputs are not permitted [type=extra_forbidden, input_value=False, input_type=bool]\n    For further information visit https://errors.pydantic.dev/2.9/v/extra_forbidden"}
+=========================== short test summary info ============================
+FAILED tests/test_chat_agent.py::test_chat_basic_response - pydantic_core._py...
+============================== 1 failed in 0.56s ===============================

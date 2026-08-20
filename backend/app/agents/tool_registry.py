@@ -2890,7 +2890,7 @@ async def _handle_integration_status(
 
 
 def _schema(properties: dict[str, dict[str, Any]], required: tuple[str, ...] = ()) -> dict[str, Any]:
-    return {"type": "object", "properties": properties, "required": list(required), "additionalProperties": False}
+    return {"type": "object", "properties": properties, "required": list(required)}
 
 
 TEXT = {"type": "string"}

@@ -7,9 +7,9 @@ from pathlib import Path
 # Ensure backend package is importable
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import APIRouter, APIRouter, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from sqlalchemy.exc import IntegrityError
 
 import app.integrations.gmail  # Register the Gmail adapter
@@ -17,6 +17,7 @@ import app.integrations.slack  # Register the Slack adapter
 from app.api.v1.api import api_router
 from app.core.config import settings
 from app.core.logger import logger
+from app.core.metrics import get_metrics_response, websocket_active_connections
 from app.core.security import generate_token, hash_token
 from app.db.base import Base
 from app.db.models import *  # noqa: F401, F403 — ensure all models are registered
@@ -53,11 +54,7 @@ async def seed_admin():
         session.add(auth_token)
         await session.commit()
 
-        logger.info("=" * 60)
-        logger.info("  ADMIN USER READY")
-        logger.info("  Name:  admin")
-        logger.info(f"  Token: {raw_token}")
-        logger.info("=" * 60)
+        logger.info("=== ADMIN USER READY  Token: " + raw_token + " ===")
 
 
 @asynccontextmanager
@@ -70,15 +67,20 @@ async def lifespan(app: FastAPI):
     await seed_admin()
 
     if not settings.TESTING:
+        import asyncio
         from app.integrations.gmail_sync import start_gmail_sync_engine
         from app.integrations.google_calendar_sync import start_google_calendar_sync_engine
         from app.workers.monitoring.proactive_engine import start_proactive_engine
         from app.workers.reminders.scheduler import start_scheduler_in_background
+        from app.workers.stale_run_recovery import stale_run_recovery_loop
 
         scheduler = start_scheduler_in_background()
         start_proactive_engine(scheduler)
         start_gmail_sync_engine(scheduler)
         start_google_calendar_sync_engine(scheduler)
+
+        # Stale run recovery runs as a lightweight background coroutine
+        asyncio.create_task(stale_run_recovery_loop())
 
     yield
 
@@ -92,7 +94,20 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
+# ─── Security headers middleware ───────────────────────────────────────────────
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    # HSTS only in production (not dev)
+    if not settings.TESTING and request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
+# ─── CORS ─────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -101,7 +116,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
+# ─── Exception handlers ────────────────────────────────────────────────────────
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=exc.headers)
@@ -109,7 +124,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.exception("Unhandled exception on %s", request.url.path)
+    logger.exception("unhandled_exception", path=request.url.path)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "An unexpected error occurred. Please try again later."},
@@ -118,11 +133,41 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.exception_handler(IntegrityError)
 async def integrity_error_handler(request: Request, exc: IntegrityError):
-    logger.error("Database integrity error on %s: %s", request.url.path, exc)
+    logger.error("db.integrity_error", path=request.url.path)
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
         content={"detail": "Database constraint violation occurred."},
     )
+
+# ─── Prometheus metrics endpoint ───────────────────────────────────────────────
+@app.get("/metrics", include_in_schema=False)
+async def metrics_endpoint():
+    """Prometheus scrape target. Secure behind a network firewall in production."""
+    data, content_type = get_metrics_response()
+    return Response(content=data, media_type=content_type)
+
+
+# ─── Liveness / readiness probes ──────────────────────────────────────────────
+@app.get("/health/live", tags=["Health"], include_in_schema=False)
+async def liveness():
+    """Liveness: only confirms the process is responsive."""
+    return {"status": "alive"}
+
+
+@app.get("/health/ready", tags=["Health"], include_in_schema=False)
+async def readiness():
+    """Readiness: verifies Postgres is reachable before accepting traffic."""
+    from sqlalchemy import text
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        return {"status": "ready", "database": "ok"}
+    except Exception as exc:
+        logger.error("health.ready.db_unavailable", error=str(exc))
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unavailable", "database": "unreachable"},
+        )
 
 
 app.include_router(api_router, prefix="/api/v1")
