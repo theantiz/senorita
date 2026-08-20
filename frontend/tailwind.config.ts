@@ -38,13 +38,6 @@ const config = {
           DEFAULT: "var(--surface-glass)",
           foreground: "var(--foreground)",
         },
-        // Tactical palette aliases
-        cyan: {
-          DEFAULT: "#00e5ff",
-          400: "#18ffff",
-          500: "#00b8d4",
-          dark: "rgba(0, 229, 255, 0.1)",
-        },
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'sans-serif'],

@@ -44,13 +44,13 @@ export default function AgentVoice({ websocket }: { websocket: any }) {
   const getOrbStyle = () => {
     switch (state) {
       case 'LISTENING':
-        return 'from-blue-400 via-indigo-500 to-purple-600 scale-110 animate-pulse shadow-[0_0_40px_rgba(79,70,229,0.6)]';
+        return 'from-white/30 via-white/40 to-white/50 scale-110 animate-pulse shadow-[0_0_40px_rgba(255,255,255,0.3)]';
       case 'THINKING':
-        return 'from-purple-500 via-pink-500 to-red-500 scale-100 animate-spin-slow shadow-[0_0_30px_rgba(219,39,119,0.5)]';
+        return 'from-white/10 via-white/20 to-white/30 scale-100 animate-spin-slow shadow-[0_0_30px_rgba(255,255,255,0.2)]';
       case 'SPEAKING':
-        return 'from-green-400 via-emerald-500 to-teal-600 scale-125 animate-pulse shadow-[0_0_50px_rgba(16,185,129,0.7)]';
+        return 'from-white/60 via-white/80 to-white scale-125 animate-pulse shadow-[0_0_50px_rgba(255,255,255,0.5)]';
       case 'INTERRUPTED':
-        return 'from-red-400 via-orange-500 to-yellow-500 scale-95 shadow-[0_0_20px_rgba(239,68,68,0.5)]';
+        return 'from-white/20 via-white/10 to-transparent scale-95 shadow-[0_0_20px_rgba(255,255,255,0.1)]';
       default: // OFFLINE or IDLE
         return 'from-gray-600 via-gray-700 to-gray-800 scale-100 shadow-none';
     }
