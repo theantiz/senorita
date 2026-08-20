@@ -1,3 +1,4 @@
+import AgentVoice from './voice/AgentVoice';
 'use client';
 import React from 'react';
 import { ActivityTimeline } from './ActivityTimeline';
