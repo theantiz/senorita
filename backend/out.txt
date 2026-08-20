@@ -1,0 +1,16 @@
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.autogenerate.compare] Detected removed index 'ix_daily_usage_date' on 'daily_usage'
+INFO  [alembic.autogenerate.compare] Detected removed index 'ix_daily_usage_user_id' on 'daily_usage'
+INFO  [alembic.autogenerate.compare] Detected removed table 'daily_usage'
+/Users/antiz/Developer/senorita/backend/alembic/env.py:52: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+  context.run_migrations()
+INFO  [alembic.autogenerate.compare] Detected removed index 'ix_integrations_user_id' on 'integrations'
+INFO  [alembic.autogenerate.compare] Detected removed index 'ix_integrations_user_provider' on 'integrations'
+INFO  [alembic.autogenerate.compare] Detected removed foreign key (user_id)(id) on table integrations
+INFO  [alembic.autogenerate.compare] Detected added foreign key (user_id)(id) on table integrations
+INFO  [alembic.autogenerate.compare] Detected added column 'memory_entries.memory_type'
+INFO  [alembic.autogenerate.compare] Detected added column 'memory_entries.updated_at'
+INFO  [alembic.autogenerate.compare] Detected type change from DOUBLE_PRECISION(precision=53) to Text() on 'memory_entries.confidence'
+INFO  [alembic.autogenerate.compare] Detected removed column 'memory_entries.category'
+Generating /Users/antiz/Developer/senorita/backend/alembic/versions/5439402f75bb_phase5_memory_schema_update.py ...  done

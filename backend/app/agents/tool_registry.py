@@ -130,18 +130,18 @@ def read_calendar_events(date: Optional[str] = None, limit: Optional[int] = None
     pass
 
 
-def search_memory(query: str, category: Optional[str] = None):
+def search_memory(query: str, memory_type: Optional[str] = None):
     """Search the user's memory for relevant facts, preferences, people, dates, or context."""
     pass
 
 
-def store_memory(content: str, category: str, importance_score: Optional[float] = None):
-    """Save a new memory or fact about the user. Category must be one of: person, preference, date, promise, context."""
+def store_memory(content: str, memory_type: str, confidence: str, importance_score: Optional[float] = None):
+    """Save a new memory or fact about the user. Memory_type must be one of: person, preference, date, promise, context. Confidence must be HIGH, MEDIUM, or LOW."""
     pass
 
 
 def update_memory(
-    memory_id: str, content: Optional[str] = None, category: Optional[str] = None, locked: Optional[bool] = None
+    memory_id: str, content: Optional[str] = None, memory_type: Optional[str] = None, confidence: Optional[str] = None, locked: Optional[bool] = None
 ):
     """Update a memory entry owned by the user."""
     pass
@@ -152,8 +152,8 @@ def delete_memory(memory_id: str):
     pass
 
 
-def list_relevant_memories(category: Optional[str] = None, limit: Optional[int] = None):
-    """List recent relevant memories, optionally filtered by category."""
+def list_relevant_memories(memory_type: Optional[str] = None, limit: Optional[int] = None):
+    """List recent relevant memories, optionally filtered by memory_type."""
     pass
 
 
@@ -988,30 +988,37 @@ async def _handle_read_calendar_events(
     }
 
 
-async def _handle_search_memory(session: AsyncSession, user_id: UUID, query: str, category: str | None = None) -> dict:
+async def _handle_search_memory(session: AsyncSession, user_id: UUID, query: str, memory_type: str | None = None) -> dict:
     query = _require_text(query, "query", max_len=2_000)
-    category = _normalize_optional_choice(category, "category", VALID_MEMORY_CATEGORIES)
+    memory_type = _normalize_optional_choice(memory_type, "memory_type", VALID_MEMORY_CATEGORIES)
     query_embedding = await embed_text(query, task_type="RETRIEVAL_QUERY")
     if not query_embedding:
         return {"hits": [], "message": "Could not generate a memory search embedding."}
     results = await search_similar_memory(session, user_id, query_embedding, top_k=5)
 
-    if category:
-        results = [r for r in results if r.category == category]
+    if memory_type:
+        results = [r for r in results if r.memory_type == memory_type]
 
     return {
         "count": len(results),
         "hits": [
-            {"content": r.content, "category": r.category, "created_at": r.created_at.isoformat()} for r in results
+            {
+                "id": str(r.id),
+                "content": r.content,
+                "memory_type": r.memory_type,
+                "confidence": r.confidence,
+                "updated_at": r.updated_at.isoformat()
+            } for r in results
         ],
     }
 
 
 async def _handle_store_memory(
-    session: AsyncSession, user_id: UUID, content: str, category: str, importance_score: float | None = None
+    session: AsyncSession, user_id: UUID, content: str, memory_type: str, confidence: str, importance_score: float | None = None
 ) -> dict:
     content = _require_text(content, "content", max_len=2_000)
-    category = _normalize_choice(category, "category", VALID_MEMORY_CATEGORIES)
+    memory_type = _normalize_choice(memory_type, "memory_type", VALID_MEMORY_CATEGORIES)
+    confidence = _normalize_choice(confidence.upper(), "confidence", {"HIGH", "MEDIUM", "LOW"})
     if importance_score is None:
         prompt = f"Score the importance of this fact from 0.0 to 1.0, and provide a 1-line justification. Fact: '{content}'. Return ONLY a JSON object with 'score' (float) and 'justification' (string)."
         try:
@@ -1031,13 +1038,36 @@ async def _handle_store_memory(
 
     embedding = await embed_text(content, task_type="RETRIEVAL_DOCUMENT")
 
+    # Semantic deduplication: if there's a highly similar memory, update it instead of inserting duplicates
+    from sqlalchemy import select
+    if embedding:
+        stmt = select(MemoryEntry).where(MemoryEntry.user_id == user_id).order_by(MemoryEntry.embedding.cosine_distance(embedding)).limit(1)
+        res = await session.execute(stmt)
+        existing_mem = res.scalar_one_or_none()
+        
+        # We need to manually calculate the cosine similarity, or we can just rely on the DB.
+        # But wait, we can't easily get the distance from scalar_one_or_none. 
+        # So we query both the object and the distance:
+        stmt = select(MemoryEntry, MemoryEntry.embedding.cosine_distance(embedding).label("dist")).where(MemoryEntry.user_id == user_id).order_by("dist").limit(1)
+        res = await session.execute(stmt)
+        row = res.first()
+        if row and row.dist is not None and row.dist < 0.15:  # Similarity > 0.85
+            mem = row[0]
+            mem.content = content
+            mem.memory_type = memory_type
+            mem.confidence = confidence
+            mem.importance_score = importance_score
+            mem.embedding = embedding
+            await session.flush()
+            return {"id": str(mem.id), "content": mem.content, "action": "updated", "confidence": confidence, "importance_score": importance_score}
+
     # NOTE: Entries with importance_score < 0.3 must be excluded from future proactive-surfacing logic.
     mem = MemoryEntry(
-        user_id=user_id, content=content, category=category, importance_score=importance_score, embedding=embedding
+        user_id=user_id, content=content, memory_type=memory_type, confidence=confidence, importance_score=importance_score, embedding=embedding
     )
     session.add(mem)
     await session.flush()
-    return {"id": str(mem.id), "content": mem.content, "importance_score": importance_score}
+    return {"id": str(mem.id), "content": mem.content, "action": "created", "confidence": confidence, "importance_score": importance_score}
 
 
 async def _handle_update_memory(
@@ -1045,7 +1075,8 @@ async def _handle_update_memory(
     user_id: UUID,
     memory_id: str,
     content: str | None = None,
-    category: str | None = None,
+    memory_type: str | None = None,
+    confidence: str | None = None,
     locked: bool | None = None,
 ) -> dict:
     mem = await session.get(MemoryEntry, _parse_uuid(memory_id, "memory_id"))
@@ -1054,12 +1085,14 @@ async def _handle_update_memory(
     if content is not None:
         mem.content = _require_text(content, "content", max_len=2_000)
         mem.embedding = await embed_text(mem.content, task_type="RETRIEVAL_DOCUMENT")
-    if category is not None:
-        mem.category = _normalize_choice(category, "category", VALID_MEMORY_CATEGORIES)
+    if memory_type is not None:
+        mem.memory_type = _normalize_choice(memory_type, "memory_type", VALID_MEMORY_CATEGORIES)
+    if confidence is not None:
+        mem.confidence = _normalize_choice(confidence.upper(), "confidence", {"HIGH", "MEDIUM", "LOW"})
     if locked is not None:
         mem.locked = bool(locked)
     await session.flush()
-    return {"id": str(mem.id), "content": mem.content, "category": mem.category, "locked": mem.locked}
+    return {"success": True, "id": str(mem.id), "content": mem.content}
 
 
 async def _handle_delete_memory(session: AsyncSession, user_id: UUID, memory_id: str) -> dict:
@@ -1067,34 +1100,22 @@ async def _handle_delete_memory(session: AsyncSession, user_id: UUID, memory_id:
     if not mem or mem.user_id != user_id:
         return {"error": "Memory not found."}
     await session.delete(mem)
-    await session.flush()
-    return {"deleted": True, "id": memory_id}
+    return {"success": True, "deleted_id": memory_id}
 
 
-async def _handle_list_relevant_memories(
-    session: AsyncSession, user_id: UUID, category: str | None = None, limit: int | None = None
-) -> dict:
-    category = _normalize_optional_choice(category, "category", VALID_MEMORY_CATEGORIES)
-    stmt = (
-        select(MemoryEntry)
-        .where(MemoryEntry.user_id == user_id, MemoryEntry.status == "active")
-        .order_by(MemoryEntry.importance_score.desc().nullslast(), MemoryEntry.created_at.desc())
-        .limit(_bounded_limit(limit))
-    )
-    if category:
-        stmt = stmt.where(MemoryEntry.category == category)
-    memories = (await session.execute(stmt)).scalars().all()
+async def _handle_list_relevant_memories(session: AsyncSession, user_id: UUID, memory_type: str | None = None, limit: int | None = 10) -> dict:
+    limit_value = _bounded_limit(limit)
+    memory_type = _normalize_optional_choice(memory_type, "memory_type", VALID_MEMORY_CATEGORIES)
+    stmt = select(MemoryEntry).where(MemoryEntry.user_id == user_id)
+    if memory_type:
+        stmt = stmt.where(MemoryEntry.memory_type == memory_type)
+    stmt = stmt.order_by(MemoryEntry.created_at.desc()).limit(limit_value)
+    result = await session.execute(stmt)
+    memories = result.scalars().all()
     return {
         "count": len(memories),
         "memories": [
-            {
-                "id": str(mem.id),
-                "content": mem.content,
-                "category": mem.category,
-                "importance_score": mem.importance_score,
-                "created_at": mem.created_at.isoformat(),
-            }
-            for mem in memories
+            {"id": str(m.id), "content": m.content, "memory_type": m.memory_type, "confidence": m.confidence, "updated_at": m.updated_at.isoformat()} for m in memories
         ],
     }
 

@@ -13,7 +13,7 @@ async def get_memories(
     session: AsyncSession,
     user_id: UUID,
     search: str | None = None,
-    category: str | None = None,
+    memory_type: str | None = None,
     source_ref: str | None = None,
     locked: bool | None = None,
     date_from: datetime | None = None,
@@ -21,8 +21,8 @@ async def get_memories(
 ) -> list[MemoryEntry]:
     stmt = select(MemoryEntry).where(MemoryEntry.user_id == user_id)
 
-    if category:
-        stmt = stmt.where(MemoryEntry.category == category)
+    if memory_type:
+        stmt = stmt.where(MemoryEntry.memory_type == memory_type)
     if source_ref:
         stmt = stmt.where(MemoryEntry.source_ref == source_ref)
     if locked is not None:

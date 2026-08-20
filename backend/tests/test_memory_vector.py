@@ -21,7 +21,7 @@ async def test_memory_crud_and_search(client: AsyncClient, mock_embed_text):
     # 2. Create memory
     memory_data = {
         "content": "User loves chocolate",
-        "category": "preference",
+        "memory_type": "preference",
         "source_ref": "chat",
         "importance_score": 0.8
     }
