@@ -24,13 +24,30 @@ from app.db.models import *  # noqa: F401, F403 — ensure all models are regist
 from app.db.session import AsyncSession, engine
 
 
+def _detect_local_timezone() -> str:
+    import datetime
+
+    tz_info = datetime.datetime.now().astimezone().tzinfo
+    tz_str = str(tz_info)
+    if "India" in tz_str or "+05:30" in tz_str:
+        return "Asia/Kolkata"
+    try:
+        key = getattr(tz_info, "key", None)
+        if key:
+            return key
+    except Exception:
+        pass
+    return "Asia/Kolkata"
+
+
 async def seed_admin():
-    """Ensure an admin user always exists. Creates one if missing."""
+    """Ensure an admin user always exists. Creates one if missing, and syncs timezone."""
     from sqlalchemy import delete, select
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
     from app.db.models import AuthToken, User
 
+    local_tz = _detect_local_timezone()
     async_session = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with async_session() as session:
         stmt = select(User).where(User.name == "admin")
@@ -40,12 +57,20 @@ async def seed_admin():
         if not admin:
             admin = User(
                 name="admin",
-                timezone="UTC",
+                timezone=local_tz,
                 autonomy_level="FULL_AUTO",
                 style_profile={},
             )
             session.add(admin)
             await session.flush()
+        elif admin.timezone == "UTC":
+            admin.timezone = local_tz
+            await session.flush()
+
+        # Sync any default UTC users to local timezone
+        other_users = await session.execute(select(User).where(User.timezone == "UTC"))
+        for u in other_users.scalars():
+            u.timezone = local_tz
 
         await session.execute(delete(AuthToken).where(AuthToken.user_id == admin.id))
 
@@ -54,7 +79,7 @@ async def seed_admin():
         session.add(auth_token)
         await session.commit()
 
-        logger.info("=== ADMIN USER READY  Token: " + raw_token + " ===")
+        logger.info(f"=== ADMIN USER READY (Timezone: {admin.timezone})  Token: " + raw_token + " ===")
 
 
 @asynccontextmanager
@@ -117,7 +142,7 @@ async def add_security_headers(request: Request, call_next):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
-    allow_origin_regex=r"^http://(?:localhost|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+)(?::\d+)?$",
+    allow_origin_regex=r"^http://(?:localhost|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+|100\.\d+\.\d+\.\d+)(?::\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

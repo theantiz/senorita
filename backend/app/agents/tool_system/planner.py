@@ -23,6 +23,21 @@ class ToolPlanner:
             # Combine intent terms into the search query for better matching
             search_query = f"{message} {intent.intent} {' '.join(intent.required_capabilities)}"
 
+        # Conversational synonyms expansion for proactive daily assistant workflows
+        synonym_hints = []
+        msg_lower = message.lower()
+        if any(w in msg_lower for w in ["finish", "finished", "done", "completed", "complete", "closed"]):
+            synonym_hints.append("complete_task update_task list_tasks")
+        if any(w in msg_lower for w in ["plan", "schedule", "routine", "agenda", "time block"]):
+            synonym_hints.append("plan_day list_calendar_events list_tasks prioritize_tasks")
+        if any(w in msg_lower for w in ["remind", "reminder", "remember", "alert"]):
+            synonym_hints.append("create_reminder list_reminders search_memory")
+        if any(w in msg_lower for w in ["update", "status", "progress", "check in"]):
+            synonym_hints.append("ask_task_update update_task list_tasks")
+
+        if synonym_hints:
+            search_query = f"{search_query} {' '.join(synonym_hints)}"
+
         definitions = self.registry.search(search_query, categories=categories, limit=limit)
         expanded = self.graph.expand([definition.name for definition in definitions])
         return expanded[:limit]

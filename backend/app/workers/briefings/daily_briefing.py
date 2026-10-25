@@ -14,7 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agents.gemini_client import get_client
 from app.agents.tool_registry import _handle_search_all_unanswered, _handle_suggest_task_batch
 from app.core.config import settings
-from app.db.models import Briefing, CalendarEvent, MemoryEntry, Task, User
+from app.db.models import Briefing, CalendarEvent, Conversation, MemoryEntry, NotificationLog, Task, User
+from app.workers.notifications.dispatch import dispatch_notification
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,17 @@ async def generate_daily_briefing(session: AsyncSession, user: User) -> Briefing
     start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     end_of_today = start_of_today + timedelta(days=1)
 
+    # Check if daily briefing already generated today
+    existing_stmt = select(Briefing).where(
+        Briefing.user_id == user.id,
+        Briefing.type == "daily",
+        Briefing.created_at >= start_of_today,
+    )
+    existing_res = await session.execute(existing_stmt)
+    existing_briefing = existing_res.scalars().first()
+    if existing_briefing:
+        return existing_briefing
+
     # load today's calendar events
     events_stmt = (
         select(CalendarEvent)
@@ -117,7 +129,7 @@ async def generate_daily_briefing(session: AsyncSession, user: User) -> Briefing
     messages = messages_dict.get("unanswered_messages", [])
 
     # extract upcoming dates from the user's memories
-    memories_stmt = select(MemoryEntry).where(MemoryEntry.user_id == user.id, MemoryEntry.category == "date")
+    memories_stmt = select(MemoryEntry).where(MemoryEntry.user_id == user.id, MemoryEntry.memory_type == "date")
     memories_res = await session.execute(memories_stmt)
     memories = memories_res.scalars().all()
 
@@ -181,11 +193,47 @@ async def generate_daily_briefing(session: AsyncSession, user: User) -> Briefing
         briefing_text = (response.text or "").strip()
     except Exception as e:
         logger.error(f"Failed to generate briefing text: {e}")
-        briefing_text = "I encountered a system fault while assembling your briefing, sir. Apologies."
+        parts = ["Good morning, baby."]
+        if events:
+            parts.append(f"You have {len(events)} event(s) scheduled today starting with '{events[0].title}'.")
+        if due_today or overdue:
+            count = len(due_today) + len(overdue)
+            top_t = due_today[0].title if due_today else overdue[0].title
+            parts.append(f"You have {count} task(s) needing attention, including '{top_t}'.")
+        if not events and not due_today and not overdue:
+            parts.append("Your schedule is clear today. Focus on your top priorities.")
+        briefing_text = " ".join(parts)
 
     briefing = Briefing(user_id=user.id, type="daily", content=briefing_text)
     session.add(briefing)
+
+    notif_msg = briefing_text[:280] + ("..." if len(briefing_text) > 280 else "")
+    notif = NotificationLog(
+        user_id=user.id,
+        trigger_type="morning_briefing",
+        message=notif_msg,
+        importance_score=0.9,
+        dispatched=True,
+    )
+    session.add(notif)
+
+    chat_msg = Conversation(
+        user_id=user.id,
+        role="assistant",
+        content=f"Good morning, baby. Here is your daily briefing:\n\n{briefing_text}\n\nWhat would you like to tackle first? Give me an update on your priorities.",
+    )
+    session.add(chat_msg)
+
     await session.commit()
+
+    try:
+        await dispatch_notification(
+            title="Señorita - Morning Briefing",
+            message=briefing_text[:160] + ("..." if len(briefing_text) > 160 else ""),
+            payload={"trigger_type": "morning_briefing"},
+        )
+    except Exception as e:
+        logger.warning(f"Failed to dispatch desktop notification for daily briefing: {e}")
 
     return briefing
 

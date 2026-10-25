@@ -713,6 +713,34 @@ async def _handle_list_tasks(
     }
 
 
+async def _resolve_user_task(session: AsyncSession, user_id: UUID, task_id_or_title: str) -> Task | None:
+    if not task_id_or_title or not isinstance(task_id_or_title, str):
+        return None
+    task_id_or_title = task_id_or_title.strip()
+    # Try parsing as UUID first
+    try:
+        val_uuid = UUID(task_id_or_title)
+        task = await session.get(Task, val_uuid)
+        if task and task.user_id == user_id:
+            return task
+    except Exception:
+        pass
+
+    # Fuzzy match by title
+    stmt = (
+        select(Task)
+        .where(Task.user_id == user_id, Task.title.ilike(f"%{task_id_or_title}%"))
+        .order_by(Task.status.desc(), Task.created_at.desc())
+    )
+    res = await session.execute(stmt)
+    tasks = res.scalars().all()
+    if tasks:
+        # Prefer pending tasks
+        pending = [t for t in tasks if t.status != "done"]
+        return pending[0] if pending else tasks[0]
+    return None
+
+
 async def _handle_update_task(
     session: AsyncSession,
     user_id: UUID,
@@ -721,9 +749,9 @@ async def _handle_update_task(
     due_at: str | None = None,
     priority: str | None = None,
 ) -> dict:
-    task = await session.get(Task, _parse_uuid(task_id, "task_id"))
-    if not task or task.user_id != user_id:
-        return {"error": "Task not found."}
+    task = await _resolve_user_task(session, user_id, task_id)
+    if not task:
+        return {"error": f"Task '{task_id}' not found."}
     if title is not None:
         task.title = _require_text(title, "title", max_len=500)
     if due_at is not None:
@@ -735,21 +763,23 @@ async def _handle_update_task(
 
 
 async def _handle_complete_task(session: AsyncSession, user_id: UUID, task_id: str) -> dict:
-    task = await session.get(Task, _parse_uuid(task_id, "task_id"))
-    if not task or task.user_id != user_id:
-        return {"error": "Task not found."}
+    task = await _resolve_user_task(session, user_id, task_id)
+    if not task:
+        return {"error": f"Task '{task_id}' not found."}
     task.status = "done"
     await session.flush()
-    return {"id": str(task.id), "status": task.status}
+    return {"id": str(task.id), "title": task.title, "status": task.status}
 
 
 async def _handle_delete_task(session: AsyncSession, user_id: UUID, task_id: str) -> dict:
-    task = await session.get(Task, _parse_uuid(task_id, "task_id"))
-    if not task or task.user_id != user_id:
-        return {"error": "Task not found."}
+    task = await _resolve_user_task(session, user_id, task_id)
+    if not task:
+        return {"error": f"Task '{task_id}' not found."}
+    task_title = task.title
+    task_id_str = str(task.id)
     await session.delete(task)
     await session.flush()
-    return {"deleted": True, "id": task_id}
+    return {"deleted": True, "id": task_id_str, "title": task_title}
 
 
 async def _handle_create_task(
@@ -3695,6 +3725,195 @@ async def _handle_prioritize_tasks(session: AsyncSession, user_id: UUID) -> dict
     return {"status": "success", "priorities": ["1. Urgent Tasks", "2. Unreplied Emails", "3. Upcoming Meetings"]}
 
 
+async def _handle_plan_day(
+    session: AsyncSession,
+    user_id: UUID,
+    date: str | None = None,
+    focus: str | None = None,
+) -> dict:
+    from app.core.metrics import workflow_execution_total
+
+    workflow_execution_total.inc()
+
+    user = await session.get(User, user_id)
+    tz_name = user.timezone if user and user.timezone else "UTC"
+    try:
+        user_tz = ZoneInfo(tz_name)
+    except Exception:
+        user_tz = ZoneInfo("UTC")
+
+    now_dt = datetime.now(user_tz)
+    if date:
+        try:
+            target_date = datetime.strptime(date, "%Y-%m-%d").date()
+        except ValueError:
+            target_date = now_dt.date()
+    else:
+        target_date = now_dt.date()
+
+    start_of_day = datetime.combine(target_date, time.min).replace(tzinfo=user_tz)
+    end_of_day = datetime.combine(target_date, time.max).replace(tzinfo=user_tz)
+
+    events_stmt = (
+        select(CalendarEvent)
+        .where(
+            CalendarEvent.user_id == user_id,
+            CalendarEvent.start_at >= start_of_day,
+            CalendarEvent.start_at <= end_of_day,
+        )
+        .order_by(CalendarEvent.start_at)
+    )
+    events_res = await session.execute(events_stmt)
+    events = events_res.scalars().all()
+
+    tasks_stmt = (
+        select(Task)
+        .where(Task.user_id == user_id, Task.status != "done")
+        .order_by(Task.due_at.asc().nullslast(), Task.created_at.desc())
+        .limit(20)
+    )
+    tasks_res = await session.execute(tasks_stmt)
+    tasks = tasks_res.scalars().all()
+
+    reminders_stmt = (
+        select(Reminder)
+        .where(Reminder.user_id == user_id, Reminder.status == "active")
+        .limit(10)
+    )
+    rem_res = await session.execute(reminders_stmt)
+    reminders = rem_res.scalars().all()
+
+    promises_stmt = (
+        select(MemoryEntry)
+        .where(
+            MemoryEntry.user_id == user_id,
+            MemoryEntry.memory_type == "promise",
+            MemoryEntry.status == "active",
+        )
+        .limit(10)
+    )
+    prom_res = await session.execute(promises_stmt)
+    promises = prom_res.scalars().all()
+
+    events_data = [
+        {"title": e.title, "start": e.start_at.strftime("%H:%M"), "end": e.end_at.strftime("%H:%M")}
+        for e in events
+    ]
+    tasks_data = [
+        {
+            "id": str(t.id),
+            "title": t.title,
+            "priority": t.priority or "medium",
+            "due_at": t.due_at.isoformat() if t.due_at else None,
+        }
+        for t in tasks
+    ]
+    reminders_data = [r.trigger_payload.get("note", "Reminder") for r in reminders if r.trigger_payload]
+    promises_data = [p.content for p in promises]
+
+    client = get_client()
+    prompt = f"""You are Senorita, a hyper-competent personal AI Chief of Staff (styled after F.R.I.D.A.Y. from Iron Man with empathetic guidance).
+Generate an optimal, structured, time-blocked daily plan for {target_date.strftime('%A, %B %d, %Y')}.
+User Local Time: {now_dt.strftime('%H:%M')}
+User Focus Request: {focus or 'Optimize productivity, knock out critical tasks, and minimize context-switching'}
+
+Existing Fixed Calendar Events:
+{json.dumps(events_data, indent=2)}
+
+Pending Tasks:
+{json.dumps(tasks_data, indent=2)}
+
+Active Reminders:
+{json.dumps(reminders_data, indent=2)}
+
+Commitments & Promises:
+{json.dumps(promises_data, indent=2)}
+
+INSTRUCTIONS:
+1. Schedule high-priority tasks into focused deep-work time blocks around fixed meetings.
+2. Outline Top 3 Priorities for today.
+3. Include specific checkpoints where Senorita should ask the user for updates (e.g. 13:00 midday check-in, 18:00 evening review).
+4. Address the user as 'baby' in advice.
+5. Return ONLY a JSON object with:
+{{
+  "date": "{target_date.isoformat()}",
+  "top_priorities": ["priority 1", "priority 2", "priority 3"],
+  "schedule": [
+    {{"time": "09:00 - 10:30", "activity": "Deep Work: [Task]", "type": "focus"}},
+    {{"time": "10:30 - 11:30", "activity": "[Event]", "type": "event"}}
+  ],
+  "checkpoints": ["13:00 - Midday progress check-in", "18:00 - Evening task reconciliation"],
+  "senorita_advice": "1-2 sharp sentences of advice or observation."
+}}
+"""
+    try:
+        resp = client.models.generate_content(model=settings.GEMINI_MODEL, contents=[prompt])
+        text = (resp.text or "").strip()
+        if text.startswith("```json"):
+            text = text[7:]
+        if text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        plan_dict = json.loads(text.strip())
+    except Exception as e:
+        _log.warning(f"Plan day LLM synthesis failed, using fallback: {e}")
+        top_tasks = [t.title for t in tasks[:3]] or ["Schedule review"]
+        schedule = []
+        for ev in events:
+            schedule.append(
+                {"time": f"{ev.start_at.strftime('%H:%M')} - {ev.end_at.strftime('%H:%M')}", "activity": ev.title, "type": "event"}
+            )
+        for i, t in enumerate(tasks[:3]):
+            schedule.append({"time": f"Focus Block {i+1}", "activity": t.title, "type": "focus"})
+        plan_dict = {
+            "date": target_date.isoformat(),
+            "top_priorities": top_tasks,
+            "schedule": schedule,
+            "checkpoints": ["13:00 - Midday check-in", "18:00 - Evening wrap-up"],
+            "senorita_advice": "I've structured your schedule around your meetings, baby. Focus on the high-impact items first.",
+        }
+
+    return {"status": "success", "plan": plan_dict}
+
+
+async def _handle_ask_task_update(session: AsyncSession, user_id: UUID, task_id: str | None = None) -> dict:
+    from app.core.metrics import workflow_execution_total
+
+    workflow_execution_total.inc()
+
+    if task_id:
+        task = await _resolve_user_task(session, user_id, task_id)
+        if not task:
+            return {"error": f"Task '{task_id}' not found."}
+        return {
+            "status": "success",
+            "task_id": str(task.id),
+            "task_title": task.title,
+            "task_status": task.status,
+            "due_at": task.due_at.isoformat() if task.due_at else None,
+            "prompt_for_user": f"Baby, how is progress on '{task.title}'? Have you finished it or should we adjust the deadline?",
+        }
+
+    stmt = (
+        select(Task)
+        .where(Task.user_id == user_id, Task.status != "done")
+        .order_by(Task.due_at.asc().nullslast(), Task.created_at.desc())
+        .limit(5)
+    )
+    res = await session.execute(stmt)
+    pending_tasks = res.scalars().all()
+    items = [
+        {"id": str(t.id), "title": t.title, "due_at": t.due_at.isoformat() if t.due_at else None}
+        for t in pending_tasks
+    ]
+    return {
+        "status": "success",
+        "pending_tasks_needing_update": items,
+        "message": "Here are the top pending tasks that need status updates.",
+    }
+
+
 def _handler_map() -> dict[str, Any]:
     return {
         "create_task": _handle_create_task,
@@ -3755,6 +3974,8 @@ def _handler_map() -> dict[str, Any]:
         "integration_status": _handle_integration_status,
         "prepare_for_meeting": _handle_prepare_for_meeting,
         "prioritize_tasks": _handle_prioritize_tasks,
+        "plan_day": _handle_plan_day,
+        "ask_task_update": _handle_ask_task_update,
     }
 
 
@@ -3794,8 +4015,8 @@ def get_tool_inventory() -> list[dict[str, Any]]:
     return get_tool_registry().inventory()
 
 
-def discover_tools_for_message(message: str, *, limit: int = 12) -> list[str]:
-    return get_tool_planner().discover(message, limit=limit)
+def discover_tools_for_message(message: str, *, intent: Any = None, limit: int = 12) -> list[str]:
+    return get_tool_planner().discover(message, intent=intent, limit=limit)
 
 
 _TOOL_FUNCTIONS_BY_NAME = {tool.__name__: tool for tool in SENORITA_TOOLS}
@@ -3816,7 +4037,17 @@ def prioritize_tasks():
     pass
 
 
-SENORITA_TOOLS.extend([prepare_for_meeting, prioritize_tasks])
+def plan_day(date: Optional[str] = None, focus: Optional[str] = None):
+    """Workflow: Generate a structured, time-blocked daily plan based on the user's calendar events, pending tasks, deadlines, commitments, and focus priorities. If date is omitted, plans for today."""
+    pass
+
+
+def ask_task_update(task_id: Optional[str] = None):
+    """Workflow: Query pending tasks to ask the user for a status update on overdue, stalled, or today's in-progress tasks."""
+    pass
+
+
+SENORITA_TOOLS.extend([prepare_for_meeting, prioritize_tasks, plan_day, ask_task_update])
 _TOOL_FUNCTIONS_BY_NAME = {tool.__name__: tool for tool in SENORITA_TOOLS}
 
 
@@ -3842,6 +4073,30 @@ TOOL_DEFINITIONS.append(
         "admin",
         "workflows",
         {},
+        permissions=(ToolPermission.READ,),
+        risk=RiskLevel.LOW,
+        provider="local",
+    )
+)
+TOOL_DEFINITIONS.append(
+    _tool_def(
+        "plan_day",
+        "Generate a structured, time-blocked daily plan based on calendar, tasks, and priorities.",
+        "admin",
+        "workflows",
+        {"date": TEXT, "focus": TEXT},
+        permissions=(ToolPermission.READ,),
+        risk=RiskLevel.LOW,
+        provider="local",
+    )
+)
+TOOL_DEFINITIONS.append(
+    _tool_def(
+        "ask_task_update",
+        "Query pending tasks to prompt the user for a progress or completion update.",
+        "admin",
+        "workflows",
+        {"task_id": TEXT},
         permissions=(ToolPermission.READ,),
         risk=RiskLevel.LOW,
         provider="local",

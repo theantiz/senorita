@@ -14,7 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agents.gemini_client import get_client
 from app.agents.tool_registry import _handle_search_all_unanswered
 from app.core.config import settings
-from app.db.models import ActionLog, Briefing, CalendarEvent, Task, User
+from app.db.models import ActionLog, Briefing, CalendarEvent, Conversation, NotificationLog, Task, User
+from app.workers.notifications.dispatch import dispatch_notification
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,17 @@ async def generate_eod_briefing(session: AsyncSession, user: User) -> Briefing:
     start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     end_of_today = start_of_today + timedelta(days=1)
     end_of_tomorrow = end_of_today + timedelta(days=1)
+
+    # Check if EOD briefing already generated today
+    existing_stmt = select(Briefing).where(
+        Briefing.user_id == user.id,
+        Briefing.type == "end_of_day",
+        Briefing.created_at >= start_of_today,
+    )
+    existing_res = await session.execute(existing_stmt)
+    existing_briefing = existing_res.scalars().first()
+    if existing_briefing:
+        return existing_briefing
 
     # get all actions the user completed today
     actions_stmt = (
@@ -129,11 +141,45 @@ async def generate_eod_briefing(session: AsyncSession, user: User) -> Briefing:
         briefing_text = (response.text or "").strip()
     except Exception as e:
         logger.error(f"Failed to generate EOD briefing text: {e}")
-        briefing_text = "I encountered a system fault while assembling your evening briefing, sir. Apologies."
+        parts = ["Good evening, baby."]
+        if actions:
+            parts.append(f"We completed {len(actions)} action(s) today.")
+        if unfinished_tasks:
+            parts.append(f"You have {len(unfinished_tasks)} task(s) still open, including '{unfinished_tasks[0].title}'.")
+        else:
+            parts.append("All scheduled tasks for today have been completed.")
+        briefing_text = " ".join(parts)
 
     briefing = Briefing(user_id=user.id, type="end_of_day", content=briefing_text)
     session.add(briefing)
+
+    notif_msg = briefing_text[:280] + ("..." if len(briefing_text) > 280 else "")
+    notif = NotificationLog(
+        user_id=user.id,
+        trigger_type="eod_briefing",
+        message=notif_msg,
+        importance_score=0.9,
+        dispatched=True,
+    )
+    session.add(notif)
+
+    chat_msg = Conversation(
+        user_id=user.id,
+        role="assistant",
+        content=f"Good evening, baby. Here is your evening wrap-up:\n\n{briefing_text}\n\nAny updates on unfinished tasks before we close out today?",
+    )
+    session.add(chat_msg)
+
     await session.commit()
+
+    try:
+        await dispatch_notification(
+            title="Señorita - Evening Briefing",
+            message=briefing_text[:160] + ("..." if len(briefing_text) > 160 else ""),
+            payload={"trigger_type": "eod_briefing"},
+        )
+    except Exception as e:
+        logger.warning(f"Failed to dispatch desktop notification for EOD briefing: {e}")
 
     return briefing
 

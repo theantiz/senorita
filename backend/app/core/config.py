@@ -22,7 +22,7 @@ class Settings(BaseSettings):
 
     # Gemini
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
+    GEMINI_MODEL: str = "gemini-3.5-flash"
 
     # Embeddings
     EMBEDDING_MODEL: str = "gemini-embedding-001"
@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     VOICE_MAX_UPLOAD_BYTES: int = 8 * 1024 * 1024
 
     # Server
-    HOST: str = "127.0.0.1"
+    HOST: str = "0.0.0.0"
     PORT: int = 8000
     LOG_LEVEL: str = "INFO"
     CORS_ORIGINS: str = "http://localhost:3000,http://tauri.localhost,tauri://localhost,https://tauri.localhost,http://senorita.localhost,https://senorita.localhost,asset://localhost,https://asset.localhost"

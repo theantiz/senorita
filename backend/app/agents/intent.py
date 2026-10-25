@@ -32,10 +32,24 @@ async def extract_intent(context: AgentContext, provider: LLMProvider) -> Intent
         f"{context.enriched_context}\n"
     )
 
-    # Use the structured generation to enforce pydantic validation on the output
-    intent = await provider.generate_structured(
-        prompt=prompt,
-        schema=IntentSchema,
-        system_instruction=system_instruction,
-    )
-    return intent
+    try:
+        # Use the structured generation to enforce pydantic validation on the output
+        intent = await provider.generate_structured(
+            prompt=prompt,
+            schema=IntentSchema,
+            system_instruction=system_instruction,
+        )
+        return intent
+    except Exception as e:
+        import logging
+
+        logging.getLogger("senorita.intent").warning(f"Intent extraction failed, falling back to DIRECT_EXECUTION: {e}")
+        return IntentSchema(
+            intent=context.message,
+            confidence=0.8,
+            routing_decision="DIRECT_EXECUTION",
+            entities={},
+            constraints=[],
+            required_capabilities=[],
+            ambiguities=[],
+        )

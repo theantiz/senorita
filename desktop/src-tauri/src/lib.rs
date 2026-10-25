@@ -6,7 +6,6 @@ use tauri::{
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_shell::ShellExt;
-use std::net::TcpListener;
 
 struct AppState {
     backend_port: u16,
@@ -43,10 +42,11 @@ pub fn run() {
             // Explicitly enable autostart if not already enabled
             let _ = app.autolaunch().enable();
 
+            let status_i = MenuItem::with_id(app, "status", "● System: Unknown", false, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let show_i = MenuItem::with_id(app, "show", "Open Dashboard", true, None::<&str>)?;
             
-            let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
+            let menu = Menu::with_items(app, &[&status_i, &show_i, &quit_i])?;
 
             let _tray = TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
@@ -95,6 +95,34 @@ pub fn run() {
             }
 
             let port: u16 = 14231;
+            
+            // Spawn tray health monitor
+            let status_item = status_i.clone();
+            tauri::async_runtime::spawn(async move {
+                let client = reqwest::Client::builder()
+                    .timeout(std::time::Duration::from_secs(3))
+                    .build()
+                    .unwrap_or_default();
+                    
+                loop {
+                    let url = format!("http://127.0.0.1:{}/healthz", port);
+                    let is_online = match client.get(&url).send().await {
+                        Ok(resp) => resp.status().is_success(),
+                        Err(_) => false,
+                    };
+                    
+                    let text = if is_online {
+                        "● System: Online"
+                    } else {
+                        "○ System: Offline"
+                    };
+                    
+                    let _ = status_item.set_text(text);
+                    
+                    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                }
+            });
+
             // Manage the state
             app.manage(AppState { backend_port: port });
 
@@ -114,6 +142,19 @@ pub fn run() {
                                 tauri_plugin_shell::process::CommandEvent::Stdout(line) => {
                                     let text = String::from_utf8_lossy(&line);
                                     log::info!("Backend: {}", text);
+                                    
+                                    // Parse IPC notification
+                                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+                                        if json["senorita_ipc"] == "notification" {
+                                            let title = json["title"].as_str().unwrap_or("Señorita");
+                                            let body = json["body"].as_str().unwrap_or("");
+                                            let _ = app_handle.notification().builder()
+                                                .title(title)
+                                                .body(body)
+                                                .show();
+                                        }
+                                    }
+
                                     if text.contains("Token: ") {
                                         let parts: Vec<&str> = text.split("Token: ").collect();
                                         if parts.len() > 1 {

@@ -19,6 +19,7 @@ When the cap would be exceeded, lowest-importance candidates are skipped
 import logging
 import re
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, cast, func, or_, select
 from sqlalchemy.dialects.postgresql import JSONB
@@ -145,6 +146,9 @@ def _compose_notification(trigger_type: str, context_text: str, extra: str = "")
         templates = {
             "memory_date": f"Upcoming date: {context_text}",
             "stalled_task": f"Task due soon with no recent activity: {context_text}",
+            "due_task": f"Task deadline reminder: {context_text}",
+            "promise_commitment": f"Commitment reminder: {context_text}",
+            "midday_checkin": f"Midday check-in: {context_text}",
             "calendar_conflict": f"Calendar conflict detected: {context_text}",
             "unanswered_message": f"Unanswered message pending for over 4 hours: {context_text}",
             "task_update_request": f"Pending task needs update: {context_text}",
@@ -329,6 +333,173 @@ async def _ask_for_task_updates(session, user: User) -> list[tuple]:
         importance = priority_map.get(task.priority or "medium", 0.5)
         candidates.append((importance, "task_update_request", message, None))
 
+    return candidates
+
+
+# ─────────────────────────────────────────────────────────
+# Check B3 — tasks due today or approaching deadlines
+# ─────────────────────────────────────────────────────────
+
+
+async def _check_due_tasks(session, user: User) -> list[tuple]:
+    """Find tasks due in the next 4 hours or overdue today that haven't been reminded recently."""
+    candidates = []
+    try:
+        user_tz = ZoneInfo(user.timezone)
+    except Exception:
+        user_tz = ZoneInfo("UTC")
+
+    now = datetime.now(timezone.utc)
+    lookahead = now + timedelta(hours=4)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    result = await session.execute(
+        select(Task).where(
+            and_(
+                Task.user_id == user.id,
+                Task.status == "pending",
+                Task.due_at != None,
+                Task.due_at >= today_start,
+                Task.due_at <= lookahead,
+            )
+        )
+    )
+    tasks = result.scalars().all()
+
+    for task in tasks:
+        recent = await session.execute(
+            select(func.count(NotificationLog.id)).where(
+                and_(
+                    NotificationLog.user_id == user.id,
+                    NotificationLog.trigger_type == "due_task",
+                    NotificationLog.created_at >= now - timedelta(hours=4),
+                    NotificationLog.message.like(f"%{task.title[:15]}%"),
+                )
+            )
+        )
+        if (recent.scalar() or 0) > 0:
+            continue
+
+        local_due = task.due_at.astimezone(user_tz) if task.due_at.tzinfo else task.due_at
+        due_str = local_due.strftime("%I:%M %p")
+
+        if task.due_at < now:
+            context = f"Task '{task.title}' was due at {due_str} and is still pending."
+            extra = "Ask the user for an update or if they need to reschedule."
+        else:
+            diff_min = max(1, int((task.due_at - now).total_seconds() / 60))
+            context = f"Task '{task.title}' is due in {diff_min} minutes (at {due_str})."
+            extra = "Remind the user so they can complete it on time."
+
+        message = _compose_notification(
+            trigger_type="due_task",
+            context_text=context,
+            extra=extra,
+        )
+
+        priority_map = {"high": 0.9, "medium": 0.75, "low": 0.6}
+        importance = priority_map.get(task.priority or "medium", 0.75)
+        candidates.append((importance, "due_task", message, None))
+
+    return candidates
+
+
+# ─────────────────────────────────────────────────────────
+# Check B4 — commitments and promises
+# ─────────────────────────────────────────────────────────
+
+
+async def _check_commitments_and_promises(session, user: User) -> list[tuple]:
+    """Check active promises/commitments that have not been reminded in the last 24h."""
+    candidates = []
+    now = datetime.now(timezone.utc)
+
+    result = await session.execute(
+        select(MemoryEntry).where(
+            and_(
+                MemoryEntry.user_id == user.id,
+                MemoryEntry.memory_type == "promise",
+                MemoryEntry.status == "active",
+                MemoryEntry.locked == False,
+            )
+        )
+    )
+    entries = result.scalars().all()
+
+    for entry in entries:
+        recent = await session.execute(
+            select(func.count(NotificationLog.id)).where(
+                and_(
+                    NotificationLog.user_id == user.id,
+                    NotificationLog.trigger_type == "promise_commitment",
+                    NotificationLog.created_at >= now - timedelta(hours=24),
+                    NotificationLog.message.like(f"%{entry.content[:15]}%"),
+                )
+            )
+        )
+        if (recent.scalar() or 0) > 0:
+            continue
+
+        message = _compose_notification(
+            trigger_type="promise_commitment",
+            context_text=f"Open commitment or promise: '{entry.content}'.",
+            extra="Ask the user for an update on whether this promise has been fulfilled.",
+        )
+        candidates.append((0.7, "promise_commitment", message, None))
+
+    return candidates
+
+
+# ─────────────────────────────────────────────────────────
+# Check B5 — midday progress check-in
+# ─────────────────────────────────────────────────────────
+
+
+async def _check_midday_checkin(session, user: User) -> list[tuple]:
+    """Check in during midday (12:00-15:00 local time) on progress of today's tasks."""
+    candidates = []
+    try:
+        user_tz = ZoneInfo(user.timezone)
+    except Exception:
+        user_tz = ZoneInfo("UTC")
+
+    user_now = datetime.now(user_tz)
+    if not (12 <= user_now.hour < 15):
+        return candidates
+
+    now_utc = datetime.now(timezone.utc)
+    recent = await session.execute(
+        select(func.count(NotificationLog.id)).where(
+            and_(
+                NotificationLog.user_id == user.id,
+                NotificationLog.trigger_type == "midday_checkin",
+                NotificationLog.created_at >= now_utc - timedelta(hours=12),
+            )
+        )
+    )
+    if (recent.scalar() or 0) > 0:
+        return candidates
+
+    tasks_res = await session.execute(
+        select(Task).where(
+            and_(
+                Task.user_id == user.id,
+                Task.status == "pending",
+            )
+        ).limit(5)
+    )
+    pending_tasks = tasks_res.scalars().all()
+    if not pending_tasks:
+        return candidates
+
+    top_task = pending_tasks[0].title
+    total_count = len(pending_tasks)
+    message = _compose_notification(
+        trigger_type="midday_checkin",
+        context_text=f"Midday check-in: You have {total_count} pending tasks, including '{top_task}'.",
+        extra="Ask how progress is going and if the user has any updates or schedule changes.",
+    )
+    candidates.append((0.7, "midday_checkin", message, None))
     return candidates
 
 
@@ -559,12 +730,13 @@ Reply with ONLY the spoken notification text.
 
 
 async def _process_user(session, user: User):
-    # Quiet hours check: 23:00 to 08:00 local time (for simplicity, using UTC or assuming user is UTC right now)
-    # Ideally, we would use the user's timezone.
-    now = datetime.now(timezone.utc)
-    # For now, let's assume local time or UTC based quiet hours. We'll use UTC for this check if user TZ is missing.
-    # To implement URGENT bypass, we will filter candidates.
-    in_quiet_hours = now.hour >= 23 or now.hour < 8
+    try:
+        user_tz = ZoneInfo(user.timezone)
+    except Exception:
+        user_tz = ZoneInfo("UTC")
+
+    user_now = datetime.now(user_tz)
+    in_quiet_hours = user_now.hour >= 23 or user_now.hour < 8
 
     daily_count = await _daily_count(session, user.id)
     remaining_cap = DAILY_CAP - daily_count
@@ -575,8 +747,11 @@ async def _process_user(session, user: User):
 
     all_candidates = []
     all_candidates.extend(await _check_memory_dates(session, user))
+    all_candidates.extend(await _check_due_tasks(session, user))
     all_candidates.extend(await _check_stalled_tasks(session, user))
     all_candidates.extend(await _ask_for_task_updates(session, user))
+    all_candidates.extend(await _check_commitments_and_promises(session, user))
+    all_candidates.extend(await _check_midday_checkin(session, user))
     all_candidates.extend(await _check_calendar_conflicts(session, user))
     all_candidates.extend(await _check_unanswered_messages(session, user))
     all_candidates.extend(await _check_meeting_prep(session, user))

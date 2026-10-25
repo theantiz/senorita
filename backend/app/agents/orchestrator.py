@@ -70,10 +70,10 @@ async def _call_model_with_retries(client: Any, contents: list[Any], config: typ
                 contents=contents,
                 config=config,
             )
-        except ClientError as exc:
-            if "thought_signature" in str(exc) and attempt < MODEL_RETRY_ATTEMPTS - 1:
-                logger.warning("Model dropped thought_signature, retrying (%s/%s)", attempt + 1, MODEL_RETRY_ATTEMPTS)
-                await asyncio.sleep(0.5)
+        except Exception as exc:
+            if any(t in str(exc) for t in ("thought_signature", "503", "UNAVAILABLE", "high demand", "429")) and attempt < MODEL_RETRY_ATTEMPTS - 1:
+                logger.warning(f"Transient model error ({str(exc)[:60]}), retrying ({attempt + 1}/{MODEL_RETRY_ATTEMPTS})")
+                await asyncio.sleep(1.0 * (attempt + 1))
                 continue
             raise
 
@@ -404,7 +404,7 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
 
         try:
             contents = _build_contents(conv_history, message_text)
-            discovered_tool_names = discover_tools_for_message(message_text)
+            discovered_tool_names = discover_tools_for_message(message_text, intent=intent)
             available_tools = gemini_tools_for_names(discovered_tool_names)
             config = types.GenerateContentConfig(
                 tools=available_tools,
