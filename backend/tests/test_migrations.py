@@ -14,7 +14,7 @@ DB_HOST = os.environ.get("DB_HOST", "localhost")
 DB_PORT = os.environ.get("DB_PORT", "5433")
 DB_USER = os.environ.get("POSTGRES_USER", "senorita")
 DB_PASS = os.environ.get("POSTGRES_PASSWORD", "senorita")
-HEAD_REVISION = "b6a4df3e91c2"
+HEAD_REVISION = "b178747f5c28"
 
 EXPECTED_TABLES = {
     "action_log",

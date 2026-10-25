@@ -1,15 +1,17 @@
-import logging
 import asyncio
-from datetime import datetime, timezone, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+import logging
+from datetime import datetime, timedelta, timezone
 
-from app.db.session import async_session_factory
-from app.db.models.user import User
-from app.db.models.preference import Preference
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.db.models.action_log import ActionLog
+from app.db.models.preference import Preference
+from app.db.models.user import User
+from app.db.session import async_session_factory
 
 logger = logging.getLogger(__name__)
+
 
 async def analyze_behavior_and_learn():
     """
@@ -17,12 +19,13 @@ async def analyze_behavior_and_learn():
     """
     logger.info("Behavior learning cycle started.")
     try:
-        async with async_session_factory() as session:
+        async with async_session_factory() as _session:
             # We would scan recent actions, tool choices, and plan modifications here.
             # For Phase 6.1 MVP: Just a placeholder structure that runs safely.
             pass
     except Exception as e:
         logger.error(f"Behavior learning failed: {e}")
+
 
 def start_behavior_learning_engine(scheduler):
     scheduler.add_job(

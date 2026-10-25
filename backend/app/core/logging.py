@@ -140,6 +140,7 @@ class StructuredLogger:
         exc_info = ctx.pop("exc_info", None)
         if exc_info is True:
             import sys
+
             exc_info = sys.exc_info()
         elif exc_info is False:
             exc_info = None

@@ -28,7 +28,6 @@ class AgentRun(Base):
     workflow_id: Mapped[str] = mapped_column(Text, nullable=True)
     decision_id: Mapped[str] = mapped_column(Text, nullable=True)
 
-
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default="CREATED", index=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

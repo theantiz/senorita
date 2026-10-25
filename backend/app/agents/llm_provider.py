@@ -31,6 +31,7 @@ class GeminiProvider(LLMProvider):
     async def _execute_with_retries(self, func, max_retries: int = 3):
         import asyncio
         import logging
+
         logger = logging.getLogger("senorita.llm_provider")
         delay = 2.0
         for attempt in range(max_retries):
@@ -38,8 +39,13 @@ class GeminiProvider(LLMProvider):
                 return await func()
             except Exception as e:
                 err_str = str(e)
-                if any(x in err_str for x in ["503", "UNAVAILABLE", "429", "RESOURCE_EXHAUSTED"]) and attempt < max_retries - 1:
-                    logger.warning(f"Transient model error in LLM provider ({err_str[:60]}), retrying ({attempt + 1}/{max_retries}) in {delay}s...")
+                if (
+                    any(x in err_str for x in ["503", "UNAVAILABLE", "429", "RESOURCE_EXHAUSTED"])
+                    and attempt < max_retries - 1
+                ):
+                    logger.warning(
+                        f"Transient model error in LLM provider ({err_str[:60]}), retrying ({attempt + 1}/{max_retries}) in {delay}s..."
+                    )
                     await asyncio.sleep(delay)
                     delay *= 2
                 else:
@@ -69,7 +75,7 @@ class GeminiProvider(LLMProvider):
         def _sanitize_schema(d):
             if isinstance(d, dict):
                 d.pop("additionalProperties", None)
-                for k, v in d.items():
+                for v in d.values():
                     _sanitize_schema(v)
             elif isinstance(d, list):
                 for item in d:

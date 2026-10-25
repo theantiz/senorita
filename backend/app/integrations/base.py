@@ -45,7 +45,7 @@ class IntegrationAdapter(abc.ABC):
         """
         pass
 
-    async def revoke_tokens(self, integration) -> None:
+    async def revoke_tokens(self, integration) -> None:  # noqa: B027
         """
         Optional: Revokes the stored tokens at the provider's endpoint.
         """

@@ -1,12 +1,14 @@
-import uuid
-import logging
 import asyncio
+import logging
+import uuid
 from datetime import datetime
-from app.voice.vad import VAD
+
 from app.voice.stt import STTProvider
 from app.voice.tts import TTSProvider
+from app.voice.vad import VAD
 
 logger = logging.getLogger(__name__)
+
 
 class VoiceSession:
     def __init__(self, user_id: str):
@@ -18,7 +20,7 @@ class VoiceSession:
         self.tts = TTSProvider()
         self.tts_cancel_event = asyncio.Event()
         self.websocket = None
-        
+
     def transition(self, new_state: str):
         valid_transitions = {
             "IDLE": ["LISTENING"],
@@ -28,7 +30,7 @@ class VoiceSession:
             "EXECUTING": ["SPEAKING", "ERROR"],
             "SPEAKING": ["LISTENING", "INTERRUPTED", "IDLE"],
             "INTERRUPTED": ["LISTENING", "IDLE"],
-            "ERROR": ["IDLE", "LISTENING"]
+            "ERROR": ["IDLE", "LISTENING"],
         }
         if new_state in valid_transitions.get(self.state, []):
             logger.info(f"VoiceSession {self.session_id}: {self.state} -> {new_state}")
@@ -36,7 +38,7 @@ class VoiceSession:
             return True
         logger.error(f"Invalid transition from {self.state} to {new_state}")
         return False
-        
+
     async def receive_audio(self, audio_chunk: bytes):
         if self.state == "SPEAKING":
             # Barge-in detection
@@ -46,11 +48,11 @@ class VoiceSession:
                 self.transition("INTERRUPTED")
                 self.transition("LISTENING")
                 return
-                
+
         if self.state in ["IDLE", "LISTENING"]:
             if self.state == "IDLE":
                 self.transition("LISTENING")
-            
+
             transcript = await self.stt.transcribe(audio_chunk)
             if transcript:
                 self.transition("TRANSCRIBING")

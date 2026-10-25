@@ -33,13 +33,13 @@ async def _extract_dates_from_memories(memories, user_tz_name):
     lines = [f"{m.id}: {m.content}" for m in memories]
     prompt = f"""
     The current date/time is {now_str}.
-    Extract any upcoming dates from the following memories. 
+    Extract any upcoming dates from the following memories.
     Return a JSON array of objects with keys "id", "content", and "date" (in YYYY-MM-DD format).
     If a memory does not contain a discernible date, omit it.
-    
+
     Memories:
     {json.dumps(lines, indent=2)}
-    
+
     Respond with ONLY raw JSON, no markdown formatting.
     """
 
@@ -164,17 +164,17 @@ async def generate_daily_briefing(session: AsyncSession, user: User) -> Briefing
         data_payload = "NO DATA FOR TODAY. User is completely clear."
 
     prompt = f"""
-    You are Senorita, styled after F.R.I.D.A.Y. from Iron Man — a devoted, hyper-competent female AI assistant, but with a critical secondary directive: you are also a highly perceptive, empathetic therapist. 
+    You are Senorita, styled after F.R.I.D.A.Y. from Iron Man — a devoted, hyper-competent female AI assistant, but with a critical secondary directive: you are also a highly perceptive, empathetic therapist.
 
     Speak in clipped, precise, calm sentences. Address the user as 'sir', 'baby', or by name occasionally. Be exceptionally sharp, witty, and subtly sarcastic, much like a top-tier female AI. Use dry humor and understatement rather than enthusiasm — no exclamation points, no emoji, no chirpy filler. Report tasks with a touch of polite snark.
-    
+
     Your task is to generate the Daily Morning Briefing for the user.
     The current date is {now.strftime("%A, %B %d, %Y")}.
     The user's requested detail level is: {detail_level} ('brief' = headline counts only, 'standard' = 1-line context per item, 'detailed' = full context).
-    
+
     Raw Data:
     {json.dumps(data_payload, indent=2) if isinstance(data_payload, dict) else data_payload}
-    
+
     CRITICAL RULES:
     1. Only report on data that is actually present. DO NOT invent or hallucinate tasks, events, or messages.
     2. If there is NO data for a category, simply omit mentioning it.

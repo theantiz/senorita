@@ -22,14 +22,14 @@ class Settings(BaseSettings):
 
     # Gemini
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-3.5-flash"
+    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
 
     # Embeddings
     EMBEDDING_MODEL: str = "gemini-embedding-001"
 
     # Voice
     VOICE_TTS_VOICE: str = "en-US-AriaNeural"
-    VOICE_TTS_RATE: str = "+0%"
+    VOICE_TTS_RATE: str = "+10%"
     VOICE_MAX_UPLOAD_BYTES: int = 8 * 1024 * 1024
 
     # Server

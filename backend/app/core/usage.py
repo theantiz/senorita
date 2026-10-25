@@ -16,7 +16,8 @@ import uuid
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
-from sqlalchemy import select, update
+from sqlalchemy import Column, Date, Float, Integer, UniqueConstraint, select, update
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -183,9 +184,6 @@ class UsageAccounting:
 
 
 # ─── SQLAlchemy Model ─────────────────────────────────────────────────────────
-
-from sqlalchemy import Column, Date, Float, Integer, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
 from app.db.base import Base  # noqa: E402
 

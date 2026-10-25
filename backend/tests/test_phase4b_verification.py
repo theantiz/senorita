@@ -48,7 +48,7 @@ class TestStructuredLogging:
         log.info("test.event", run_id="abc-123", step="step_one")
 
         captured = capsys.readouterr()
-        lines = [l for l in captured.out.strip().split("\n") if l]
+        lines = [line for line in captured.out.strip().split("\n") if line]
         assert lines, "No log output produced"
         parsed = json.loads(lines[-1])
         assert parsed["msg"] == "test.event"
@@ -303,7 +303,6 @@ class TestDBPoolConfiguration:
         """pool_pre_ping=True must be set so stale connections are detected."""
         from app.db.session import engine
 
-        pool = engine.pool
         # pool_pre_ping is stored on the engine creator
         assert engine.pool._pre_ping is True
 

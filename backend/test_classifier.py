@@ -10,7 +10,7 @@ from app.core.config import settings
 
 async def main():
     chat = start_chat()
-    prompt = """Analyze the following exchange. Did the user mention a durable fact about their life worth remembering that wasn't already explicitly stored? 
+    prompt = """Analyze the following exchange. Did the user mention a durable fact about their life worth remembering that wasn't already explicitly stored?
 If yes, extract it as a single sentence. Return ONLY a JSON object with:
 'has_fact': boolean,
 'fact': string (the sentence),

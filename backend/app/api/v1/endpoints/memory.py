@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -16,8 +17,6 @@ from app.services.memory_service import (
 )
 
 router = APIRouter(prefix="/memory", tags=["memory"])
-
-from datetime import datetime
 
 
 @router.get("", response_model=list[MemoryEntryRead])

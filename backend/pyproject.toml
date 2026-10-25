@@ -1,21 +1,31 @@
 [tool.ruff]
 line-length = 120
 target-version = "py311"
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "alembic/versions",
+    "scripts/archive",
+    "build",
+    "dist",
+]
 
 [tool.ruff.lint]
 select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "C",  # flake8-comprehensions
-    "B",  # flake8-bugbear
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "C4",  # flake8-comprehensions
+    "B",   # flake8-bugbear
 ]
 ignore = [
     "E501",  # line too long (handled by formatter)
     "F403",  # star imports (used in models)
     "F401",  # unused imports (often needed for FastAPI router registration)
     "B008",  # do not perform function calls in argument defaults (FastAPI Depends)
+    "B904",  # within an except clause, raise exceptions with raise ... from err
     "E711",  # SQLAlchemy comparison to None
     "E712",  # SQLAlchemy comparison to True/False
 ]

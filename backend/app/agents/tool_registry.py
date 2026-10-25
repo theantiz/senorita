@@ -7,10 +7,12 @@ import os
 import platform
 import re
 import subprocess
+import webbrowser
 from datetime import date, datetime, time, timedelta
 from email.message import EmailMessage as PyEmailMessage
 from pathlib import Path
 from typing import Any, Optional
+from urllib.parse import quote_plus
 from uuid import UUID
 
 import httpx
@@ -604,15 +606,19 @@ async def execute_tool(session: AsyncSession, user_id: UUID, function_name: str,
     idempotency_key = kwargs.pop("_idempotency_key", None) or kwargs.pop("idempotency_key", None)
 
     from sqlalchemy import select
+
     from app.db.models.autonomy_policy import AutonomyPolicy
+
     stmt = select(AutonomyPolicy).where(AutonomyPolicy.user_id == user_id)
     res = await session.execute(stmt)
     policies = res.scalars().all()
     permissions_dict = {}
     for p in policies:
         permissions_dict[p.action_scope] = p.autonomy_level
-    
-    context = ToolContext(user_id=user_id, idempotency_key=str(idempotency_key) if idempotency_key else None, permissions=permissions_dict)
+
+    context = ToolContext(
+        user_id=user_id, idempotency_key=str(idempotency_key) if idempotency_key else None, permissions=permissions_dict
+    )
 
     result = await get_tool_executor().execute(session, context, function_name, kwargs, confirmed=confirmed)
     return result.to_dict()
@@ -1078,7 +1084,6 @@ async def _handle_store_memory(
     embedding = await embed_text(content, task_type="RETRIEVAL_DOCUMENT")
 
     existing_mem = None
-    dist = None
     if embedding:
         from sqlalchemy import select
 
@@ -1094,7 +1099,6 @@ async def _handle_store_memory(
         row = res.first()
         if row and row.dist is not None and row.dist < 0.20:
             existing_mem = row[0]
-            dist = row.dist
 
     if importance_score is None:
         if existing_mem:
@@ -2248,6 +2252,65 @@ async def _handle_open_application(session: AsyncSession, user_id: UUID, app_nam
         return err
 
 
+async def _handle_open_browser(session: AsyncSession, user_id: UUID, url: str, title: Optional[str] = None) -> dict:
+    url = url.strip()
+    if not (url.startswith("http://") or url.startswith("https://")):
+        url = "https://" + url
+
+    try:
+        await asyncio.to_thread(webbrowser.open, url)
+        log_entry = ActionLog(
+            user_id=user_id,
+            action_type="open_browser",
+            payload={"url": url, "title": title},
+            result="success",
+            confirmed_by_user=False,
+        )
+        session.add(log_entry)
+        await session.flush()
+        return {"status": "opened", "url": url, "title": title or url, "message": f"Opened {url} in default browser."}
+    except Exception as e:
+        _log.error(f"BROWSER | Error opening '{url}': {e}")
+        return {"error": f"Failed to open browser: {str(e)}"}
+
+
+async def _handle_search_media_or_web(
+    session: AsyncSession, user_id: UUID, query: str, platform: str = "youtube"
+) -> dict:
+    clean_query = query.strip()
+    plat = platform.lower().strip()
+    encoded = quote_plus(clean_query)
+
+    if "youtube" in plat or "yotube" in plat or "video" in plat:
+        target_url = f"https://www.youtube.com/results?search_query={encoded}"
+        service_name = "YouTube"
+    else:
+        target_url = f"https://www.google.com/search?q={encoded}"
+        service_name = "Google"
+
+    try:
+        await asyncio.to_thread(webbrowser.open, target_url)
+        log_entry = ActionLog(
+            user_id=user_id,
+            action_type="search_media_or_web",
+            payload={"query": clean_query, "platform": service_name, "url": target_url},
+            result="success",
+            confirmed_by_user=False,
+        )
+        session.add(log_entry)
+        await session.flush()
+        return {
+            "status": "opened",
+            "platform": service_name,
+            "query": clean_query,
+            "url": target_url,
+            "message": f"Opened default browser and searched for '{clean_query}' on {service_name}.",
+        }
+    except Exception as e:
+        _log.error(f"BROWSER_SEARCH | Error opening '{target_url}': {e}")
+        return {"error": f"Failed to open {service_name} search: {str(e)}"}
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Repo Analyzer
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2862,8 +2925,8 @@ async def _handle_web_research(  # noqa: C901
             return {
                 "unavailable": True,
                 "reason": "Web search is not available with the current API plan. "
-                          "Google Search grounding requires a billing-enabled Google AI project. "
-                          "Please answer from your own knowledge and inform the user you could not search the web.",
+                "Google Search grounding requires a billing-enabled Google AI project. "
+                "Please answer from your own knowledge and inform the user you could not search the web.",
             }
         return {"error": "Web research failed right now. Please try again later."}
 
@@ -3775,11 +3838,7 @@ async def _handle_plan_day(
     tasks_res = await session.execute(tasks_stmt)
     tasks = tasks_res.scalars().all()
 
-    reminders_stmt = (
-        select(Reminder)
-        .where(Reminder.user_id == user_id, Reminder.status == "active")
-        .limit(10)
-    )
+    reminders_stmt = select(Reminder).where(Reminder.user_id == user_id, Reminder.status == "active").limit(10)
     rem_res = await session.execute(reminders_stmt)
     reminders = rem_res.scalars().all()
 
@@ -3796,8 +3855,7 @@ async def _handle_plan_day(
     promises = prom_res.scalars().all()
 
     events_data = [
-        {"title": e.title, "start": e.start_at.strftime("%H:%M"), "end": e.end_at.strftime("%H:%M")}
-        for e in events
+        {"title": e.title, "start": e.start_at.strftime("%H:%M"), "end": e.end_at.strftime("%H:%M")} for e in events
     ]
     tasks_data = [
         {
@@ -3862,7 +3920,11 @@ INSTRUCTIONS:
         schedule = []
         for ev in events:
             schedule.append(
-                {"time": f"{ev.start_at.strftime('%H:%M')} - {ev.end_at.strftime('%H:%M')}", "activity": ev.title, "type": "event"}
+                {
+                    "time": f"{ev.start_at.strftime('%H:%M')} - {ev.end_at.strftime('%H:%M')}",
+                    "activity": ev.title,
+                    "type": "event",
+                }
             )
         for i, t in enumerate(tasks[:3]):
             schedule.append({"time": f"Focus Block {i+1}", "activity": t.title, "type": "focus"})
@@ -3904,8 +3966,7 @@ async def _handle_ask_task_update(session: AsyncSession, user_id: UUID, task_id:
     res = await session.execute(stmt)
     pending_tasks = res.scalars().all()
     items = [
-        {"id": str(t.id), "title": t.title, "due_at": t.due_at.isoformat() if t.due_at else None}
-        for t in pending_tasks
+        {"id": str(t.id), "title": t.title, "due_at": t.due_at.isoformat() if t.due_at else None} for t in pending_tasks
     ]
     return {
         "status": "success",
@@ -3976,6 +4037,8 @@ def _handler_map() -> dict[str, Any]:
         "prioritize_tasks": _handle_prioritize_tasks,
         "plan_day": _handle_plan_day,
         "ask_task_update": _handle_ask_task_update,
+        "open_browser": _handle_open_browser,
+        "search_media_or_web": _handle_search_media_or_web,
     }
 
 
@@ -4047,7 +4110,19 @@ def ask_task_update(task_id: Optional[str] = None):
     pass
 
 
-SENORITA_TOOLS.extend([prepare_for_meeting, prioritize_tasks, plan_day, ask_task_update])
+def open_browser(url: str, title: Optional[str] = None):
+    """Open a URL in the user's default browser (e.g. Chrome, Edge, Brave)."""
+    pass
+
+
+def search_media_or_web(query: str, platform: str = "youtube"):
+    """Search for content on YouTube, Google, or the web and open the results directly in the user's default browser. Platform can be 'youtube', 'google', or 'web'."""
+    pass
+
+
+SENORITA_TOOLS.extend(
+    [prepare_for_meeting, prioritize_tasks, plan_day, ask_task_update, open_browser, search_media_or_web]
+)
 _TOOL_FUNCTIONS_BY_NAME = {tool.__name__: tool for tool in SENORITA_TOOLS}
 
 
@@ -4100,6 +4175,34 @@ TOOL_DEFINITIONS.append(
         permissions=(ToolPermission.READ,),
         risk=RiskLevel.LOW,
         provider="local",
+    )
+)
+TOOL_DEFINITIONS.append(
+    _tool_def(
+        "open_browser",
+        "Open a URL directly in the user's default browser.",
+        "admin",
+        "system",
+        {"url": TEXT, "title": TEXT},
+        required=("url",),
+        permissions=(ToolPermission.READ,),
+        risk=RiskLevel.LOW,
+        provider="local",
+        aliases=("open link", "open url", "launch browser"),
+    )
+)
+TOOL_DEFINITIONS.append(
+    _tool_def(
+        "search_media_or_web",
+        "Search for a video, channel, or query on YouTube, Google, or the web and open the results directly in the user's default browser.",
+        "admin",
+        "system",
+        {"query": TEXT, "platform": TEXT},
+        required=("query",),
+        permissions=(ToolPermission.READ,),
+        risk=RiskLevel.LOW,
+        provider="local",
+        aliases=("search youtube", "search on youtube", "youtube", "google search", "search web", "play on youtube"),
     )
 )
 

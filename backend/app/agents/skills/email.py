@@ -9,8 +9,8 @@ email_skill = Skill(
         "gmail.search_emails": "FULL_AUTO",
         "gmail.send_email": "CONFIRM",
         "gmail.create_draft": "TRUSTED",
-        "gmail.reply_to_email": "CONFIRM"
-    }
+        "gmail.reply_to_email": "CONFIRM",
+    },
 )
 
 SkillRegistry.register(email_skill)

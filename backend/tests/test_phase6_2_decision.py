@@ -1,5 +1,7 @@
 import pytest
+
 from app.agents.decision_engine import evaluate_trigger
+
 
 @pytest.mark.asyncio
 async def test_decision_engine_format():

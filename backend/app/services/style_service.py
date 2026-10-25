@@ -117,7 +117,7 @@ async def infer_tone_profile(session: AsyncSession, user_id: UUID, contact_id: U
     prompt = f"""
     You are an expert linguist analyzing a user's conversational tone based on their sent messages.
     Analyze the following outbound messages.
-    
+
     Output ONLY a valid JSON object adhering to this structure (no markdown blocks, no extra text):
     {{
       "confidence": (float between 0.0 and 1.0),
@@ -142,7 +142,7 @@ async def infer_tone_profile(session: AsyncSession, user_id: UUID, contact_id: U
         {{ "intent": "string description", "template": "string pattern they use repeatedly" }}
       ]
     }}
-    
+
     Messages:
     {samples}
     """

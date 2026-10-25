@@ -79,7 +79,7 @@ async def test_prompt_injection_safety():
     from app.agents.tool_system.registry import ToolRegistry
 
     # Check that high risk tools enforce confirmation regardless of prompt
-    registry = ToolRegistry()
+    _registry = ToolRegistry()
 
     # Wait, tool registry is tested in test_tool_system.py.
     # The requirement is that Phase 2 boundary holds.

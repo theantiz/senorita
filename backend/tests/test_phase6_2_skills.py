@@ -1,6 +1,8 @@
 import pytest
-from app.agents.skills.base import SkillRegistry
+
 import app.agents.skills
+from app.agents.skills.base import SkillRegistry
+
 
 def test_skills_registered():
     skills = SkillRegistry.get_all()
@@ -9,4 +11,3 @@ def test_skills_registered():
     assert "MeetingSkill" in skill_names
     assert "EmailSkill" in skill_names
     assert "TaskSkill" in skill_names
-

@@ -1,7 +1,10 @@
-import pytest
 from datetime import datetime, timezone
-from app.events.cooldown import CooldownManager
+
+import pytest
+
 from app.db.models.user import User
+from app.events.cooldown import CooldownManager
+
 
 @pytest.fixture
 async def cooldown_user(db_session):
@@ -9,6 +12,7 @@ async def cooldown_user(db_session):
     db_session.add(u)
     await db_session.commit()
     return u
+
 
 @pytest.mark.asyncio
 async def test_cooldown_manager(db_session, cooldown_user):

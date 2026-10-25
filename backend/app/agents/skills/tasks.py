@@ -10,8 +10,8 @@ task_skill = Skill(
         "list_tasks": "FULL_AUTO",
         "update_task": "TRUSTED",
         "complete_task": "TRUSTED",
-        "delete_task": "CONFIRM"
-    }
+        "delete_task": "CONFIRM",
+    },
 )
 
 SkillRegistry.register(task_skill)

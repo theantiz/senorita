@@ -1,5 +1,7 @@
-from typing import List, Dict, Any, Type
+from typing import Any, Dict, List, Type
+
 from pydantic import BaseModel
+
 
 class Skill(BaseModel):
     name: str
@@ -7,9 +9,10 @@ class Skill(BaseModel):
     tools: List[str]
     triggers: List[str]
     default_permissions: Dict[str, str]
-    
+
     class Config:
         arbitrary_types_allowed = True
+
 
 class SkillRegistry:
     _skills: Dict[str, Skill] = {}

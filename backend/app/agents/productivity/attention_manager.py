@@ -1,6 +1,8 @@
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.db.models.productivity import FocusSession
+
 
 class AttentionManager:
     @staticmethod
@@ -9,12 +11,12 @@ class AttentionManager:
         stmt = select(FocusSession).where(FocusSession.user_id == user_id, FocusSession.status == "ACTIVE")
         res = await session.execute(stmt)
         active_session = res.scalars().first()
-        
+
         if active_session:
             if urgency == "CRITICAL":
                 return True
             active_session.interruptions_prevented += 1
             await session.commit()
             return False
-            
+
         return True

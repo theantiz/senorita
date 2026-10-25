@@ -13,6 +13,7 @@ async def test_voice_protocol(client: AsyncClient):
     # For now, we mock or just assert the /stream endpoint exists and rejects bad payloads
     login = await client.post("/api/v1/auth/login", json={"name": "voice_user"})
     token = login.json()["token"]
+    assert token
 
     # We test via httpx if the ws protocol fails on invalid types
     # Actually, we rely on the implementation being structurally sound

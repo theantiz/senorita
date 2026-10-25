@@ -1,8 +1,10 @@
 import pytest
-from app.agents.workflows.engine import execute_workflow
-from app.db.models.user import User
-from app.db.models.run import AgentRun
 from sqlalchemy import select
+
+from app.agents.workflows.engine import execute_workflow
+from app.db.models.run import AgentRun
+from app.db.models.user import User
+
 
 @pytest.fixture
 async def wf_user(db_session):
@@ -11,11 +13,12 @@ async def wf_user(db_session):
     await db_session.commit()
     return u
 
+
 @pytest.mark.asyncio
 async def test_workflow_execution(db_session, wf_user, mocker):
-    mocker.patch('app.workers.briefings.daily_briefing.generate_daily_briefing')
+    mocker.patch("app.workers.briefings.daily_briefing.generate_daily_briefing")
     await execute_workflow(db_session, wf_user, "daily_planning", {"id": "trigger_1"})
-    
+
     stmt = select(AgentRun).where(AgentRun.user_id == wf_user.id)
     res = await db_session.execute(stmt)
     runs = res.scalars().all()

@@ -481,12 +481,14 @@ async def _check_midday_checkin(session, user: User) -> list[tuple]:
         return candidates
 
     tasks_res = await session.execute(
-        select(Task).where(
+        select(Task)
+        .where(
             and_(
                 Task.user_id == user.id,
                 Task.status == "pending",
             )
-        ).limit(5)
+        )
+        .limit(5)
     )
     pending_tasks = tasks_res.scalars().all()
     if not pending_tasks:

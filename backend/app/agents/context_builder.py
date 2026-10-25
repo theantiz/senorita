@@ -28,9 +28,9 @@ from app.core.metrics import (
 )
 from app.db.models.calendar_event import CalendarEvent
 from app.db.models.contact import Contact
+from app.db.models.goal import Goal, Project
 from app.db.models.integration import Integration
 from app.db.models.memory_entry import MemoryEntry
-from app.db.models.goal import Goal, Project
 from app.db.models.preference import Preference
 from app.db.models.task import Task
 from app.db.models.user import User
@@ -54,14 +54,13 @@ def _calculate_relevance(semantic: float, conf_str: str, age_days: int, importan
     return (semantic * 0.50) + (conf_score * 0.20) + (recency * 0.15) + (importance * 0.15)
 
 
-
 async def _fetch_goals(session: AsyncSession, user_id: UUID, intent: IntentSchema, query_embedding: list[float] | None):
     try:
         stmt = select(Goal).where(Goal.user_id == user_id, Goal.status == "ACTIVE")
         if query_embedding:
             dist = Goal.embedding.cosine_distance(query_embedding).label("dist")
             stmt = stmt.add_columns(dist)
-        
+
         results = await session.execute(stmt)
         rows = results.all()
         ranked = []
@@ -70,10 +69,10 @@ async def _fetch_goals(session: AsyncSession, user_id: UUID, intent: IntentSchem
             if query_embedding:
                 dist_val = row[1] if row[1] is not None else 1.0
                 semantic = max(0.0, 1.0 - dist_val)
-                print('DIST_VAL:', dist_val, 'SEMANTIC:', semantic)
+                print("DIST_VAL:", dist_val, "SEMANTIC:", semantic)
             else:
                 semantic = 0.5
-            
+
             # Boost score significantly because Goals are very important context
             if semantic > 0.4:
                 ranked.append(g)
@@ -82,6 +81,7 @@ async def _fetch_goals(session: AsyncSession, user_id: UUID, intent: IntentSchem
         print("ERROR IN GOALS:", e)
         logger.error(f"Failed fetching goals: {e}")
         return []
+
 
 async def _fetch_memories(
     session: AsyncSession, user_id: UUID, intent: IntentSchema, now: datetime, query_embedding: list[float] | None
@@ -108,7 +108,7 @@ async def _fetch_memories(
             if query_embedding:
                 dist_val = row[1] if row[1] is not None else 1.0
                 semantic = max(0.0, 1.0 - dist_val)
-                print('DIST_VAL:', dist_val, 'SEMANTIC:', semantic)
+                print("DIST_VAL:", dist_val, "SEMANTIC:", semantic)
                 context_similarity_histogram.observe(semantic)
             else:
                 semantic = 0.1
@@ -152,7 +152,7 @@ async def _fetch_preferences(
             if query_embedding:
                 dist_val = row[1] if row[1] is not None else 1.0
                 semantic = max(0.0, 1.0 - dist_val)
-                print('DIST_VAL:', dist_val, 'SEMANTIC:', semantic)
+                print("DIST_VAL:", dist_val, "SEMANTIC:", semantic)
                 # Boost if domain specifically matches intent domain implicitly
                 if p.domain.lower() in intent.intent.lower():
                     semantic = min(1.0, semantic + 0.3)
@@ -224,7 +224,7 @@ async def _fetch_contacts(session: AsyncSession, user_id: UUID, intent: IntentSc
 
 
 async def build_context(session: AsyncSession, user: User, ctx: AgentContext) -> AgentContext:
-    ctx.goals = getattr(ctx, 'goals', [])
+    ctx.goals = getattr(ctx, "goals", [])
     context_build_total.inc()
     start_time = time.time()
     now = datetime.now(timezone.utc)
@@ -308,7 +308,6 @@ async def build_context(session: AsyncSession, user: User, ctx: AgentContext) ->
             f"Current time: {now.strftime('%H:%M %Z')}",
             f"Timezone: {user.timezone}",
         ]
-
 
         if ctx.goals:
             lines.append("\nACTIVE GOALS")

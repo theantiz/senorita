@@ -112,11 +112,23 @@ def _split_tts_chunks(text: str, max_chars: int = 900) -> list[str]:
     return chunks
 
 
+_TTS_CACHE: dict[str, str] = {}
+
+
 async def synthesize_speech_base64(text: str) -> str | None:
-    """Generate speech via edge-tts and return base64 MP3 data."""
+    """Generate speech via edge-tts and return base64 MP3 data with caching for low latency."""
+    clean = _clean_text_for_speech(text)
+    if not clean:
+        return None
+
+    cache_key = f"{settings.VOICE_TTS_VOICE}:{settings.VOICE_TTS_RATE}:{clean}"
+    if cache_key in _TTS_CACHE:
+        return _TTS_CACHE[cache_key]
+
     try:
         chunks: list[bytes] = []
-        for speech_chunk in _split_tts_chunks(text):
+        speech_chunks = [clean] if len(clean) < 400 else _split_tts_chunks(clean)
+        for speech_chunk in speech_chunks:
             communicate = edge_tts.Communicate(
                 speech_chunk,
                 settings.VOICE_TTS_VOICE,
@@ -126,7 +138,10 @@ async def synthesize_speech_base64(text: str) -> str | None:
                 if chunk.get("type") == "audio" and "data" in chunk:
                     chunks.append(chunk["data"])  # type: ignore[reportTypedDictNotRequiredAccess]
         tts_audio = b"".join(chunks)
-        return base64.b64encode(tts_audio).decode("utf-8") if tts_audio else None
+        b64 = base64.b64encode(tts_audio).decode("utf-8") if tts_audio else None
+        if b64 and len(_TTS_CACHE) < 200:
+            _TTS_CACHE[cache_key] = b64
+        return b64
     except Exception:
         logger.exception("TTS generation failed")
         return None
@@ -140,7 +155,7 @@ async def _delete_uploaded_file(client, file_name: str) -> None:
 
 
 async def transcribe_audio_bytes(audio_bytes: bytes, content_type: str | None) -> TranscriptionResult:
-    """Upload audio to Gemini Files API and return precise multilingual transcription."""
+    """Fast in-memory audio transcription via Gemini inline audio or fallback to Files API."""
     if not audio_bytes:
         return TranscriptionResult(text="", mime_type=_normalize_audio_mime(content_type), byte_size=0)
 
@@ -151,7 +166,6 @@ async def transcribe_audio_bytes(audio_bytes: bytes, content_type: str | None) -
         )
 
     raw_mime = _normalize_audio_mime(content_type)
-    suffix = SUPPORTED_AUDIO_MIME_EXTENSIONS[raw_mime]
     prompt = (
         "Transcribe this user command precisely. The user may speak English, Hindi, Gujarati, "
         "or a mix of them. Preserve the spoken language using the English alphabet where possible. "
@@ -159,10 +173,33 @@ async def transcribe_audio_bytes(audio_bytes: bytes, content_type: str | None) -
         "reply exactly with UNCLEAR_AUDIO."
     )
 
-    tmp_path = None
-    uploaded_file = None
     client = get_client()
 
+    # Fast path: in-memory inline audio transmission (eliminates disk I/O and Files API upload roundtrip)
+    if len(audio_bytes) < 15 * 1024 * 1024:
+        try:
+            audio_part = types.Part.from_bytes(data=audio_bytes, mime_type=raw_mime)
+            config = types.GenerateContentConfig(
+                temperature=0.0,
+                max_output_tokens=150,
+            )
+            response = await client.aio.models.generate_content(
+                model=settings.GEMINI_MODEL,
+                contents=[audio_part, prompt],
+                config=config,
+            )
+            return TranscriptionResult(
+                text=(response.text or "").strip(),
+                mime_type=raw_mime,
+                byte_size=len(audio_bytes),
+            )
+        except Exception as e:
+            logger.warning(f"Inline audio transcription error ({e}), trying fallback...")
+
+    # Fallback path for larger files
+    suffix = SUPPORTED_AUDIO_MIME_EXTENSIONS.get(raw_mime, ".webm")
+    tmp_path = None
+    uploaded_file = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(audio_bytes)
@@ -176,6 +213,7 @@ async def transcribe_audio_bytes(audio_bytes: bytes, content_type: str | None) -
         response = await client.aio.models.generate_content(
             model=settings.GEMINI_MODEL,
             contents=[uploaded_file, prompt],
+            config=types.GenerateContentConfig(temperature=0.0, max_output_tokens=150),
         )
         return TranscriptionResult(
             text=(response.text or "").strip(),

@@ -1,7 +1,8 @@
-import logging
 import asyncio
+import logging
 
 logger = logging.getLogger(__name__)
+
 
 class TTSProvider:
     async def generate_stream(self, text_stream, cancel_event: asyncio.Event):
@@ -15,8 +16,8 @@ class TTSProvider:
             buffer += text_chunk
             if any(p in buffer for p in [".", "!", "?"]):
                 # Yield a fake audio chunk
-                yield f"FAKE_AUDIO_BASE64:{buffer}".encode('utf-8')
+                yield f"FAKE_AUDIO_BASE64:{buffer}".encode("utf-8")
                 buffer = ""
-                await asyncio.sleep(0.1) # Simulate TTS latency
+                await asyncio.sleep(0.1)  # Simulate TTS latency
         if buffer and not cancel_event.is_set():
-            yield f"FAKE_AUDIO_BASE64:{buffer}".encode('utf-8')
+            yield f"FAKE_AUDIO_BASE64:{buffer}".encode("utf-8")

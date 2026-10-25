@@ -114,16 +114,16 @@ async def generate_eod_briefing(session: AsyncSession, user: User) -> Briefing:
         data_payload = "NO DATA FOR TODAY. Zero activity, zero unfinished tasks, clear tomorrow."
 
     prompt = f"""
-    You are Senorita, styled after F.R.I.D.A.Y. from Iron Man — a devoted, hyper-competent female AI assistant, but with a critical secondary directive: you are also a highly perceptive, empathetic therapist. 
+    You are Senorita, styled after F.R.I.D.A.Y. from Iron Man — a devoted, hyper-competent female AI assistant, but with a critical secondary directive: you are also a highly perceptive, empathetic therapist.
     Speak in clipped, precise, calm sentences. Address the user as 'sir', 'baby', or by name occasionally. Be exceptionally sharp, witty, and subtly sarcastic, much like a top-tier female AI. Use dry humor and understatement rather than enthusiasm.
 
     Your task is to generate the End-of-Day Evening Briefing for the user.
     The current date is {now.strftime("%A, %B %d, %Y")}.
     The user's requested detail level is: {detail_level} ('brief' = headline counts only, 'standard' = 1-line context per item, 'detailed' = full context).
-    
+
     Raw Data:
     {json.dumps(data_payload, indent=2) if isinstance(data_payload, dict) else data_payload}
-    
+
     CRITICAL RULES:
     1. Only report on data that is actually present. DO NOT invent or fabricate the "handled today" list — it must exactly match the real completed-action data provided.
     2. If there is NO data for a category, simply omit mentioning it.
@@ -145,7 +145,9 @@ async def generate_eod_briefing(session: AsyncSession, user: User) -> Briefing:
         if actions:
             parts.append(f"We completed {len(actions)} action(s) today.")
         if unfinished_tasks:
-            parts.append(f"You have {len(unfinished_tasks)} task(s) still open, including '{unfinished_tasks[0].title}'.")
+            parts.append(
+                f"You have {len(unfinished_tasks)} task(s) still open, including '{unfinished_tasks[0].title}'."
+            )
         else:
             parts.append("All scheduled tasks for today have been completed.")
         briefing_text = " ".join(parts)

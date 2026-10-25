@@ -15,9 +15,6 @@ from app.agents.gemini_client import get_client, start_chat
 from app.agents.prompts import build_system_instruction
 from app.agents.tool_registry import SENORITA_TOOLS, discover_tools_for_message, execute_tool, gemini_tools_for_names
 from app.agents.tool_system.persistence import redact_sensitive_arguments
-
-AGENT_MAX_EXECUTION_TIME = int(os.environ.get("AGENT_MAX_EXECUTION_TIME", "600"))
-
 from app.core.config import settings
 from app.core.logger import logger
 from app.core.state import get_pause_state
@@ -25,6 +22,8 @@ from app.db.models import ActionLog, Contact, Conversation, Task, User
 from app.db.session import async_session_factory
 from app.memory.embeddings import embed_text
 from app.memory.retrieval import search_similar_memory
+
+AGENT_MAX_EXECUTION_TIME = int(os.environ.get("AGENT_MAX_EXECUTION_TIME", "600"))
 
 MAX_CONTEXT_MESSAGES = 10
 MAX_TOOL_ROUNDS = 5
@@ -71,8 +70,13 @@ async def _call_model_with_retries(client: Any, contents: list[Any], config: typ
                 config=config,
             )
         except Exception as exc:
-            if any(t in str(exc) for t in ("thought_signature", "503", "UNAVAILABLE", "high demand", "429")) and attempt < MODEL_RETRY_ATTEMPTS - 1:
-                logger.warning(f"Transient model error ({str(exc)[:60]}), retrying ({attempt + 1}/{MODEL_RETRY_ATTEMPTS})")
+            if (
+                any(t in str(exc) for t in ("thought_signature", "503", "UNAVAILABLE", "high demand", "429"))
+                and attempt < MODEL_RETRY_ATTEMPTS - 1
+            ):
+                logger.warning(
+                    f"Transient model error ({str(exc)[:60]}), retrying ({attempt + 1}/{MODEL_RETRY_ATTEMPTS})"
+                )
                 await asyncio.sleep(1.0 * (attempt + 1))
                 continue
             raise
@@ -433,9 +437,7 @@ async def handle_message(session: AsyncSession, user: User, message_text: str) -
                 )
 
                 tool_response_text = await _execute_tool_calls_for_model(session, user.id, function_calls)
-                contents.append(
-                    types.Content(role="user", parts=[types.Part.from_text(text=tool_response_text)])
-                )
+                contents.append(types.Content(role="user", parts=[types.Part.from_text(text=tool_response_text)]))
 
             final_text = _response_text(response) if response else "I couldn't generate a response."
 

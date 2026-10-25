@@ -44,11 +44,11 @@ const MIME_EXTENSION: Record<string, string> = {
   'audio/mp3': 'mp3',
 };
 
-const MIN_RECORDING_MS = 850;
+const MIN_RECORDING_MS = 500;
 const MAX_RECORDING_MS = 25_000;
 const START_SILENCE_MS = 8_000;
-const END_SILENCE_MS = 1_050;
-const MIN_VOICE_BLOB_BYTES = 900;
+const END_SILENCE_MS = 550;
+const MIN_VOICE_BLOB_BYTES = 600;
 
 // ─── Chrome TTS keepalive ─────────────────────────────────────────────────────────────
 let _keepalive: ReturnType<typeof setInterval> | null = null;
@@ -487,7 +487,7 @@ export function useVoiceAssistant({ token, onCommandProcessed, getFrequencies }:
     } finally {
       isSpeakingRef.current = false;
     }
-    await new Promise(r => setTimeout(r, 150));
+    await new Promise(r => setTimeout(r, 50));
   }, [cancelTTS, speakWithBackend]);
 
   // ── Wake-word handler ─────────────────────────────────────────────────────

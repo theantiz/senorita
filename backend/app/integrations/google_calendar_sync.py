@@ -113,12 +113,21 @@ async def _upsert_google_event(session: AsyncSession, integration: Integration, 
                 google_event_id=google_event_id,
             )
         )
-        from app.events.bus import bus
         import asyncio
+
         from app.db.models.user import User
+        from app.events.bus import bus
+
         user = await session.get(User, integration.user_id)
         if user:
-            asyncio.create_task(bus.publish(session, user, 'MeetingCreated', {'title': title, 'start_at': start_at.isoformat() if start_at else None}))
+            asyncio.create_task(
+                bus.publish(
+                    session,
+                    user,
+                    "MeetingCreated",
+                    {"title": title, "start_at": start_at.isoformat() if start_at else None},
+                )
+            )
 
 
 async def _sync_user_google_calendar(session: AsyncSession, integration: Integration) -> None:
@@ -155,7 +164,7 @@ async def _sync_user_google_calendar(session: AsyncSession, integration: Integra
         try:
             import asyncio
 
-            response = await asyncio.to_thread(lambda: service.events().list(**params).execute())
+            response = await asyncio.to_thread(lambda p=params: service.events().list(**p).execute())
         except HttpError as exc:
             if getattr(exc.resp, "status", None) == 410:
                 logger.info(f"Google Calendar sync token expired for user {integration.user_id}; resetting cursor.")
