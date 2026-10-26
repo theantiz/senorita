@@ -259,9 +259,7 @@ async def _check_stalled_tasks(session, user: User) -> list[tuple]:
         hours_left = round((task.due_at - now).total_seconds() / 3600, 1)
         message = _compose_notification(
             trigger_type="stalled_task",
-            context_text=(
-                f"Task '{task.title}' is due in {hours_left} hours " f"and hasn't had any recorded progress."
-            ),
+            context_text=(f"Task '{task.title}' is due in {hours_left} hours and hasn't had any recorded progress."),
             extra=task.description or "",
         )
         priority_map = {"high": 0.9, "medium": 0.6, "low": 0.3}
@@ -324,7 +322,7 @@ async def _ask_for_task_updates(session, user: User) -> list[tuple]:
         message = _compose_notification(
             trigger_type="task_update_request",
             context_text=(
-                f"Your task '{task.title}' has been pending for a while. " f"Do you have any updates on its status?"
+                f"Your task '{task.title}' has been pending for a while. Do you have any updates on its status?"
             ),
             extra=task.description or "",
         )
@@ -529,9 +527,7 @@ async def _check_calendar_conflicts(session, user: User) -> list[tuple]:
         message = _compose_notification(
             trigger_type="calendar_conflict",
             context_text=(
-                f"Event '{event.title}' on "
-                f"{event.start_at.strftime('%b %d at %H:%M UTC')} "
-                f"has conflicts: {flags_text}."
+                f"Event '{event.title}' on {event.start_at.strftime('%b %d at %H:%M UTC')} has conflicts: {flags_text}."
             ),
         )
 

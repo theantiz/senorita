@@ -39,8 +39,7 @@ class UsageExceededError(Exception):
         self.limit = limit
         self.current = current
         super().__init__(
-            f"Daily {limit_type} limit reached ({current:.0f}/{limit:.0f}). "
-            "Your daily AI usage limit has been reached."
+            f"Daily {limit_type} limit reached ({current:.0f}/{limit:.0f}). Your daily AI usage limit has been reached."
         )
 
 

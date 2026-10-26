@@ -3871,9 +3871,9 @@ async def _handle_plan_day(
 
     client = get_client()
     prompt = f"""You are Senorita, a hyper-competent personal AI Chief of Staff (styled after F.R.I.D.A.Y. from Iron Man with empathetic guidance).
-Generate an optimal, structured, time-blocked daily plan for {target_date.strftime('%A, %B %d, %Y')}.
-User Local Time: {now_dt.strftime('%H:%M')}
-User Focus Request: {focus or 'Optimize productivity, knock out critical tasks, and minimize context-switching'}
+Generate an optimal, structured, time-blocked daily plan for {target_date.strftime("%A, %B %d, %Y")}.
+User Local Time: {now_dt.strftime("%H:%M")}
+User Focus Request: {focus or "Optimize productivity, knock out critical tasks, and minimize context-switching"}
 
 Existing Fixed Calendar Events:
 {json.dumps(events_data, indent=2)}
@@ -3927,7 +3927,7 @@ INSTRUCTIONS:
                 }
             )
         for i, t in enumerate(tasks[:3]):
-            schedule.append({"time": f"Focus Block {i+1}", "activity": t.title, "type": "focus"})
+            schedule.append({"time": f"Focus Block {i + 1}", "activity": t.title, "type": "focus"})
         plan_dict = {
             "date": target_date.isoformat(),
             "top_priorities": top_tasks,

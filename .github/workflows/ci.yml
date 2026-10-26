@@ -140,7 +140,7 @@ jobs:
       - name: Run Vitest
         run: |
           cd frontend
-          npx vitest run
+          npx vitest run --config vitest.config.mjs
 
   build-frontend:
     name: Frontend Build

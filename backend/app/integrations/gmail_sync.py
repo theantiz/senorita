@@ -90,10 +90,12 @@ async def _sync_user_gmail(session: AsyncSession, integration: Integration):
                 continue
 
             msg_data = await asyncio.to_thread(
-                lambda id=msg_id: service.users()
-                .messages()
-                .get(userId="me", id=id, format="metadata", metadataHeaders=["From", "Subject"])
-                .execute()
+                lambda id=msg_id: (
+                    service.users()
+                    .messages()
+                    .get(userId="me", id=id, format="metadata", metadataHeaders=["From", "Subject"])
+                    .execute()
+                )
             )
 
             headers = msg_data.get("payload", {}).get("headers", [])
@@ -150,10 +152,12 @@ async def _sync_user_gmail_sent(session: AsyncSession, integration: Integration,
                 continue
 
             msg_data = await asyncio.to_thread(
-                lambda id=msg_id: service.users()
-                .messages()
-                .get(userId="me", id=id, format="metadata", metadataHeaders=["From", "To", "Subject"])
-                .execute()
+                lambda id=msg_id: (
+                    service.users()
+                    .messages()
+                    .get(userId="me", id=id, format="metadata", metadataHeaders=["From", "To", "Subject"])
+                    .execute()
+                )
             )
 
             headers = msg_data.get("payload", {}).get("headers", [])
