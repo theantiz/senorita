@@ -52,4 +52,4 @@ async def test_chat_basic_response(client: AsyncClient, mock_gemini_client):
     chat_res = res
     assert chat_res.status_code == 200
     assert "response" in chat_res.json()
-    assert "I've started" in chat_res.json()["response"]
+    assert "created the task" in chat_res.json()["response"]
